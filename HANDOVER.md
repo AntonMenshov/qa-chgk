@@ -224,6 +224,12 @@ checks that the decks come out in order.
   version 1ba5289567d9 (round tabs). The example tournament was re-created on it
   (new TID; cards and jury.pdf regenerated). Test marks, duplicates, stale scans, a
   bad team, a wrong token and `chgk teams` all checked live on 2026-10-29.
+  2026-10-30, version 9a067acc3aed (sorted tabs): `get_results` from real Google matched
+  the logic.js reference (sums, «2-3» places, tie-break order, Stats) on the example and
+  on a throwaway 14-team tournament with two random batches (folder «Проверка расчётов»,
+  the user may delete it). Latency: one mark per request ≈ 3.6–4.5 s (read all tabs, sort,
+  refresh formulas); a 148-mark batch ≈ 10 s. Fine with the background queue, but worth
+  optimising in Phase 3 (skip the sort when the order didn't change, fewer reads).
   **Still to confirm by the user:** how the tabs look, and a jury edit on a round tab
   (`+` → `1` plus a Log row; `maybe` → note).
 - Delete the old example folder `ЧГК/… (5R547)` (single Results layout) from Drive.
