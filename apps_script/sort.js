@@ -7,12 +7,7 @@
 function sortTabs_(ss, sizes, rounds, m, reg) {
   // With the marks at hand (`m` from readMarks_), a tab already in the right order is left
   // alone: most batches don't change the order.
-  const values = {};
-  if (m) {
-    m.teams.forEach((t) => {
-      values[t.team_id] = Array.from({length: m.n}, (_, k) => (m.cells[`${t.team_id}:${k + 1}`] || {value: ''}).value);
-    });
-  }
+  const values = m ? marksByTeam_(m, m.teams) : {};
   const inOrder = (current, desired) =>
     current.length === desired.length && current.every((id, i) => id === desired[i]);
   // Each tab to sort, with (given `m`) the rows its teams are on now.

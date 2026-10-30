@@ -5,9 +5,9 @@ from pathlib import Path
 
 from chgk.backend import BackendClient, Profile, Profiles
 from chgk.config import load_config
-from chgk.ids import assign_team_ids, generate_jury_token
+from chgk.ids import generate_jury_token
 from chgk.state import State, load_or_create_state, save_state
-from chgk.teams import TEAMS_FILE, Team, read_teams, reserve_teams, write_teams
+from chgk.teams import TEAMS_FILE, Team, normalize_teams, read_teams, reserve_teams, write_teams
 
 
 @dataclass(frozen=True)
@@ -84,13 +84,8 @@ def sync_teams(folder: Path, profiles: Profiles, client: BackendClient | None = 
     rows = [r for r in client.get_teams(state.tid) if not r.get("reserve")]
     if not rows:
         raise ValueError("the Teams tab in the Sheet is empty")
-    ids = assign_team_ids([(r.get("team_id") or "").strip() or None for r in rows])
-    teams = []
-    for row, team_id in zip(rows, ids, strict=True):
-        name = (row.get("name") or "").strip()
-        if not name:
-            raise ValueError(f"Teams tab: team {team_id} has no name")
-        teams.append(Team(team_id, name, (row.get("city") or "").strip(), (row.get("logo_file") or "").strip()))
+    given = [Team(*(r.get(k) or "" for k in ("team_id", "name", "city", "logo_file"))) for r in rows]
+    teams = normalize_teams(given, "Teams tab")
     write_teams(folder / TEAMS_FILE, teams)
     client.set_teams(state.tid, _team_dicts(teams))  # writes assigned IDs back and adds rows on every tab
     return teams

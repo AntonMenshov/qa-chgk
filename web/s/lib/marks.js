@@ -2,10 +2,10 @@
 // events on top. The merge rule is the backend's own (apps_script/logic.js, served as
 // ../../shared/logic.js), checked against tests/vectors/merge_cases.json.
 
-import {mergeCell} from '../../shared/logic.js';
+import {mergeCell, STATUS_VALUE} from '../../shared/logic.js';
 
 export const STATUS_LABEL = {correct: 'верно', incorrect: 'неверно', disputed: 'спорно', received: 'получена'};
-const VALUE_STATUS = {R: 'received', 1: 'correct', 0: 'incorrect', '?': 'disputed'};
+const VALUE_STATUS = Object.fromEntries(Object.entries(STATUS_VALUE).map(([status, value]) => [value, status]));
 
 /** Status name for a cell value (1 → "correct"), or null for an empty cell. */
 export function statusOf(value) {

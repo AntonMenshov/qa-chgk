@@ -36,6 +36,18 @@ def team(name: str, id: str | None = None, city: str = "", logo: str = "") -> Te
     return Team(id or "", name, city, logo)
 
 
+def normalize_teams(teams: list[Team], source: str) -> list[Team]:
+    """Assign the missing team IDs and strip spaces; every team needs a name (`source` names the list)."""
+    ids = assign_team_ids([t.team_id.strip() or None for t in teams])
+    out = []
+    for t, team_id in zip(teams, ids, strict=True):
+        name = t.name.strip()
+        if not name:
+            raise ValueError(f"{source}: team {team_id} has no name")
+        out.append(Team(team_id, name, t.city.strip(), t.logo_file.strip()))
+    return out
+
+
 def reserve_teams(count: int, teams: list[Team]) -> list[Team]:
     """Reserve teams R1, R2, …: no name, no logo of their own. Their IDs must be free."""
     reserve = [Team(f"R{i}", "", reserve=True) for i in range(1, count + 1)]
@@ -61,13 +73,7 @@ def read_teams(path: Path) -> list[Team]:
         raise ValueError(f"{path} must define `teams = [team(...), ...]`")
     if not given:
         raise ValueError(f"{path} has no teams")
-    ids = assign_team_ids([t.team_id or None for t in given])
-    teams = []
-    for t, team_id in zip(given, ids, strict=True):
-        name = t.name.strip()
-        if not name:
-            raise ValueError(f"{path}: team {team_id} has no name")
-        teams.append(Team(team_id, name, t.city.strip(), t.logo_file.strip()))
+    teams = normalize_teams(given, str(path))
     if teams != given:
         write_teams(path, teams)
     return teams

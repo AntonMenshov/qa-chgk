@@ -82,8 +82,7 @@ def cards(
     try:
         result = build_cards(folder, mode, out, team_ids)
     except ValueError as err:
-        typer.secho(f"Error: {err}", fg="red", err=True)
-        raise typer.Exit(1) from err
+        raise _fail(err) from err
     for warning in result.warnings:
         typer.secho(f"Warning: {warning}", fg="yellow", err=True)
     reserve = f" + {result.reserve} reserve decks" if result.reserve else ""
@@ -104,8 +103,7 @@ def test_page(
     try:
         path = build_test_page(folder, out)
     except ValueError as err:
-        typer.secho(f"Error: {err}", fg="red", err=True)
-        raise typer.Exit(1) from err
+        raise _fail(err) from err
     typer.echo(f"{path}: print on Letter at 100% / Actual size and check the rulers, QR sizes and logo shades.")
 
 
@@ -118,8 +116,7 @@ def jury_sheet(
     try:
         path, warnings = build_jury_sheet(folder, out)
     except ValueError as err:
-        typer.secho(f"Error: {err}", fg="red", err=True)
-        raise typer.Exit(1) from err
+        raise _fail(err) from err
     for warning in warnings:
         typer.secho(f"Warning: {warning}", fg="yellow", err=True)
     typer.echo(f"{path}: jury sheet. Keep it away from the teams: it holds the jury access QR.")

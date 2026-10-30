@@ -117,6 +117,15 @@ function readMarks_(ss, reg, with_) {
   return m;
 }
 
+/** {team_id: [question 1's mark, 2's, …]} for `teams`, from readMarks_; '' where empty. */
+function marksByTeam_(m, teams) {
+  const marks = {};
+  teams.forEach((t) => {
+    marks[t.team_id] = Array.from({length: m.n}, (_, k) => (m.cells[`${t.team_id}:${k + 1}`] || {value: ''}).value);
+  });
+  return marks;
+}
+
 /** Meta row of a team; a team without one gets the next free row (written with the rest). */
 function metaRowOf_(m, teamId) {
   if (!m.meta.rows.has(teamId)) {
@@ -214,18 +223,11 @@ function readState_(ss, reg) {
         .filter((t) => !present.has(t.team_id))
         .map((t) => ({team_id: t.team_id, name: t.name || reservePlaceholder(t.team_id), reserve: true})),
     );
-  const marks = {};
-  teams.forEach((t) => {
-    marks[t.team_id] = Array.from({length: m.n}, (_, k) => {
-      const cell = m.cells[`${t.team_id}:${k + 1}`];
-      return cell ? cell.value : '';
-    });
-  });
   return {
     ok: true,
     tournament: {name: reg.name, date: reg.date, round_sizes: reg.round_sizes},
     teams: teams,
-    marks: marks,
+    marks: marksByTeam_(m, teams),
   };
 }
 
@@ -235,18 +237,11 @@ function readState_(ss, reg) {
  */
 function readBoard_(ss, reg) {
   const m = readMarks_(ss, reg);
-  const marks = {};
-  m.teams.forEach((t) => {
-    marks[t.team_id] = Array.from({length: m.n}, (_, k) => {
-      const cell = m.cells[`${t.team_id}:${k + 1}`];
-      return cell ? cell.value : '';
-    });
-  });
   return {
     ok: true,
     tournament: {name: reg.name, date: reg.date, round_sizes: reg.round_sizes},
     teams: m.teams,
-    marks,
+    marks: marksByTeam_(m, m.teams),
     // The view-only table, for its QR code on the board (the same link as on the jury sheet).
     view_url: `https://docs.google.com/spreadsheets/d/${reg.spreadsheet_id}/htmlview`,
   };
