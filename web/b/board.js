@@ -2,10 +2,11 @@
 // projector laptop reveals it (→ / space / button). Read-only: its link carries a board
 // token that can't change marks. The logic is in lib/board.js (tested in Node).
 
-import {decodeBoard} from '../s/lib/payload.js';
+import {decodeBoard, encodeBoardLink} from '../s/lib/payload.js';
 import {backend} from '../s/lib/api.js';
 import {storage} from '../s/lib/storage.js';
 import {boardModel} from './lib/board.js';
+import {qrSvg} from './lib/qr.js';
 
 const REFRESH_EVERY_MS = 15000;
 const $ = (id) => document.getElementById(id);
@@ -17,6 +18,7 @@ const key = (name) => `chgk.board.${name}.${access ? access.tid : ''}`;
 let data = null;
 let revealed = Number(store.get(key('revealed')) || 0);
 let view = store.get(key('view')); // null = by team count
+let showQr = store.get(key('qr')) !== false; // QR codes of the table and of the board (Q)
 let lastOk = null;
 
 const el = (tag, props = {}, ...children) => {
@@ -29,6 +31,29 @@ function roundsWord(n) {
   return `${n} ${n % 10 === 1 && n % 100 !== 11 ? 'тура' : 'туров'}`;
 }
 
+/**
+ * The two QR codes for the audience: the view-only table and this board (the same links
+ * as on page 2 of the jury sheet). `big` on the title screen, a narrow column beside the
+ * results otherwise.
+ */
+function qrCodes(big) {
+  const boardLink = encodeBoardLink(location.origin + location.pathname, access, gridMax);
+  const codes = [
+    data.view_url ? ['Результаты: таблица', data.view_url] : null,
+    ['Табло на телефоне', boardLink],
+  ].filter(Boolean);
+  return el(
+    'aside',
+    {className: `qrs${big ? ' big' : ''}`},
+    ...codes.map(([caption, link]) => {
+      const box = el('div', {className: 'code'});
+      box.innerHTML = qrSvg(link);
+      box.dataset.link = link;
+      return el('figure', {}, box, el('figcaption', {textContent: caption}));
+    }),
+  );
+}
+
 function titleScreen(m) {
   return el(
     'section',
@@ -37,6 +62,7 @@ function titleScreen(m) {
     el('div', {className: 'date', textContent: m.date ? m.date.split('-').reverse().join('.') : ''}),
     el('div', {className: 'wait', textContent: 'Результаты появятся после первого тура'}),
     el('div', {className: 'hint', textContent: '→ или пробел — показать тур 1'}),
+    showQr ? qrCodes(true) : null,
   );
 }
 
@@ -155,7 +181,11 @@ function render() {
   }
   const m = boardModel(data, revealed, {gridMax, view});
   revealed = m.revealed;
-  stage.replaceChildren(m.revealed === 0 ? titleScreen(m) : table(m));
+  const results = m.revealed === 0 ? titleScreen(m) : table(m);
+  stage.replaceChildren(
+    m.revealed > 0 && showQr ? el('div', {className: 'with-qr'}, results, qrCodes(false)) : results,
+  );
+  $('qr').classList.toggle('off', !showQr);
   $('prev').disabled = m.revealed === 0;
   $('next').disabled = m.revealed >= m.rounds;
   $('next').textContent = m.revealed >= m.rounds ? 'Все туры показаны' : `Показать тур ${m.revealed + 1} ›`;
@@ -199,6 +229,12 @@ async function load() {
   }
 }
 
+function toggleQr() {
+  showQr = !showQr;
+  store.set(key('qr'), showQr);
+  render();
+}
+
 let idleTimer = null;
 function wake() {
   $('controls').classList.remove('idle');
@@ -209,6 +245,7 @@ function wake() {
 $('next').onclick = () => setRevealed(revealed + 1);
 $('prev').onclick = () => setRevealed(revealed - 1);
 $('view').onclick = toggleView;
+$('qr').onclick = toggleQr;
 $('full').onclick = () =>
   document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
 addEventListener('keydown', (e) => {
@@ -218,6 +255,8 @@ addEventListener('keydown', (e) => {
     setRevealed(revealed - 1);
   } else if (e.key === 'g' || e.key === 'G' || e.key === 'п' || e.key === 'П') {
     toggleView();
+  } else if (e.key === 'q' || e.key === 'Q' || e.key === 'й' || e.key === 'Й') {
+    toggleQr();
   } else if (e.key === 'f' || e.key === 'F' || e.key === 'а' || e.key === 'А') {
     $('full').click();
   } else {

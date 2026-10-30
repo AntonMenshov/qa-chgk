@@ -79,7 +79,8 @@ web/s/                scanner app (no build step): index.html, app.css, app.js (
                       manifest + icons; lib/ = payload, marks, session, lookup («Чья карточка?»), queue, api,
                       storage, camera, photos + photostore (card photos, IndexedDB); vendor/zxing-wasm-3.1.4 (QR reader, vendored: no CDN at the venue)
 web/b/                projector board: index.html, board.css, board.js; lib/board.js = what to show
-                      (rounds revealed by hand, places from revealed rounds only, grid vs compact)
+                      (rounds revealed by hand, places from revealed rounds only, grid vs compact);
+                      lib/qr.js + vendor/qrcode-generator-1.4.4 (QR codes on screen)
 .github/workflows/    tests.yml (ruff + pytest; ESLint + Prettier + npm test), pages.yml (deploys web/)
 package.json          `npm test`, `npm run lint|format|format:check` (devDependencies: ESLint + Prettier only)
 eslint.config.js, .prettierrc.json, pyproject.toml ([tool.ruff])  lint and format settings
@@ -160,7 +161,9 @@ checks that the decks come out in order.
   a secret jury link. The current question follows the scans; a spare card asks for its
   question; «Чья карточка?» reads a card without recording anything.
 - **Board (SPEC §10.1):** revealed by hand after each round; full grid up to 5 teams,
-  else total + last round's grid; «Взяли» row. Read-only board token (`get_board`).
+  else total + last round's grid; «Взяли» row. Read-only board token (`get_board`). QR
+  codes of the view-only table and of the board itself (the jury sheet's links, decoded
+  from screenshots in the browser test); Q toggles them.
 - **Drive names are Latin** (user rule, SPEC §3.3): `CHGK/<date> <name> (<TID>)` with
   the Sheet and `Photos` inside; names transliterated by `latinName` (logic.js). `chgk view`
   renames older tournaments' items and prints what Drive reports back.

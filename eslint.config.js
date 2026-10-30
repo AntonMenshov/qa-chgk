@@ -28,7 +28,7 @@ const google = {
 };
 
 export default [
-  {ignores: ['node_modules/', 'out/', '.venv/', 'web/s/vendor/']},
+  {ignores: ['node_modules/', 'out/', '.venv/', 'web/s/vendor/', 'web/b/vendor/']},
   js.configs.recommended,
   {rules: google},
   {

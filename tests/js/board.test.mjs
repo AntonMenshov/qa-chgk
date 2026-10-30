@@ -3,7 +3,9 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
-import {decodeBoard, decodeSetup} from '../../web/s/lib/payload.js';
+import vm from 'node:vm';
+import {decodeBoard, decodeSetup, encodeBoardLink} from '../../web/s/lib/payload.js';
+import {qrSvg} from '../../web/b/lib/qr.js';
 import {boardModel, cellMark, compareStandings, placeLabels} from '../../web/b/lib/board.js';
 
 const L = createRequire(import.meta.url)('../../apps_script/logic.js');
@@ -148,4 +150,33 @@ test("places and order agree with the Sheet's rules (logic.js) on 500 random tou
     compareStandings({team_id: 'A', total: 2, rounds: [2, 0]}, {team_id: 'B', total: 2, rounds: [0, 2]}) > 0,
     true,
   );
+});
+
+test("encodeBoardLink builds the jury sheet's board link exactly (shared vectors with chgk/ids.py)", () => {
+  for (const c of vectors.cases.filter((v) => v.valid && v.grid !== null)) {
+    const page = c.link.split('?')[0];
+    assert.equal(encodeBoardLink(page, decodeBoard(c.link), c.grid), c.link);
+  }
+  assert.throws(() => encodeBoardLink('https://x/b/', {tid: 'K7M2Q', boardToken: 't', backendUrl: 'https://e.com'}, 5));
+});
+
+test("qrSvg draws the vendored generator's matrix with a 4-module white quiet zone", () => {
+  // A classic browser script (defines `qrcode`): run it as the board page does.
+  const source = readFileSync(new URL('../../web/b/vendor/qrcode-generator-1.4.4/qrcode.js', import.meta.url), 'utf8');
+  const qrcode = vm.runInNewContext(`${source}\n;qrcode`, {});
+  const link = vectors.cases[0].link;
+  const svg = qrSvg(link, qrcode);
+  const qr = qrcode(0, 'M');
+  qr.addData(link, 'Byte');
+  qr.make();
+  const n = qr.getModuleCount();
+  assert.match(svg, new RegExp(`viewBox="0 0 ${n + 8} ${n + 8}"`));
+  let dark = 0;
+  for (let r = 0; r < n; r++) {
+    for (let c = 0; c < n; c++) {
+      dark += qr.isDark(r, c) ? 1 : 0;
+    }
+  }
+  assert.equal((svg.match(/h1v1h-1z/g) || []).length, dark);
+  assert.ok(!/M[0-3] |M\d+ [0-3]h/.test(svg)); // nothing drawn in the quiet zone
 });

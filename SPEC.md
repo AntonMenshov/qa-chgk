@@ -443,6 +443,13 @@ The Claude API does not output raster images, but it can write SVG.
   round (+ / − per question, «Σ» per round), then Итого and Место. **More teams:** Место,
   Команда, Итого and the grid of the last revealed round. G switches views; F fullscreen.
 - A «Взяли» row under the grid: how many teams took each question.
+- **QR codes for the audience** (user request): the view-only table and the board itself,
+  the same links as on page 2 of the jury sheet (the board rebuilds its link as
+  `chgk/ids.py` does; `get_board` returns `view_url`). Large on the title screen, a column
+  beside the results; Q hides or shows them. Drawn with a vendored generator
+  (`web/b/vendor/qrcode-generator-1.4.4`, MIT). Anyone in the hall can then follow the
+  table (marks appear as entered) and open the board on a phone (read-only; revealing a
+  round there shows it only on that phone).
 - Order and places as in «Итоги»: Итого, then the last revealed round, the round before,
   …, then team ID; shared places «2-3». `?` and `R` show as «?» and count as 0; a
   missing card is «−».

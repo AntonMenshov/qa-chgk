@@ -39,6 +39,8 @@ that records marks, and delete its Drive folder afterwards (`docs/google-account
 
 - [ ] Open the board QR (page 2) on the projector laptop: the title screen, then → shows
       round 1; ← takes it back; F is full screen; G switches grid/compact.
+- [ ] From the back of the hall, a phone reads both QR codes on the projector (the table
+      and the board); Q hides and shows them.
 
 ## View-only link
 

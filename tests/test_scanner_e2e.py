@@ -29,7 +29,7 @@ from chgk.cards.build import build_cards
 from chgk.cards.geometry import PAGE_H, card_rects
 from chgk.cards.impose import Mode
 from chgk.config import Layout
-from chgk.ids import JuryAccess, encode_jury_link
+from chgk.ids import BoardAccess, JuryAccess, encode_board_link, encode_jury_link
 from chgk.state import load_or_create_state
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -323,7 +323,10 @@ def test_projector_board_reveals_round_by_round(folder, tmp_path, backend_server
     ]
     assert call("record_events", tid=tid, token=JURY_TOKEN, events=events)["ok"]
 
-    link = f"{web_server}/b/?grid=5#board={tid}.{BOARD_TOKEN}.AKfycbE2E_TEST_DEPLOYMENT_0001"
+    # The same link the jury sheet prints (chgk/ids.py), with the test server as the scanner's site.
+    link = encode_board_link(f"{web_server}/s/", BoardAccess(tid, BOARD_TOKEN, BACKEND), 5)
+    view_url = call("get_board", tid=tid, token=BOARD_TOKEN)["view_url"]
+    assert re.fullmatch(r"https://docs\.google\.com/spreadsheets/d/[\w-]+/htmlview", view_url)  # as State.view_url
     with playwright.sync_playwright() as p:
         browser = p.chromium.launch(executable_path=CHROME, headless=True)
         page = browser.new_context(viewport={"width": 1280, "height": 720}).new_page()
@@ -344,6 +347,14 @@ def test_projector_board_reveals_round_by_round(folder, tmp_path, backend_server
         page.goto(link)
         page.wait_for_selector("text=Результаты появятся после первого тура")
 
+        def codes():
+            """The QR codes on screen, decoded from a screenshot (as a phone in the hall would)."""
+            image = Image.open(io.BytesIO(page.screenshot())).convert("L")
+            return sorted(r.text for r in zxingcpp.read_barcodes(image))
+
+        # Title screen: both QR codes, large: the same links as page 2 of the jury sheet.
+        assert codes() == sorted([link, view_url])
+
         def rows():
             return [
                 [td.inner_text() for td in tr.query_selector_all("td.place, td.team, td.total")]
@@ -359,6 +370,11 @@ def test_projector_board_reveals_round_by_round(folder, tmp_path, backend_server
             ["3", "Думать быстро", "0"],
         ]
         assert page.inner_text("tfoot").split()[:4] == ["Взяли", "2", "1", "0"]
+        assert codes() == sorted([link, view_url])  # beside the results too
+        page.keyboard.press("q")  # Q hides them (and shows them again)
+        assert page.query_selector(".qrs") is None and codes() == []
+        page.keyboard.press("q")
+        assert len(page.query_selector_all(".qrs figure")) == 2
 
         page.keyboard.press(" ")
         page.wait_for_selector("text=после 2 туров из 2")

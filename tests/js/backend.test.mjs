@@ -881,6 +881,10 @@ test("get_board: the board token reads teams and marks but can't write; unused r
   const board = b.post({action: 'get_board', tid: TID, token: BOARD});
   assert.equal(board.ok, true, JSON.stringify(board));
   assert.deepEqual(board.tournament, {name: 'Кубок', date: '2026-11-15', round_sizes: [3, 3]});
+  assert.equal(
+    board.view_url,
+    `https://docs.google.com/spreadsheets/d/${JSON.parse(b.$.props.get(`t:${TID}`)).spreadsheet_id}/htmlview`,
+  );
   assert.deepEqual(
     board.teams.map((t) => t.team_id),
     ['A01', 'A02', 'R1'],

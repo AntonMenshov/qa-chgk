@@ -39,6 +39,18 @@ export function decodeSetup(text) {
   return {tid: m[1], juryToken: m[2], backendUrl: `https://script.google.com/macros/s/${m[3]}/exec`};
 }
 
+/**
+ * The projector board link, built exactly as chgk/ids.py encode_board_link builds it for
+ * the jury sheet (checked against the shared vectors), from the board page's own address.
+ */
+export function encodeBoardLink(boardPageUrl, access, gridMax) {
+  const m = /\/macros\/s\/([A-Za-z0-9_-]+)\/exec$/.exec(access.backendUrl);
+  if (!m) {
+    throw new Error(`not an Apps Script web app URL: ${access.backendUrl}`);
+  }
+  return `${boardPageUrl}?grid=${gridMax}#board=${access.tid}.${access.boardToken}.${m[1]}`;
+}
+
 /** {tid, boardToken, backendUrl} for a projector board link, or null. */
 export function decodeBoard(text) {
   const m = BOARD_RE.exec(fragment(text));

@@ -205,3 +205,55 @@ table.dense th {
 table.dense td.total {
   font-size: 1.1em;
 }
+
+/* QR codes of the view-only table and of this board: big on the title screen, a column
+   beside the results. White boxes, so phones read them off the dark projector image. */
+.with-qr {
+  display: flex;
+  align-items: flex-start;
+  gap: 28px;
+}
+.qrs {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.qrs.big {
+  flex-direction: row;
+  justify-content: center;
+  gap: 60px;
+  margin-top: 36px;
+}
+.qrs figure {
+  margin: 0;
+  text-align: center;
+}
+.qrs .code {
+  width: 150px;
+  height: 150px;
+  background: #fff;
+  border-radius: 6px;
+}
+.qrs.big .code {
+  width: 230px;
+  height: 230px;
+}
+.qrs svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.qrs figcaption {
+  margin-top: 6px;
+  font-size: 15px;
+  color: var(--muted);
+}
+.qrs.big figcaption {
+  font-size: 20px;
+}
+.controls #qr.off {
+  opacity: 0.5;
+}
+.title .wait {
+  white-space: nowrap;
+}

@@ -1361,6 +1361,8 @@ function readBoard_(ss, reg) {
     tournament: {name: reg.name, date: reg.date, round_sizes: reg.round_sizes},
     teams: m.teams,
     marks,
+    // The view-only table, for its QR code on the board (the same link as on the jury sheet).
+    view_url: `https://docs.google.com/spreadsheets/d/${reg.spreadsheet_id}/htmlview`,
   };
 }
 
