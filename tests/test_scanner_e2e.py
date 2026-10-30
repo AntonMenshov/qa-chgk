@@ -243,7 +243,7 @@ def test_jury_scans_cards_and_marks_reach_the_backend(folder, tmp_path, backend_
 
         page.wait_for_function("document.getElementById('sync').textContent.includes('отправлено')", timeout=20000)
 
-        # Phase 4: one photo per card (the looping video shows cards again: no second photo),
+        # One photo per card (the looping video shows cards again: no second photo),
         # uploaded in the background under a Latin name, showing that very card.
         photos = []
         deadline = time.time() + 30

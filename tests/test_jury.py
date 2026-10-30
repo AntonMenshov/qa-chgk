@@ -102,7 +102,7 @@ def test_page_one_is_for_the_jury_page_two_for_everyone(folder, tmp_path):
     )
     assert sorted(qr_texts(out, 1)) == sorted([board, VIEW])
     assert decode_board_link(board).board_token == "boardTOKEN_0123456789ab"
-    # The jury token is on page 1 only, and no other page has a QR code.
+    # Pages 3 on have no QR code; the jury token is on page 1 only.
     for page in range(2, len(PdfReader(out).pages)):
         assert qr_texts(out, page) == [], f"page {page + 1}"
     texts = [" ".join(t.split()) for t in page_texts(out)]

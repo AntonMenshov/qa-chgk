@@ -1,4 +1,4 @@
-// The numbers the jury sees: round sums, Итого, Место (shared places as "2-3") and Stats.
+// The numbers the jury sees: round sums, Итого, Место (shared places as "2-3") and «Статистика».
 // Formulas are evaluated by tests/js/sheet_formulas.mjs and compared with the reference
 // implementation in logic.js, on hand-made cases and on many random tournaments.
 import {test} from 'node:test';
@@ -52,9 +52,9 @@ function world(roundSizes, teams) {
   return {b, admin, ss, tab: (name) => ss.getSheetByName(name)};
 }
 
-/** Send marks the way the phone does, in batches; marks = {team_id: [status or null per question]}. */
 let seq = 0; // scan IDs must be unique across calls, or the backend drops them as duplicates
 
+/** Send marks the way the phone does, in batches; marks = {team_id: [status or null per question]}. */
 function sendMarks(b, marks) {
   const events = [];
   const ts = Date.now() - 600000;
@@ -106,7 +106,7 @@ function assertMatchesReference(b, roundSizes, teamIds, values, label = '') {
     assert.deepEqual([g.rounds, g.total, g.place], [e.rounds, e.total, e.place], `${label} ${e.team_id}`);
   }
   assert.equal(res.standings.length, teamIds.length, label);
-  // Stats: how many teams took each question, and the share.
+  // «Статистика»: how many teams took each question, and the share.
   const n = L.totalQuestions(roundSizes);
   for (let q = 1; q <= n; q++) {
     const took = teamIds.filter((id) => values[id][q - 1] === 1).length;
@@ -573,7 +573,7 @@ test('«Итоги» in the Sheet: equal totals ordered by the last round, then 
   const plan = {
     // correct answers per round → order
     A01: [3, 1, 1], // 5, last 1
-    A02: [1, 1, 3], // 5, last 3 → first among the 5s
+    A02: [1, 1, 3], // 5, last 3, round 2: 1
     A03: [2, 0, 3], // 5, last 3, round 2: 0 < 1 → after A02
     A04: [0, 2, 3], // 5, last 3, round 2: 2 → before A02
     A05: [3, 3, 3], // 9 → first

@@ -780,9 +780,9 @@ test('photos and marks share the Log without getting in each other’s way', () 
   const res = b.post({action: 'record_events', tid: TID, token: JURY, events: [mark]});
   assert.deepEqual([res.results[0].applied, res.results[0].duplicate], [true, false]);
   assert.equal(tab('Тур 1').get(tab('Тур 1').rowOf('A01'), 3), 1);
-  // Photo IDs and scan IDs are both unique (UUIDs from the phone); idempotency is by ID.
+  // Photo IDs and scan IDs are both UUIDs from the phone and share one seen-set.
   const dup = b.post({action: 'record_events', tid: TID, token: JURY, events: [{...mark, scan_id: p.photo_id}]});
-  assert.equal(dup.results[0].duplicate, true); // same ID: idempotency is by ID, whatever logged it
+  assert.equal(dup.results[0].duplicate, true); // same ID: a duplicate, whatever logged it
 });
 
 // ---------- Drive names: Latin only ----------
@@ -1094,7 +1094,7 @@ test('record_events, get_state and get_board read once; record_events writes onc
     [1, 1],
   );
   assert.equal(calls(() => b.post({action: 'get_state', tid: TID, token: JURY})).writes, 0);
-  // RAW writes keep text as text: a team ID like 645 in Meta and Log, a team called «42» on «Спорные».
+  // RAW writes store text as given: a team name, a team ID, a formatted Log time.
   assert.equal(tab('Спорные').get(2, 3), 'Фиаско');
   assert.equal(typeof tab('Log').get(2, 7), 'string');
   assert.match(tab('Log').get(2, 1), /^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d$/);

@@ -274,7 +274,7 @@ function json_(obj) {
 
 // ---- tournament creation ----
 
-/** The «ЧГК» folder in My Drive. A trashed one is skipped: Drive still finds it by name. */
+/** The «CHGK» folder in My Drive; an old «ЧГК» one is renamed. Trashed ones are skipped (still found by name). */
 function rootFolder_() {
   const root = driveNames('', '', '').root;
   const find = (name) => {
@@ -586,7 +586,7 @@ function formatSheets_(ss, sizes) {
   });
 }
 
-/** [{team_id, name, row}] for the rows of a tab that have a team ID in column A. */
+/** [{team_id, name, rawName, row}] for the rows of a tab that have a team ID in column A. */
 function teamRowsOf_(sheet) {
   const n = sheet.getLastRow() - 1;
   if (n < 1) {
@@ -607,7 +607,10 @@ function summaryOf_(ss) {
   return summary;
 }
 
-/** Give every team a row on «Итоги», on each round tab and in Meta; rename changed names. */
+/**
+ * Give every team a row on «Итоги», on each round tab and in Meta; rename changed names;
+ * re-sort. Returns {appended, renamed} as counted on «Итоги».
+ */
 function syncTeamRows_(ss, sizes, teams) {
   const tabs = [[summaryOf_(ss), (t, row) => summaryRow(sizes, t, row)]].concat(
     sizes.map((_, i) => {
@@ -723,15 +726,13 @@ function sortTabs_(ss, sizes, rounds, m, reg) {
 }
 
 /**
- * Sort tabs in one Sheets API call. Per tab: sort the team rows, then write the formula
- * columns (a moved formula may still point at its old row). The formulas depend only on
- * the row number, so they are written without being read. They are not written before
- * the sort: seen live, a formula written earlier in the same call is not calculated yet
- * when sortRange runs, so every key looks blank and the rows end up in ID order. The
- * caller checks the keys first (m.sortKeysOk). Needs the teams on rows 2…n+1 with no gaps,
- * as the backend keeps them; otherwise, or when the call fails (quota; a cached tab ID
- * that no longer exists, then dropped from the cache), returns false and the caller
- * sorts the slow way.
+ * Sort tabs in one Sheets API call. Per tab: sort the team rows, then rewrite the formula
+ * columns (a moved formula may point at its old row); they depend only on the row number,
+ * so they are not read. Not written before the sort: seen live, a formula written earlier
+ * in the same call is not yet calculated when sortRange runs, so every key looks blank and
+ * the rows end up in ID order; hence the caller's m.sortKeysOk check. Needs the teams on
+ * rows 2…n+1 with no gaps; otherwise, or when the call fails (quota; a cached tab ID that
+ * no longer exists, then dropped), returns false and the caller sorts the slow way.
  */
 function sortWithApi_(ss, reg, tabs) {
   const contiguous = tabs.every((tab) =>
@@ -838,8 +839,6 @@ function setTeams_(ss, reg, teams) {
   return {ok: true, appended: counts.appended, renamed: counts.renamed};
 }
 
-// ---- marks ----
-
 // ---- one read and one write per request ----
 // With the «Google Sheets API» advanced service on (editor: Services + → Google Sheets API),
 // a request reads everything it needs in one Values.batchGet and writes in one
@@ -933,7 +932,7 @@ function writer_(ss) {
           );
           return;
         } catch {
-          // a tab too small (Log grows all game) or missing (older Sheets): the slow way grows or creates it
+          // a tab too small (Log grows all game) or no «Спорные» (older Sheets): the slow way grows or creates it
         }
       }
       timed_('write_fallback', () => writeSlowly_(ss, batch));
@@ -1260,7 +1259,7 @@ function formatDisputedTab_(sheet) {
   ensureSize_(sheet, 1, DISPUTED_WIDTH);
   DISPUTED_WIDTHS.forEach((width, i) => sheet.setColumnWidth(i + 1, width));
   const rows = sheet.getMaxRows();
-  // Team names as plain text, or a team called «42» becomes a number.
+  // Team names (C and G) as plain text, or a team called «42» becomes a number.
   sheet.getRange(1, 3, rows, 1).setNumberFormat('@');
   sheet.getRange(1, DISPUTED_COUNTS_COL, rows, 1).setNumberFormat('@');
   // A long photo link is cut at its column's edge instead of running over the next ones.
@@ -1283,7 +1282,7 @@ function writeDisputed_(ss, m) {
   const existing = ss.getSheetByName(TABS.disputed);
   const sheet = existing || newDisputedTab_(ss);
   if (existing) {
-    formatDisputedTab_(sheet); // older layout (counts in F-G): widths and formats of this one
+    formatDisputedTab_(sheet); // an older layout (counts in F-G) gets this one's widths and formats
   }
   const block = disputedBlock_(m, markValues_(m), m.log.photos, 0);
   const last = sheet.getLastRow();
@@ -1383,7 +1382,7 @@ function readBoard_(ss, reg) {
   };
 }
 
-/** «Итоги» and Stats as Google computed them: for the board, and to check the formulas live. */
+/** «Итоги» and «Статистика» as Google computed them, to check the formulas live (tests). */
 function readResults_(ss, reg) {
   const sizes = reg.round_sizes;
   const summary = summaryOf_(ss);

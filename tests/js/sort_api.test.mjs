@@ -1,7 +1,7 @@
 // Sorting «Итоги» and the round tabs in one Sheets API call (sortWithApi_ in Code.js):
-// per tab, the formula columns are written, the team rows sorted, the formulas written
-// again. These tests hold it to the slow SpreadsheetApp sort it replaces, to the Sheet's
-// own rules (logic.js), and check every way it hands over to the slow sort.
+// per tab, the team rows are sorted, then the formula columns rewritten. These tests hold
+// it to the slow SpreadsheetApp sort, to the Sheet's own rules (logic.js), and check every
+// way it hands over to the slow sort.
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';

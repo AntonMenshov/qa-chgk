@@ -72,7 +72,6 @@ function validateTeams(teams) {
   }
 }
 
-/** Reserve teams (decks for teams that turn up unregistered): IDs only, none clashing with a team. */
 /** A card photo from a phone (upload_photo): who, which question, and a base64 JPEG. */
 function validatePhoto(p) {
   if (typeof p.photo_id !== 'string' || !/^[A-Za-z0-9_-]{8,64}$/.test(p.photo_id)) {
@@ -108,6 +107,7 @@ function photoFileName(tid, teamId, question, spare, stamp, photoId) {
   return `${tid}_${teamId}_q${q}${spare ? `_S${spare}` : ''}_${stamp}_${photoId.slice(0, 8)}.jpg`;
 }
 
+/** Reserve teams (decks for teams that turn up unregistered): IDs only, none clashing with a team. */
 function validateReserve(reserve, teams) {
   if (!Array.isArray(reserve)) {
     fail('reserve must be a list of team IDs');
@@ -506,7 +506,7 @@ function compareStandings(a, b) {
   return a.team_id < b.team_id ? -1 : a.team_id > b.team_id ? 1 : 0;
 }
 
-/** The same order as Range.sort() specs for «Итоги» (sheet columns, 1-based). */
+/** compareStandings as sort specs for «Итоги» (sheet columns, 1-based). */
 function summarySortSpec(roundSizes) {
   const L = summaryLayout(roundSizes);
   const spec = [{column: L.totalCol, ascending: false}];
@@ -573,7 +573,7 @@ function sheetEdits(current, known) {
     });
 }
 
-/** Stats tab rows: one per question with how many teams took it. */
+/** «Статистика» rows: one per question with how many teams took it. */
 function statsRows(roundSizes) {
   const rows = [['Вопрос', 'Тур', 'Взяли', 'Доля']];
   for (let q = 1; q <= totalQuestions(roundSizes); q++) {

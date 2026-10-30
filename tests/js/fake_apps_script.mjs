@@ -3,7 +3,7 @@
 // a new sheet), getLastRow, values defaulting to "", getValues() returning computed
 // formula results, and text that looks like a number turning into a number unless the
 // cell is formatted as plain text ("@"). The «Google Sheets API» advanced service
-// (Sheets.Spreadsheets.Values) works on the same spreadsheets; see fakeSheetsApi.
+// (Sheets.Spreadsheets) works on the same spreadsheets; see fakeSheetsApi.
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 import {makeEvaluator} from './sheet_formulas.mjs';
@@ -374,11 +374,12 @@ class FakeFolder {
 const colNumber = (letters) => [...letters].reduce((n, ch) => n * 26 + ch.charCodeAt(0) - 64, 0);
 
 /**
- * Sheets.Spreadsheets.Values over the fake spreadsheets, as the real API behaves:
- * batchGet (UNFORMATTED_VALUE) gives computed values with trailing empty cells and rows
- * left out; batchUpdate (RAW) stores values exactly as given ("42" stays text) and fails as
- * a whole on a missing tab or a range past the grid. `api` counts calls; `api.fail` makes
- * every call throw (e.g. the 60-per-minute quota).
+ * Sheets.Spreadsheets over the fake spreadsheets, as the real API behaves:
+ * Values.batchGet (UNFORMATTED_VALUE) gives computed values with trailing empty cells and
+ * rows left out; Values.batchUpdate (RAW) stores values exactly as given ("42" stays text)
+ * and fails as a whole on a missing tab or a range past the grid; get lists the tabs;
+ * batchUpdate runs updateCells and sortRange. `api` counts calls; `api.fail` makes every
+ * call throw (e.g. the 60-per-minute quota), `api.failUpdates` only batchUpdate.
  */
 function fakeSheetsApi(spreadsheets, api) {
   const parse = (a1) => {

@@ -533,7 +533,7 @@ test('phone flow against the backend: scan, judge, send, refresh; reserve team; 
       ['R1', 1, '1-3'],
     ],
   );
-  // Nothing was sent twice: a retry of the same events is all duplicates.
+  // Nothing was recorded twice: one Log row per event (duplicates are not logged).
   const log = b.$.spreadsheets.get(created.spreadsheet_id).getSheetByName('Log');
   assert.equal(log.getLastRow() - 1, 10);
 });

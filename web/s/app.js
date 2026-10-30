@@ -32,7 +32,7 @@ let setup = store.get(K.setup); // {tid, juryToken, backendUrl}
 let call = null; // backend(...) for the current tournament
 let session = null;
 let queue = null;
-let photos = null; // card photos waiting to upload (Phase 4)
+let photos = null; // card photos waiting to upload
 let camera = null;
 let openCardResult = null; // the card on screen, waiting for a verdict
 let spareResult = null; // the spare card on screen, waiting for its question
@@ -550,7 +550,7 @@ function wire() {
   };
   $('settings-close').onclick = () => sheet(null);
   $('forget').onclick = () => {
-    const pending = queue.status.pending + photos.status.pending; // marks and photos
+    const pending = queue.status.pending + photos.status.pending;
     if (
       !confirm(
         pending

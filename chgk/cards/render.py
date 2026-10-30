@@ -31,7 +31,7 @@ from chgk.ids import encode_payload
 from chgk.logos import FALLBACK_KEY, TOURNAMENT_KEY
 
 FONT, FONT_BOLD = "PTSans", "PTSans-Bold"
-GUIDE_GREY = 0.65  # cut lines for a guillotine: 0 = black, 1 = white
+GUIDE_GREY = 0.65  # solid cut lines (team-pages, cut-stack): 0 = black, 1 = white
 SCISSORS_GREY = 0.35  # darker, dashed cut lines that are easy to follow with scissors
 ELLIPSIS = "…"
 SPARE_BOX_W = 0.8 * 72  # pt: room for a handwritten two- or three-digit number
@@ -158,7 +158,7 @@ def _draw_card(
     c.setFillGray(0)
     if card.is_spare:
         # An empty box where the number sits on every other card: the team writes it in.
-        # White inside, so the logo behind it neither crosses the border nor the handwriting.
+        # White inside, so the logo behind it shows through neither the border nor the handwriting.
         box = spare_box(nr)
         c.setStrokeGray(SPARE_BOX_GREY)
         c.setFillGray(1)

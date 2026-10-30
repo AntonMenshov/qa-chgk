@@ -402,7 +402,7 @@ def test_cli_view_shares_an_older_tournament(folder, backends):
     assert f"https://docs.google.com/spreadsheets/d/{state['spreadsheet_id']}/htmlview" in result.output
     assert f"Drive: CHGK/2026-11-15 Osenniy kubok ({state['tid']})" in result.output  # names Drive reports back
     assert a.tournaments[state["tid"]]["view_shared"] is True
-    # Safe to repeat (it also hides the service tabs of tournaments made before that).
+    # Safe to repeat.
     assert runner.invoke(app, ["view", str(folder)]).exit_code == 0
     assert load_or_create_state(folder).view_shared
 

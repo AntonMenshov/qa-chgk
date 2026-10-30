@@ -54,8 +54,8 @@ def cut_stack(decks: list[list[Card]], per_page: int) -> list[Page]:
     each other in slot order (slot 1 on top). The result is every team's deck, in order,
     one after another.
 
-    Card i of the overall sequence goes to page i mod P, slot i div P, so the pile
-    for slot s holds cards s·P … s·P + P − 1.
+    With P pages, card i of the overall sequence goes to page i mod P, slot i div P, so
+    the pile for slot s holds cards s·P … s·P + P − 1.
 
     The empty slots of the last pages become extra spares, shared out across the decks
     (the first decks get one more when they don't divide evenly), so no page is added
