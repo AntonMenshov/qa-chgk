@@ -1,10 +1,8 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {createRequire} from 'node:module';
 import {readFileSync} from 'node:fs';
+import * as L from '../../apps_script/logic.js';
 
-const require = createRequire(import.meta.url);
-const L = require('../../apps_script/logic.js');
 const MERGE = JSON.parse(readFileSync(new URL('../vectors/merge_cases.json', import.meta.url), 'utf8'));
 
 const TEAMS = new Set(['A01', 'A02']);

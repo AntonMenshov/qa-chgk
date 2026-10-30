@@ -58,7 +58,8 @@ chgk/                 Python package (at repo root, no src/ — user's preferenc
 apps_script/          backend, one global scope, joined in the order of bundle.json into one Code.gs:
                       Code.js (constants, setup, requests, access), logic.js (pure, Node-tested),
                       sheet_io.js (batched read/write), marks.js, sort.js, teams.js, drive.js,
-                      disputed.js, photos.js, trigger.js; package.json makes them CommonJS
+                      disputed.js, photos.js, trigger.js. logic.js is an ES module (package.json);
+                      the bundler and the Node fake drop its `export`s, since Apps Script has none
 logos/                shared logo library (team logos git-ignored; nologo.png public)
 tournaments/example/  working example: config.py, teams.py (the user's real teams)
 tests/                pytest (tests/test_*.py) and node:test (tests/js/*.test.mjs), e.g.:
@@ -82,6 +83,8 @@ web/                  GitHub Pages site
 web/s/                scanner app (no build step): index.html, app.css, app.js (wiring only), sw.js (offline),
                       manifest + icons; lib/ = payload, marks, session, lookup («Чья карточка?»), queue, api,
                       storage, camera, photos + photostore (card photos, IndexedDB); vendor/zxing-wasm-3.1.4 (QR reader, vendored: no CDN at the venue)
+web/shared/logic.js   link to apps_script/logic.js: the scanner (merge rule) and the board (places,
+                      tie-break order) import the backend's own rules; pages.yml copies it (cp -L)
 web/b/                projector board: index.html, board.css, board.js; lib/board.js = what to show
                       (rounds revealed by hand, places from revealed rounds only, grid vs compact);
                       lib/qr.js + vendor/qrcode-generator-1.4.4 (QR codes on screen)

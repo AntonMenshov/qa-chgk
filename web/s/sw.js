@@ -2,13 +2,14 @@
 // updates arrive at once) and from this cache when not. Requests to other sites (the
 // Apps Script backend) are never touched.
 
-const CACHE = 'chgk-scanner-v3';
+const CACHE = 'chgk-scanner-v4';
 const FILES = [
   './',
   'index.html',
   'app.css',
   'app.js',
   'manifest.webmanifest',
+  '../shared/logic.js',
   'lib/api.js',
   'lib/camera.js',
   'lib/lookup.js',

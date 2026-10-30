@@ -1,28 +1,16 @@
 // Marks as the phone shows them: the last server snapshot with the phone's own recent
-// events on top. The merge rule is the backend's (apps_script/logic.js mergeCell); both
-// are checked against tests/vectors/merge_cases.json.
+// events on top. The merge rule is the backend's own (apps_script/logic.js, served as
+// ../../shared/logic.js), checked against tests/vectors/merge_cases.json.
 
-const STATUS_VALUE = {received: 'R', correct: 1, incorrect: 0, disputed: '?', cleared: ''};
+import {mergeCell} from '../../shared/logic.js';
+
+export {mergeCell};
 export const STATUS_LABEL = {correct: 'верно', incorrect: 'неверно', disputed: 'спорно', received: 'получена'};
 const VALUE_STATUS = {R: 'received', 1: 'correct', 0: 'incorrect', '?': 'disputed'};
 
 /** Status name for a cell value (1 → "correct"), or null for an empty cell. */
 export function statusOf(value) {
   return value === '' || value == null ? null : (VALUE_STATUS[value] ?? null);
-}
-
-/**
- * Last-write-wins for one cell {value, ts}; returns the new cell.
- * "received" only fills an empty cell: re-scanning a card never undoes a judgement.
- */
-export function mergeCell(cell, status, ts) {
-  if (status === 'received') {
-    return cell.value === '' ? {value: 'R', ts: Math.max(ts, cell.ts)} : cell;
-  }
-  if (ts >= cell.ts) {
-    return {value: STATUS_VALUE[status], ts};
-  }
-  return cell;
 }
 
 /**

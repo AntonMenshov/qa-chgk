@@ -12,7 +12,7 @@ const readonly = (names) => Object.fromEntries(names.map((name) => [name, 'reado
 const backendFiles = JSON.parse(readFileSync(new URL('./apps_script/bundle.json', import.meta.url), 'utf8')).files;
 const topLevel = (file) => {
   const source = readFileSync(new URL(`./apps_script/${file}`, import.meta.url), 'utf8');
-  return [...source.matchAll(/^(?:function (\w+)\(|(?:const|let) (\w+) =|class (\w+) )/gm)].map(
+  return [...source.matchAll(/^(?:export )?(?:function (\w+)\(|(?:const|let) (\w+) =|class (\w+) )/gm)].map(
     (m) => m[1] || m[2] || m[3],
   );
 };
@@ -56,13 +56,15 @@ export default [
           'Logger',
           'Sheets',
         ]),
-        module: 'readonly', // logic.js exports itself to Node for the tests
       },
     },
-    // Top-level functions are Apps Script entry points or used by the other file.
+    // Top-level functions are Apps Script entry points or used by the other files.
     rules: {'no-unused-vars': ['error', {args: 'none', vars: 'local'}]},
   },
   ...backendFiles.map((file) => ({files: [`apps_script/${file}`], languageOptions: {globals: sharedGlobals(file)}})),
+  // logic.js is an ES module (the web pages import it as ../shared/logic.js); the bundler
+  // drops its `export`s for Apps Script.
+  {files: ['apps_script/logic.js'], languageOptions: {sourceType: 'module'}},
   {files: ['web/**/*.js'], languageOptions: {globals: globals.browser}},
   {files: ['web/s/sw.js'], languageOptions: {globals: globals.serviceworker}},
   {files: ['tests/js/**/*.mjs', 'eslint.config.js'], languageOptions: {globals: globals.node}},

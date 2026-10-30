@@ -2,13 +2,12 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {createRequire} from 'node:module';
 import vm from 'node:vm';
 import {decodeBoard, decodeSetup, encodeBoardLink} from '../../web/s/lib/payload.js';
 import {qrSvg} from '../../web/b/lib/qr.js';
-import {boardModel, cellMark, compareStandings, placeLabels} from '../../web/b/lib/board.js';
+import {boardModel, cellMark} from '../../web/b/lib/board.js';
+import * as L from '../../apps_script/logic.js';
 
-const L = createRequire(import.meta.url)('../../apps_script/logic.js');
 const vectors = JSON.parse(readFileSync(new URL('../vectors/board_links.json', import.meta.url), 'utf8'));
 
 for (const c of vectors.cases) {
@@ -145,11 +144,6 @@ test("places and order agree with the Sheet's rules (logic.js) on 500 random tou
       `case ${k}`,
     );
   }
-  assert.deepEqual(placeLabels([3, 3, 1]), L.placeLabels([3, 3, 1]));
-  assert.equal(
-    compareStandings({team_id: 'A', total: 2, rounds: [2, 0]}, {team_id: 'B', total: 2, rounds: [0, 2]}) > 0,
-    true,
-  );
 });
 
 test("encodeBoardLink builds the jury sheet's board link exactly (shared vectors with chgk/ids.py)", () => {

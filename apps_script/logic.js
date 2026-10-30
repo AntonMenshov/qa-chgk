@@ -1,22 +1,22 @@
 // Pure backend logic: no Apps Script services here, so it runs unchanged in Node tests.
 // In Apps Script all files share one global scope; the export at the bottom is for Node only.
 
-const STATUSES = ['received', 'correct', 'incorrect', 'disputed', 'cleared'];
-const STATUS_VALUE = {received: 'R', correct: 1, incorrect: 0, disputed: '?', cleared: ''};
+export const STATUSES = ['received', 'correct', 'incorrect', 'disputed', 'cleared'];
+export const STATUS_VALUE = {received: 'R', correct: 1, incorrect: 0, disputed: '?', cleared: ''};
 const APP_STATUSES = ['received', 'correct', 'incorrect', 'disputed']; // "cleared" only comes from the sheet
 const TID_RE = /^[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{5}$/;
 const TEAM_ID_RE = /^[0-9A-Z]{1,8}$/; // e.g. a rating.chgk.info number (58746) or A07
 const MAX_EVENTS_PER_REQUEST = 500;
-const MAX_PHOTO_CHARS = 4000000; // base64 of a ~3 MB JPEG; phones send ~150-300 KB
+export const MAX_PHOTO_CHARS = 4000000; // base64 of a ~3 MB JPEG; phones send ~150-300 KB
 
-class RequestError extends Error {}
+export class RequestError extends Error {}
 
-function fail(message) {
+export function fail(message) {
   throw new RequestError(message);
 }
 
 /** Constant-time string comparison for tokens. */
-function tokensEqual(a, b) {
+export function tokensEqual(a, b) {
   if (typeof a !== 'string' || typeof b !== 'string' || a.length === 0 || a.length !== b.length) {
     return false;
   }
@@ -28,7 +28,7 @@ function tokensEqual(a, b) {
 }
 
 /** Spreadsheet column letter for a 1-based index: 1 → A, 27 → AA. */
-function colLetter(n) {
+export function colLetter(n) {
   let s = '';
   while (n > 0) {
     const r = (n - 1) % 26;
@@ -38,7 +38,7 @@ function colLetter(n) {
   return s;
 }
 
-function totalQuestions(roundSizes) {
+export function totalQuestions(roundSizes) {
   return roundSizes.reduce((a, b) => a + b, 0);
 }
 
@@ -102,13 +102,13 @@ function validatePhoto(p) {
  * Drive file name of a card photo: Latin only, sorting by tournament, team and question:
  * «QHZJ8_645_q027_20261115-191502_ab12cd34.jpg» (a spare card adds «_S2»).
  */
-function photoFileName(tid, teamId, question, spare, stamp, photoId) {
+export function photoFileName(tid, teamId, question, spare, stamp, photoId) {
   const q = String(question).padStart(3, '0');
   return `${tid}_${teamId}_q${q}${spare ? `_S${spare}` : ''}_${stamp}_${photoId.slice(0, 8)}.jpg`;
 }
 
 /** Reserve teams (decks for teams that turn up unregistered): IDs only, none clashing with a team. */
-function validateReserve(reserve, teams) {
+export function validateReserve(reserve, teams) {
   if (!Array.isArray(reserve)) {
     fail('reserve must be a list of team IDs');
   }
@@ -172,7 +172,7 @@ const CYRILLIC_TO_LATIN = {
  * kubok»), accents dropped, «№» → «No»; anything else but letters, digits, spaces and
  * . , _ - ( ) is left out. Never empty.
  */
-function latinName(text) {
+export function latinName(text) {
   const out = [...String(text || '')]
     .map((ch) => {
       const lower = ch.toLowerCase();
@@ -190,7 +190,7 @@ function latinName(text) {
 }
 
 /** Drive names of a tournament's folder, its photos folder and its Sheet, all Latin. */
-function driveNames(tid, name, date) {
+export function driveNames(tid, name, date) {
   const latin = latinName(name);
   return {
     root: 'CHGK',
@@ -201,12 +201,12 @@ function driveNames(tid, name, date) {
 }
 
 /** Name shown for a reserve team from its first scan until the jury types the real one. */
-function reservePlaceholder(teamId) {
+export function reservePlaceholder(teamId) {
   return `${teamId} · впишите название`;
 }
 
 /** Names typed on a tab ({id: name}) that differ from the Teams tab; blanks are ignored. */
-function nameEdits(source, truth) {
+export function nameEdits(source, truth) {
   return Object.keys(source)
     .filter((id) => String(source[id]).trim() !== '' && String(source[id]).trim() !== String(truth[id] || ''))
     .map((id) => ({team_id: id, name: String(source[id]).trim()}));
@@ -219,7 +219,7 @@ function validateToken(token, name) {
 }
 
 /** Check the shape of a request body; returns it, or throws RequestError. */
-function validateRequest(body) {
+export function validateRequest(body) {
   if (!body || typeof body !== 'object') {
     fail('request must be a JSON object');
   }
@@ -276,7 +276,7 @@ function validateRequest(body) {
 }
 
 /** Validate one scanner event against the tournament; returns an error message or null. */
-function eventError(ev, teamIds, roundSizes, nowMs) {
+export function eventError(ev, teamIds, roundSizes, nowMs) {
   if (!ev || typeof ev !== 'object') {
     return 'event must be an object';
   }
@@ -306,7 +306,7 @@ function eventError(ev, teamIds, roundSizes, nowMs) {
  * - "received" only fills an empty cell: re-scanning a card never undoes a judgement.
  * - Any other status replaces the cell if it is at least as new as the cell.
  */
-function mergeCell(cell, status, ts) {
+export function mergeCell(cell, status, ts) {
   if (status === 'received') {
     return cell.value === '' ? {value: 'R', ts: Math.max(ts, cell.ts)} : cell;
   }
@@ -321,7 +321,7 @@ function mergeCell(cell, status, ts) {
  * `cells` maps "TEAM:Q" → {value, ts}; `seen` is a Set of already-applied scan_ids.
  * Mutates both; returns one outcome per event (same order).
  */
-function applyEvents(cells, seen, events, teamIds, roundSizes, nowMs) {
+export function applyEvents(cells, seen, events, teamIds, roundSizes, nowMs) {
   return events.map((ev) => {
     const error = eventError(ev, teamIds, roundSizes, nowMs);
     if (error) {
@@ -340,7 +340,7 @@ function applyEvents(cells, seen, events, teamIds, roundSizes, nowMs) {
 }
 
 /** What a juror typed into a mark cell → status, or null if it isn't a valid mark. */
-function normalizeCellInput(raw) {
+export function normalizeCellInput(raw) {
   const v = String(raw == null ? '' : raw)
     .trim()
     .toLowerCase();
@@ -365,14 +365,14 @@ function normalizeCellInput(raw) {
 // Sheet layout: an «Итоги» summary tab, then one tab per round («Тур 1», «Тур 2», …).
 // Every tab starts with A: ID, B: Команда; rows are found by team ID, never by position.
 
-const FIRST_MARK_COL = 3;
+export const FIRST_MARK_COL = 3;
 
-function roundSheetName(round) {
+export function roundSheetName(round) {
   return `Тур ${round}`;
 }
 
 /** Round tab `round` (1-based): its question numbers, columns and header row. */
-function roundLayout(roundSizes, round) {
+export function roundLayout(roundSizes, round) {
   const first = roundSizes.slice(0, round - 1).reduce((a, b) => a + b, 0) + 1;
   const size = roundSizes[round - 1];
   const sumCol = FIRST_MARK_COL + size;
@@ -385,7 +385,7 @@ function roundLayout(roundSizes, round) {
 }
 
 /** One row of a round tab for a team at sheet row `row` (1-based): IDs, empty marks, the round sum. */
-function roundRow(lay, team, row) {
+export function roundRow(lay, team, row) {
   const cells = [team.team_id, team.name];
   for (let k = 0; k < lay.size; k++) {
     cells.push('');
@@ -395,7 +395,7 @@ function roundRow(lay, team, row) {
 }
 
 /** Where question q's marks live: round, tab name and column. */
-function questionCell(roundSizes, q) {
+export function questionCell(roundSizes, q) {
   let first = 1;
   for (let r = 1; r <= roundSizes.length; r++) {
     if (q >= first && q < first + roundSizes[r - 1]) {
@@ -407,7 +407,7 @@ function questionCell(roundSizes, q) {
 }
 
 /** The question a cell holds the mark for, or null (names, sums, headers, other tabs). */
-function questionAt(roundSizes, sheetName, row, col) {
+export function questionAt(roundSizes, sheetName, row, col) {
   const m = /^Тур (\d+)$/.exec(sheetName);
   if (!m || row < 2) {
     return null;
@@ -422,7 +422,7 @@ function questionAt(roundSizes, sheetName, row, col) {
 }
 
 /** «Итоги» tab: one column per round, then Итого and Место. */
-function summaryLayout(roundSizes) {
+export function summaryLayout(roundSizes) {
   const firstRound = FIRST_MARK_COL;
   const totalCol = firstRound + roundSizes.length;
   const header = ['ID', 'Команда'].concat(
@@ -433,7 +433,7 @@ function summaryLayout(roundSizes) {
 }
 
 /** One «Итоги» row: each round's sum looked up by team ID, so sorting a round tab is harmless. */
-function summaryRow(roundSizes, team, row) {
+export function summaryRow(roundSizes, team, row) {
   const L = summaryLayout(roundSizes);
   const cells = [team.team_id, team.name];
   roundSizes.forEach((_, i) => {
@@ -451,7 +451,7 @@ function summaryRow(roundSizes, team, row) {
  * Место for the total in `col` at `row`: a number, or "2-3" when teams share the place.
  * Same result as placeLabels(); the tests evaluate both on many tournaments.
  */
-function placeFormula(col, row) {
+export function placeFormula(col, row) {
   const all = `${col}$2:${col}`;
   const me = `${col}${row}`;
   const rank = `RANK(${me},${all})`;
@@ -460,7 +460,7 @@ function placeFormula(col, row) {
 }
 
 /** Places for a list of totals, as «Итоги» shows them: 1, 2, "3-4", "3-4", 5, … */
-function placeLabels(totals) {
+export function placeLabels(totals) {
   return totals.map((t) => {
     const above = totals.filter((x) => x > t).length;
     const same = totals.filter((x) => x === t).length;
@@ -469,7 +469,7 @@ function placeLabels(totals) {
 }
 
 /** Reference standings from marks ({team_id: [value per question]}): round sums, total, place. */
-function standings(roundSizes, teamIds, marks) {
+export function standings(roundSizes, teamIds, marks) {
   const rows = teamIds.map((id) => {
     const values = marks[id] || [];
     let q = 0;
@@ -492,7 +492,7 @@ function standings(roundSizes, teamIds, marks) {
 }
 
 /** «Итоги» order (user rule): Итого; on a tie the better last round, then the round before, …; then ID. */
-function compareStandings(a, b) {
+export function compareStandings(a, b) {
   if (a.total !== b.total) {
     return b.total - a.total;
   }
@@ -505,7 +505,7 @@ function compareStandings(a, b) {
 }
 
 /** compareStandings as sort specs for «Итоги» (sheet columns, 1-based). */
-function summarySortSpec(roundSizes) {
+export function summarySortSpec(roundSizes) {
   const L = summaryLayout(roundSizes);
   const spec = [{column: L.totalCol, ascending: false}];
   for (let i = roundSizes.length - 1; i >= 0; i--) {
@@ -516,7 +516,7 @@ function summarySortSpec(roundSizes) {
 }
 
 /** Round tabs: by the round's «Сумма», equal sums in team ID order (the order of the cards). */
-function roundSortSpec(lay) {
+export function roundSortSpec(lay) {
   return [
     {column: lay.sumCol, ascending: false},
     {column: 1, ascending: true},
@@ -524,7 +524,7 @@ function roundSortSpec(lay) {
 }
 
 /** Team IDs in the order a round tab should show them (roundSortSpec), from marks {id: [values]}. */
-function roundOrder(roundSizes, round, ids, values) {
+export function roundOrder(roundSizes, round, ids, values) {
   const lay = roundLayout(roundSizes, round);
   const sum = (id) => {
     let s = 0;
@@ -539,14 +539,14 @@ function roundOrder(roundSizes, round, ids, values) {
 }
 
 /** Team IDs in the order «Итоги» should show them (summarySortSpec). */
-function summaryOrder(roundSizes, ids, values) {
+export function summaryOrder(roundSizes, ids, values) {
   return standings(roundSizes, ids, values)
     .sort(compareStandings)
     .map((r) => r.team_id);
 }
 
 /** Hidden Meta tab: team_id, a last-write time per question, then the last value the backend knows. */
-function metaLayout(n) {
+export function metaLayout(n) {
   const header = ['team_id'];
   for (let q = 1; q <= n; q++) {
     header.push(q);
@@ -562,7 +562,7 @@ function metaLayout(n) {
  * Found by team ID and question, never by row, so rows may be re-sorted at any time.
  * `current` and `known` map "TEAM:Q" → value. Returns [{key, raw, status, value}]; status null = not a mark.
  */
-function sheetEdits(current, known) {
+export function sheetEdits(current, known) {
   return Object.keys(current)
     .filter((key) => String(current[key]) !== String(key in known ? known[key] : ''))
     .map((key) => {
@@ -572,7 +572,7 @@ function sheetEdits(current, known) {
 }
 
 /** «Статистика» rows: one per question with how many teams took it. */
-function statsRows(roundSizes) {
+export function statsRows(roundSizes) {
   const rows = [['Вопрос', 'Тур', 'Взяли', 'Доля']];
   for (let q = 1; q <= totalQuestions(roundSizes); q++) {
     const at = questionCell(roundSizes, q);
@@ -585,7 +585,7 @@ function statsRows(roundSizes) {
 }
 
 /** "TEAM:Q" keys of every «?» mark, in a stable order: compare two of these to see if «Спорные» must change. */
-function disputedKeys(values) {
+export function disputedKeys(values) {
   return Object.keys(values)
     .filter((key) => values[key] === '?')
     .sort();
@@ -598,7 +598,7 @@ function disputedKeys(values) {
  * @param values {"TEAM:Q": mark}   @param names {team_id: name}   @param photos {"TEAM:Q": link or file name}
  * @returns {{list: any[][], summary: any[][]}}  list goes to A–D, summary to G–H (Code.js disputedBlock_)
  */
-function disputedSheet(roundSizes, names, values, photos) {
+export function disputedSheet(roundSizes, names, values, photos) {
   const items = disputedKeys(values)
     .map((key) => {
       const [teamId, q] = key.split(':');
@@ -630,55 +630,9 @@ function disputedSheet(roundSizes, names, values, photos) {
 }
 
 /** Which teams need new rows on a tab and which names changed, given the IDs already there. */
-function planTeamRows(existingRows, teams) {
+export function planTeamRows(existingRows, teams) {
   const byId = new Map(existingRows.map((r) => [r.team_id, r.name]));
   const append = teams.filter((t) => !byId.has(t.team_id));
   const rename = teams.filter((t) => byId.has(t.team_id) && byId.get(t.team_id) !== t.name);
   return {append, rename};
-}
-
-if (typeof module !== 'undefined') {
-  module.exports = {
-    STATUSES,
-    STATUS_VALUE,
-    FIRST_MARK_COL,
-    RequestError,
-    fail,
-    tokensEqual,
-    colLetter,
-    totalQuestions,
-    validateRequest,
-    eventError,
-    mergeCell,
-    applyEvents,
-    normalizeCellInput,
-    roundSheetName,
-    roundLayout,
-    roundRow,
-    questionCell,
-    questionAt,
-    summaryLayout,
-    summaryRow,
-    placeFormula,
-    placeLabels,
-    standings,
-    compareStandings,
-    summarySortSpec,
-    roundSortSpec,
-    roundOrder,
-    summaryOrder,
-    metaLayout,
-    sheetEdits,
-    statsRows,
-    disputedKeys,
-    disputedSheet,
-    planTeamRows,
-    validateReserve,
-    reservePlaceholder,
-    latinName,
-    driveNames,
-    photoFileName,
-    MAX_PHOTO_CHARS,
-    nameEdits,
-  };
 }

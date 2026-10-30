@@ -694,7 +694,9 @@ export function loadBackend({
   const dir = new URL('../../apps_script/', import.meta.url);
   // The files in bundle order, as `chgk backend bundle` joins them into one Code.gs.
   const {files} = JSON.parse(readFileSync(new URL('bundle.json', dir), 'utf8'));
-  const source = files.map((name) => readFileSync(new URL(name, dir), 'utf8')).join('\n');
+  const source = files
+    .map((name) => readFileSync(new URL(name, dir), 'utf8').replace(/^export /gm, '')) // no modules in Apps Script
+    .join('\n');
   vm.runInContext(source, ctx, {filename: 'apps_script bundle'});
   const sheetsService = fakeSheetsApi(spreadsheets, api);
   ctx.$ = {

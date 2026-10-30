@@ -1,10 +1,10 @@
 // Shared by the backend test files: a tournament on the fake Apps Script world
 // (fake_apps_script.mjs), events, photos, and a world that counts Sheets API calls.
 import assert from 'node:assert/strict';
-import {createRequire} from 'node:module';
 import {loadBackend} from './fake_apps_script.mjs';
+import * as L from '../../apps_script/logic.js';
 
-export const L = createRequire(import.meta.url)('../../apps_script/logic.js');
+export {L};
 
 export const TID = 'K7M2Q';
 

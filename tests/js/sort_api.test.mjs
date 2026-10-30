@@ -4,10 +4,8 @@
 // way it hands over to the slow sort.
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {createRequire} from 'node:module';
 import {loadBackend} from './fake_apps_script.mjs';
-
-const L = createRequire(import.meta.url)('../../apps_script/logic.js');
+import * as L from '../../apps_script/logic.js';
 
 const TID = 'K7M2Q';
 const JURY = 'jury-token-0123456789';

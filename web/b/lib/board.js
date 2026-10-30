@@ -1,7 +1,11 @@
 // What the projector board shows, without any DOM: standings after the rounds revealed so
 // far, in the Sheet's order (Итого, then the last round, the one before, …, then team ID)
-// with shared places as "2-3". The rules mirror apps_script/logic.js (standings,
-// placeLabels, compareStandings); tests/js/board.test.mjs checks both agree.
+// with shared places as "2-3". The place labels and the order are the Sheet's own
+// (apps_script/logic.js, served as ../../shared/logic.js).
+
+import {compareStandings, placeLabels} from '../../shared/logic.js';
+
+export {compareStandings, placeLabels};
 
 /** "+" taken, "−" not (a missing card counts as wrong), "?" not decided yet («?» or only received). */
 export function cellMark(value) {
@@ -12,26 +16,6 @@ export function cellMark(value) {
     return '?';
   }
   return '−';
-}
-
-export function placeLabels(totals) {
-  return totals.map((t) => {
-    const above = totals.filter((x) => x > t).length;
-    const same = totals.filter((x) => x === t).length;
-    return same > 1 ? `${above + 1}-${above + same}` : above + 1;
-  });
-}
-
-export function compareStandings(a, b) {
-  if (a.total !== b.total) {
-    return b.total - a.total;
-  }
-  for (let i = a.rounds.length - 1; i >= 0; i--) {
-    if (a.rounds[i] !== b.rounds[i]) {
-      return b.rounds[i] - a.rounds[i];
-    }
-  }
-  return a.team_id < b.team_id ? -1 : a.team_id > b.team_id ? 1 : 0;
 }
 
 /**

@@ -26,7 +26,7 @@ jobs:
       - name: Assemble site
         run: |
           mkdir _site
-          cp -r web/. _site/
+          cp -rL web/. _site/  # -L: web/shared/logic.js is a link to apps_script/logic.js
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

@@ -7,6 +7,7 @@ with CHGK_CONFIG_DIR), so switching Google accounts never touches git. See SPEC 
 import hashlib
 import json
 import os
+import re
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
@@ -184,6 +185,7 @@ def bundle_apps_script(out: Path) -> tuple[Path, str]:
     ]
     for name in BUNDLE_ORDER:
         text = (APPS_SCRIPT_DIR / name).read_text(encoding="utf-8")
+        text = re.sub(r"(?m)^export ", "", text)  # logic.js is an ES module for the web pages; Apps Script has none
         if name == "Code.js":
             marker = "const VERSION = 'dev';"  # Prettier's quotes (.prettierrc)
             assert marker in text, "Code.js must define VERSION"

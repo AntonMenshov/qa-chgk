@@ -498,6 +498,9 @@ CI (`.github/workflows/tests.yml`) runs on every push: `ruff check`, `ruff forma
 - **Apps Script** (`apps_script/`): deployed once as a web app ("execute as me",
   "anyone"). `chgk backend bundle` writes one `Code.gs` that is pasted into the script
   editor; the «Google Sheets API» advanced service is turned on there (§3.2).
+- **Shared rules:** `apps_script/logic.js` is one ES module used by the backend (bundled
+  without its `export`s), the scanner (the mark-merge rule) and the board (place labels,
+  tie-break order), served to the pages as `web/shared/logic.js`. One copy, no drift.
 - **Web** (`web/`): plain HTML/JS with vendored libraries (scanner: QR reader `zxing-wasm`,
   picked in spike 2; board: `qrcode-generator`), served by GitHub Pages.
 - **Node** (dev only): its built-in `node --test` runner (`npm test`); npm devDependencies

@@ -260,6 +260,7 @@ def test_bundle_contains_both_files_and_a_stable_version(tmp_path):
     # The editor's Run button starts on the first function, so that must be setup().
     assert re.search(r"^function (\w+)", text, re.M).group(1) == "setup"
     assert text.index("// ===== Code.js") < text.index("// ===== logic.js")
+    assert not re.search(r"(?m)^export ", text)  # logic.js is an ES module; Apps Script has none
     assert bundle_apps_script(tmp_path / "again.gs")[1] == version
     assert (APPS_SCRIPT_DIR / "Code.js").read_text().count("const VERSION = 'dev';") == 1
 
