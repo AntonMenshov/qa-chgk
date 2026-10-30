@@ -374,6 +374,47 @@ test('a jury edit not yet seen by its trigger still beats an older scan that syn
   );
 });
 
+test('a scan synced late does not refill a cell the jury cleared after it', () => {
+  const {b, tab} = world();
+  const r1 = tab('Тур 1');
+  const scannedAt = Date.now() - 600000;
+  b.post({action: 'record_events', tid: TID, token: JURY, events: [ev({question: 1, status: 'correct'})]});
+  r1.set(r1.rowOf('A01'), 3, ''); // the jury clears the mark: a decision
+  b.onSheetEdit({range: r1.getRange(r1.rowOf('A01'), 3, 1, 1), user: null});
+  const late = ev({question: 1, status: 'received', client_ts: scannedAt});
+  const reply = b.post({action: 'record_events', tid: TID, token: JURY, events: [late]});
+  assert.equal(reply.results[0].applied, false);
+  assert.equal(r1.get(r1.rowOf('A01'), 3), '');
+  const again = ev({question: 1, status: 'received', client_ts: Date.now() + 1000});
+  b.post({action: 'record_events', tid: TID, token: JURY, events: [again]});
+  assert.equal(r1.get(r1.rowOf('A01'), 3), 'R'); // scanned again after the clear: it counts
+});
+
+test("an event whose team row is gone from its round's tab is refused alone; the batch goes in", () => {
+  const {b, tab} = world();
+  const r2 = tab('Тур 2');
+  const row = r2.rowOf('A02');
+  for (let col = 1; col <= 26; col++) {
+    r2.set(row, col, ''); // the jury deletes A02's row on «Тур 2»
+  }
+  const reply = b.post({
+    action: 'record_events',
+    tid: TID,
+    token: JURY,
+    events: [ev({team_id: 'A01', question: 1}), ev({team_id: 'A02', question: 4}), ev({team_id: 'A02', question: 1})],
+  });
+  assert.equal(reply.ok, true);
+  assert.deepEqual(
+    reply.results.map((r) => [r.applied, r.error || '']),
+    [
+      [true, ''],
+      [false, "no row for A02 on its round's tab"],
+      [true, ''],
+    ],
+  );
+  assert.equal(tab('Тур 1').get(tab('Тур 1').rowOf('A01'), 3), 1); // ev() is «correct» by default
+});
+
 test('a mark pasted over several cells is picked up for every team', () => {
   const {b, tab} = world();
   const r1 = tab('Тур 1');

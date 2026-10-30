@@ -27,14 +27,15 @@ def new_tournament(folder: Path, profile: Profile, client: BackendClient | None 
     """
     folder = Path(folder)
     tournament = load_config(folder)
-    state = load_or_create_state(folder)
-    if state.spreadsheet_id:
+    state = load_state(folder)
+    if state and state.spreadsheet_id:
         return NewResult(state, created=False)
+    # teams.py first: without it nothing is created (the jury sheet needs the teams too).
+    teams = read_teams(folder / TEAMS_FILE)
+    state = load_or_create_state(folder)
 
     client = client or BackendClient(profile.url, profile.admin_token)
     account = profile.account or client.ping().get("account", "")
-    teams_file = folder / TEAMS_FILE
-    teams = read_teams(teams_file) if teams_file.is_file() else []
     reserve = reserve_teams(tournament.reserve_teams, teams)
     jury_token = state.jury_token or generate_jury_token()
     board_token = state.board_token or generate_jury_token()

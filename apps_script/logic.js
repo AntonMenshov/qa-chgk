@@ -300,12 +300,14 @@ export function eventError(ev, teamIds, roundSizes, nowMs) {
 
 /**
  * Last-write-wins for one mark cell. `cell` is {value, ts}; returns the new cell.
- * - "received" only fills an empty cell: re-scanning a card never undoes a judgement.
+ * - "received" only fills an empty cell, and only if it is at least as new as the cell:
+ *   re-scanning a card never undoes a judgement, and a scan synced late never refills a
+ *   cell the jury cleared after it (clearing is a decision, user rule).
  * - Any other status replaces the cell if it is at least as new as the cell.
  */
 export function mergeCell(cell, status, ts) {
   if (status === 'received') {
-    return cell.value === '' ? {value: 'R', ts: Math.max(ts, cell.ts)} : cell;
+    return cell.value === '' && ts >= cell.ts ? {value: 'R', ts} : cell;
   }
   if (ts >= cell.ts) {
     return {value: STATUS_VALUE[status], ts};

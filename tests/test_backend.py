@@ -173,6 +173,15 @@ def test_new_tournament_is_idempotent(folder, backends):
     assert len(sent(a, "create_tournament")) == 1
 
 
+def test_new_tournament_without_teams_py_fails_before_creating_anything(folder, backends):
+    a, _ = backends
+    (folder / "teams.py").unlink()
+    with pytest.raises(ValueError, match=r"no teams\.py"):
+        new_tournament(folder, Profile("personal", URL_A, "tokA"))
+    assert not sent(a, "create_tournament")
+    assert not (folder / "state.json").exists()
+
+
 def test_switching_accounts_keeps_existing_tournaments_on_their_backend(folder, tmp_path, backends, config_dir):
     """The user's requirement: switch Gmail accounts without breaking running tournaments."""
     a, b = backends
@@ -197,6 +206,7 @@ def test_switching_accounts_keeps_existing_tournaments_on_their_backend(folder, 
     (other / "config.py").write_text(
         (folder / "config.py").read_text(encoding="utf-8").replace("test-cup", "other-cup"), encoding="utf-8"
     )
+    (other / "teams.py").write_text((folder / "teams.py").read_text(encoding="utf-8"), encoding="utf-8")
     new_state = new_tournament(other, Profiles().active()).state
     assert new_state.backend_url == URL_B
     link = encode_jury_link("https://e.github.io/qa-chgk/s/", new_state.jury_access)

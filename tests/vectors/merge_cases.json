@@ -11,6 +11,8 @@
     {"note": "jury resolves ? in the sheet", "before": {"value": "?", "ts": 200}, "status": "correct", "ts": 900, "after": {"value": 1, "ts": 900}},
     {"note": "jury clears a cell in the sheet", "before": {"value": 1, "ts": 900}, "status": "cleared", "ts": 950, "after": {"value": "", "ts": 950}},
     {"note": "judgement arriving before its received event", "before": {"value": "", "ts": 0}, "status": "correct", "ts": 110, "after": {"value": 1, "ts": 110}},
-    {"note": "late received after that judgement changes nothing", "before": {"value": 1, "ts": 110}, "status": "received", "ts": 100, "after": {"value": 1, "ts": 110}}
+    {"note": "late received after that judgement changes nothing", "before": {"value": 1, "ts": 110}, "status": "received", "ts": 100, "after": {"value": 1, "ts": 110}},
+    {"note": "a scan synced late does not refill a cell the jury cleared after it (clearing is a decision)", "before": {"value": "", "ts": 950}, "status": "received", "ts": 900, "after": {"value": "", "ts": 950}},
+    {"note": "a scan made after the jury cleared the cell fills it again", "before": {"value": "", "ts": 950}, "status": "received", "ts": 1000, "after": {"value": "R", "ts": 1000}}
   ]
 }

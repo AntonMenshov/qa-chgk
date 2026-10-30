@@ -93,6 +93,22 @@ export class PhotoQueue {
   }
 }
 
+/**
+ * The photo of a card if it is this phone's first of that card, else null. `shot` resolves to
+ * a JPEG, or null when no camera was running (a card opened by link): the card counts as
+ * photographed only once a JPEG exists, so a later scan still takes its photo.
+ * `photographed` keeps the keys ("TEAM:Q") of the cards already photographed: {get, set}.
+ */
+export async function firstPhoto(shot, key, photographed) {
+  const blob = shot ? await shot : null;
+  const done = photographed.get() || [];
+  if (!blob || done.includes(key)) {
+    return null;
+  }
+  photographed.set([...done, key]);
+  return blob;
+}
+
 /** A Blob as base64 (what upload_photo takes). */
 export async function blobToBase64(blob) {
   const bytes = new Uint8Array(await blob.arrayBuffer());

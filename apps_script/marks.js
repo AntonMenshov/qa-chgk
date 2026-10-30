@@ -311,7 +311,16 @@ function recordEvents_(ss, reg, req) {
       .concat([...reserveIds]),
   );
 
-  const outcomes = applyEvents(cells, m.log.seen, req.events, teamIds, reg.round_sizes, Date.now());
+  // An event whose cell has no row (the jury deleted the team's row from that round's tab) is
+  // refused on its own; otherwise it would fail the whole batch, and the phone retries it forever.
+  const hasRow = (ev) =>
+    !ev || eventError(ev, teamIds, reg.round_sizes, nowMs) || m.where[`${ev.team_id}:${ev.question}`];
+  const applied = applyEvents(cells, m.log.seen, req.events.filter(hasRow), teamIds, reg.round_sizes, nowMs);
+  const outcomes = req.events.map((ev) =>
+    hasRow(ev)
+      ? applied.shift()
+      : {scan_id: ev.scan_id, applied: false, duplicate: false, error: `no row for ${ev.team_id} on its round's tab`},
+  );
 
   // Write only the cells that changed, so a juror editing the sheet at the same moment is not overwritten.
   Object.keys(cells).forEach((key) => {

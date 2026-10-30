@@ -196,7 +196,11 @@ A missing card scores as incorrect, but the sheet always shows whether a card wa
 
 ### Rules
 - **Last scan wins**, decided by the client timestamp of the action, so an offline
-  scan synced late does not overwrite a newer decision. Every action stays in Log.
+  scan synced late does not overwrite a newer decision. Clearing a cell in the Sheet is a
+  decision too (user, 2026-10-30): a scan made before the clear doesn't refill it. A mark
+  only ever adds `R` to an empty cell, never over a judgement. Every action stays in Log.
+- A mark for a team whose row was deleted from its round's tab is refused on its own; the
+  rest of the batch goes in.
 - The jury resolves `?` and appeals **by editing the mark cell on the round tab**. An
   `onEdit` trigger records those edits in Log (`source = sheet`) with a timestamp, so
   they take part in last-write-wins.
@@ -239,7 +243,11 @@ instead of the card.
    numbered card is marked for the question in its own QR code.
 2. The camera scans continuously. When a card is detected:
    - a **photo of the frame is kept** (JPEG, longest side ≤ 1600 px, ~150–300 KB; one per
-     card per phone; a spare card's photo waits for its question; none in «Чья карточка?»);
+     card per phone, counted only once a photo exists, so a card opened by link before the
+     camera ran is photographed at its next scan; a spare card's photo waits for its
+     question; none in «Чья карточка?»);
+   - a card whose question is beyond the tournament's last one (printed for a longer
+     tournament) is refused with a message and never becomes the current question;
    - the team name is shown in large type and a `received` event is recorded;
    - **warning** (colour + vibration) if the card is from an earlier question than the
      current one («Карточка вопроса 5 (идёт 7) — отмечено для 5»; the mark still goes
@@ -571,7 +579,7 @@ CI (`.github/workflows/tests.yml`) runs on every push: `ruff check`, `ruff forma
 
 ```
 uv run chgk backend add|use|list|check|remove|bundle  # named Google-account backends (§3.1)
-uv run chgk new tournaments/<slug> [--backend <profile>]  # Sheet + Drive folder; state.json + jury sheet
+uv run chgk new tournaments/<slug> [--backend <profile>]  # Sheet + Drive folder; state.json + jury sheet (needs teams.py)
 uv run chgk teams tournaments/<slug>        # pull the Teams tab into teams.py, assign team_ids
 uv run chgk logos tournaments/<slug> [--draw [--team A01]] [--accept all|A01,…]  # logos: report, drafts, preview (§9.1)
 uv run chgk cards tournaments/<slug> [--mode team-pages|cut-stack|scissors] [--teams A01,A07] [--out file.pdf]

@@ -3,7 +3,7 @@
 // photo itself is wrong; independent of the marks queue.
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {PhotoQueue, blobToBase64} from '../../web/s/lib/photos.js';
+import {PhotoQueue, blobToBase64, firstPhoto} from '../../web/s/lib/photos.js';
 import {memoryStore} from '../../web/s/lib/photostore.js';
 import {BackendError} from '../../web/s/lib/api.js';
 
@@ -161,4 +161,17 @@ test('api: a server refusal carries retry: false; a network error and a server e
     throw new Error('offline');
   })('x').catch((e) => e);
   assert.equal(down.retry, true);
+});
+
+test('a card counts as photographed only once a photo exists (no camera yet: a later scan takes it)', async () => {
+  let keys = [];
+  const photographed = {get: () => keys, set: (k) => (keys = k)};
+  const jpeg = {size: 1};
+  assert.equal(await firstPhoto(Promise.resolve(null), 'A01:3', photographed), null); // opened by link, no camera
+  assert.deepEqual(keys, []);
+  assert.equal(await firstPhoto(null, 'A01:3', photographed), null);
+  assert.equal(await firstPhoto(Promise.resolve(jpeg), 'A01:3', photographed), jpeg); // scanned with the camera
+  assert.deepEqual(keys, ['A01:3']);
+  assert.equal(await firstPhoto(Promise.resolve({size: 2}), 'A01:3', photographed), null); // scanned again
+  assert.equal(await firstPhoto(Promise.resolve(jpeg), 'A01:4', photographed), jpeg);
 });

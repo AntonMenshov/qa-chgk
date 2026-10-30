@@ -136,6 +136,9 @@ test('cards of another tournament, unknown teams and other QR codes are refused'
   const s = session();
   assert.deepEqual(s.scan(`${URL_BASE}PU4WR.645.2`), {kind: 'foreign', tid: 'PU4WR'}); // same team and question, old tournament
   assert.deepEqual(s.scan(`${TID}.Z99.2`), {kind: 'unknown_team', teamId: 'Z99'});
+  const tooFar = s.scan(`${TID}.645.${s.total + 1}`); // printed for a longer tournament
+  assert.deepEqual([tooFar.kind, tooFar.question, tooFar.total], ['bad_question', s.total + 1, s.total]);
+  assert.equal(s.current < s.total + 1, true); // never the current question
   assert.deepEqual(s.scan('https://example.com/menu'), {kind: 'other'});
   const setup = s.scan(`${URL_BASE}setup=QHZJ8.abcDEF123_-ghiJKL456mno.AKfycbx_Example-Deployment_ID123`);
   assert.equal(setup.kind, 'setup');

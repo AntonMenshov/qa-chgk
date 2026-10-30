@@ -1,6 +1,7 @@
 // Scanning: what a code means, the card sheet with the verdicts, the spare card's question, photos.
 
 import {$, beep, sheet, toast} from './dom.js';
+import {firstPhoto} from '../lib/photos.js';
 import {adoptSetup} from './setup.js';
 import {app, K, store} from './state.js';
 import {flushSoon, refresh, render} from './sync.js';
@@ -35,6 +36,9 @@ export function handleCode(text) {
       toast(`Команда ${r.teamId} не найдена — обновляю список команд…`, true);
       refresh();
       return;
+    case 'bad_question':
+      beep('bad');
+      return toast(`Карточка вопроса ${r.question}, а в турнире всего ${r.total} — не засчитана`, true);
     case 'spare':
     case 'card':
       // The frame the card was read from: its photo, kept once the question is known.
@@ -45,15 +49,12 @@ export function handleCode(text) {
 
 /** One photo per card per phone (a card scanned again is not photographed again). */
 export function keepPhoto(r, shot) {
-  const key = `${r.team.team_id}:${r.question}`;
-  const done = new Set(store.get(K.photographed(app.setup.tid)) || []);
-  if (!shot || done.has(key)) {
-    return;
-  }
-  done.add(key);
-  store.set(K.photographed(app.setup.tid), [...done]);
+  const photographed = {
+    get: () => store.get(K.photographed(app.setup.tid)),
+    set: (keys) => store.set(K.photographed(app.setup.tid), keys),
+  };
   const photoQueue = app.photos;
-  shot.then((blob) => {
+  firstPhoto(shot, `${r.team.team_id}:${r.question}`, photographed).then((blob) => {
     if (!blob) {
       return;
     }

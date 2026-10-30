@@ -317,7 +317,7 @@ def draw_logo(
             break
         messages.append({"role": "assistant", "content": message.content})
         text = "".join(block.text for block in message.content if block.type == "text")
-        if svg is not None and "<svg" not in text and APPROVED in text:
+        if svg is not None and text.strip().strip(".").upper() == APPROVED:
             log(f"review {round_no}: approved ({note})")
             return svg
         try:
@@ -446,6 +446,8 @@ def accept_drafts(teams_path: Path, slug: str, teams: list[Team], team_ids: list
     is an error, and nothing is changed.
     """
     drafts = existing_drafts(slug, teams)
+    if team_ids is not None:
+        team_ids = list(dict.fromkeys(team_ids))  # A01,A01 means A01 once
     if team_ids is None:
         team_ids = [t.team_id for t in teams if t.team_id in drafts]
         if not team_ids:

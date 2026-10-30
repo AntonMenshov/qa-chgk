@@ -183,6 +183,14 @@ def test_an_unusable_reply_goes_back_as_feedback():
     assert "can't be used: the reply has no SVG" in body(seen[1])["messages"][-1]["content"]
 
 
+def test_only_a_plain_approved_counts_as_approval():
+    seen = []
+    replies = [sse(fenced(OWL_SVG)), sse("Not APPROVED yet: the name overflows."), sse(fenced(OWL_2))]
+    assert drafts.draw_logo(mock_client(replies, seen), "Синие зайцы", []) == OWL_2
+    assert len(seen) == 3  # the "Not APPROVED" reply was not taken as approval
+    assert drafts.draw_logo(mock_client([sse(fenced(OWL_SVG)), sse(" Approved.\n")], []), "Синие зайцы", []) == OWL_SVG
+
+
 def test_approval_before_any_drawing_does_not_count():
     seen = []
     replies = [APPROVE, sse(fenced(OWL_SVG)), APPROVE]
@@ -368,6 +376,13 @@ def test_accept_moves_drafts_into_the_library_and_teams_py(folder, library):
     again = read_teams(folder / "teams.py")
     assert [t.logo_file for t in again] == ["z.png", "", "dumat-bystro.svg"]
     assert [(t.team_id, t.name) for t in again] == [(t.team_id, t.name) for t in teams]
+
+
+def test_accept_the_same_team_twice_in_one_list(folder, library):
+    drafts.save_draft("test-cup", "A03", OWL_SVG)
+    teams = read_teams(folder / "teams.py")
+    (accepted,) = drafts.accept_drafts(folder / "teams.py", "test-cup", teams, ["A03", "A03"])
+    assert read_teams(folder / "teams.py")[2].logo_file == accepted.logo_file == "dumat-bystro.svg"
 
 
 def test_accept_never_overwrites_another_teams_logo(folder, library):

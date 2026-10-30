@@ -112,6 +112,10 @@ export class Session {
     if (c.spare !== null) {
       return {kind: 'spare', team, spare: c.spare};
     }
+    if (c.question > this.total) {
+      // Printed for a longer tournament than this Sheet: refused, it never becomes the current question.
+      return {kind: 'bad_question', team, question: c.question, total: this.total};
+    }
     return this.card(team.team_id, c.question, null);
   }
 
