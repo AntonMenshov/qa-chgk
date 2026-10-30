@@ -144,6 +144,10 @@ class FakeRange {
     this.each((r, c) => this.sheet.backgrounds.set(`${r},${c}`, color));
     return this;
   }
+  setWrapStrategy(strategy) {
+    this.each((r, c) => this.sheet.wraps.set(`${r},${c}`, strategy));
+    return this;
+  }
   setHorizontalAlignment(a) {
     this.each((r, c) => this.sheet.align.set(`${r},${c}`, a));
     return this;
@@ -181,6 +185,7 @@ export class FakeSheet {
       align: new Map(),
       leftBorders: new Map(),
       formats: new Map(),
+      wraps: new Map(),
     });
   }
   get(r, c) {
@@ -236,6 +241,13 @@ export class FakeSheet {
   }
   setColumnWidth(col, w) {
     this.widths.set(col, w);
+  }
+  getLastColumn() {
+    let m = 0;
+    for (const k of this.cells.keys()) {
+      m = Math.max(m, Number(k.split(',')[1]));
+    }
+    return m;
   }
   setColumnWidths(col, n, w) {
     if (col + n - 1 > this.maxCols) {
@@ -607,6 +619,7 @@ export function loadBackend({
       flush() {},
       newConditionalFormatRule: chain,
       BorderStyle: {SOLID_MEDIUM: 'SOLID_MEDIUM'},
+      WrapStrategy: {CLIP: 'CLIP', OVERFLOW: 'OVERFLOW', WRAP: 'WRAP'},
     },
     DriveApp: {
       getRootFolder: () => root,

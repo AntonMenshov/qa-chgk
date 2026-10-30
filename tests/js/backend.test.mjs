@@ -105,7 +105,7 @@ test('create_tournament builds every tab and is idempotent for the same jury tok
   assert.deepEqual(tab('Teams').row(3, 4), ['A02', 'Фиаско', 'Бостон', '']);
   assert.equal(tab('Статистика').getLastRow(), 7);
   assert.deepEqual(tab('Статистика').row(5, 3), [4, 2, "=COUNTIF('Тур 2'!C$2:C,1)"]);
-  assert.deepEqual(tab('Спорные').row(1, 7), ['Тур', 'Вопрос', 'Команда', 'Фото', '', 'Всего «?»', 0]);
+  assert.deepEqual(tab('Спорные').row(1, 8), ['Тур', 'Вопрос', 'Команда', 'Фото', '', '', 'Всего «?»', 0]);
   assert.deepEqual(b.$.triggers, ['onSheetEdit']);
   assert.equal(b.$.root.children[0].name, 'CHGK');
 
@@ -951,7 +951,7 @@ test('«Спорные» lists every «?» with its round, question, team and ph
     [2, 5, 'Фиаско', 'https://drive.example/card-a02-5.jpg'],
   ]);
   const summary = () =>
-    Array.from({length: d.getLastRow()}, (_, i) => [d.get(i + 1, 6), d.get(i + 1, 7)]).filter((r) => r[0] !== '');
+    Array.from({length: d.getLastRow()}, (_, i) => [d.get(i + 1, 7), d.get(i + 1, 8)]).filter((r) => r[0] !== '');
   assert.deepEqual(summary(), [
     ['Всего «?»', 3],
     ['Тур', '«?»'],
@@ -987,6 +987,28 @@ test('«Спорные» lists every «?» with its round, question, team and ph
   summaryTab.set(summaryTab.rowOf('A02'), 2, 'Фиаско-2');
   b.onSheetEdit({range: summaryTab.getRange(summaryTab.rowOf('A02'), 2)});
   assert.equal(list()[1][2], 'Фиаско-2');
+});
+
+test('«Спорные» keeps its counts clear of the photo links: two empty columns, a wide clipped link column', () => {
+  const {b, tab, admin} = world();
+  const d = tab('Спорные');
+  assert.deepEqual([d.widths.get(4), d.widths.get(5), d.widths.get(6)], [360, 30, 30]);
+  assert.equal(d.wraps.get('2,4'), 'CLIP');
+  b.post({
+    action: 'record_events',
+    tid: TID,
+    token: JURY,
+    events: [ev({team_id: 'A02', question: 5, status: 'disputed'})],
+  });
+  assert.deepEqual(d.row(2, 8), [2, 5, 'Фиаско', '', '', '', '', '']); // E-F stay empty
+  assert.deepEqual(d.row(3, 8).slice(4), ['', '', 'Тур', '«?»']);
+  // An older layout (counts in F-G) is cleared and redone on the next full rewrite (chgk view).
+  d.set(1, 6, 'Всего «?»');
+  d.set(1, 7, 1);
+  d.widths.clear();
+  b.post({action: 'share_view', tid: TID, token: admin});
+  assert.deepEqual(d.row(1, 8), ['Тур', 'Вопрос', 'Команда', 'Фото', '', '', 'Всего «?»', 1]);
+  assert.equal(d.widths.get(4), 360);
 });
 
 test('a request that changes no «?» leaves «Спорные» untouched', () => {
