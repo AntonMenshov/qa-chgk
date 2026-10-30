@@ -69,6 +69,12 @@ class FakeRange {
    * so the backend has to rewrite per-row formulas itself.
    */
   sort(specs) {
+    this.sortRows(specs);
+    this.sheet.appSorts = (this.sheet.appSorts || 0) + 1;
+    return this;
+  }
+  /** The sorting itself, shared by Range.sort and the Sheets API's sortRange; counted in sheet.sorts. */
+  sortRows(specs) {
     const value = makeEvaluator(this.sheet.ss);
     const rows = [];
     for (let r = this.row; r < this.row + this.rows; r++) {
@@ -116,7 +122,6 @@ class FakeRange {
       }),
     );
     this.sheet.sorts = (this.sheet.sorts || 0) + 1;
-    return this;
   }
   getRow() {
     return this.row;
@@ -164,6 +169,7 @@ export class FakeSheet {
     Object.assign(this, {
       ss,
       name,
+      sheetId: ss.nextSheetId++,
       cells: new Map(),
       notes: new Map(),
       maxRows: 1000,
@@ -275,7 +281,7 @@ export class FakeSheet {
 
 class FakeSpreadsheet {
   constructor(id, name) {
-    Object.assign(this, {id, name, sheets: []});
+    Object.assign(this, {id, name, sheets: [], nextSheetId: 0});
     this.sheets.push(new FakeSheet(this, 'Sheet1'));
   }
   getId() {
@@ -283,6 +289,9 @@ class FakeSpreadsheet {
   }
   getSheets() {
     return this.sheets;
+  }
+  deleteSheet(sheet) {
+    this.sheets.splice(this.sheets.indexOf(sheet), 1);
   }
   insertSheet(name, index = this.sheets.length) {
     if (this.getSheetByName(name)) {
@@ -349,8 +358,77 @@ function fakeSheetsApi(spreadsheets, api) {
     }
     return sheet;
   };
+  const byId = (ss, sheetId) => {
+    const sheet = ss.sheets.find((t) => t.sheetId === sheetId);
+    if (!sheet) {
+      throw new Error(`Invalid requests: No grid with id: ${sheetId}`);
+    }
+    return sheet;
+  };
+  // spreadsheets.batchUpdate requests the backend uses, checked before anything is applied
+  // (the real call is all or nothing), then applied in order.
+  const cellValue = (cell) => {
+    const v = cell.userEnteredValue || {};
+    return v.formulaValue ?? v.stringValue ?? v.numberValue ?? v.boolValue ?? '';
+  };
+  const plan = (ss, request) => {
+    if (request.updateCells) {
+      const {start, rows, fields} = request.updateCells;
+      if (fields !== 'userEnteredValue') {
+        throw new Error(`unexpected fields ${fields}`);
+      }
+      const sheet = byId(ss, start.sheetId);
+      const width = Math.max(...rows.map((r) => r.values.length));
+      if (start.rowIndex + rows.length > sheet.maxRows || start.columnIndex + width > sheet.maxCols) {
+        throw new Error('updateCells exceeds grid limits');
+      }
+      return () =>
+        rows.forEach((r, i) =>
+          r.values.forEach((cell, j) => sheet.set(start.rowIndex + 1 + i, start.columnIndex + 1 + j, cellValue(cell))),
+        );
+    }
+    if (request.sortRange) {
+      const {range, sortSpecs} = request.sortRange;
+      const sheet = byId(ss, range.sheetId);
+      const rows = range.endRowIndex - range.startRowIndex;
+      const cols = range.endColumnIndex - range.startColumnIndex;
+      const specs = sortSpecs.map((spec) => {
+        if (!['ASCENDING', 'DESCENDING'].includes(spec.sortOrder)) {
+          throw new Error(`bad sortOrder ${spec.sortOrder}`);
+        }
+        return {column: spec.dimensionIndex + 1, ascending: spec.sortOrder === 'ASCENDING'};
+      });
+      const target = sheet.getRange(range.startRowIndex + 1, range.startColumnIndex + 1, rows, cols);
+      return () => {
+        target.sortRows(specs);
+        api.sortRanges += 1;
+      };
+    }
+    throw new Error(`unexpected request ${Object.keys(request)}`);
+  };
   return {
     Spreadsheets: {
+      get(id, {fields}) {
+        api.gets += 1;
+        if (api.fail) {
+          throw new Error("Quota exceeded for quota metric 'Read requests'");
+        }
+        if (fields !== 'sheets.properties(sheetId,title)') {
+          throw new Error(`unexpected fields ${fields}`);
+        }
+        return {sheets: spreadsheets.get(id).sheets.map((t) => ({properties: {sheetId: t.sheetId, title: t.name}}))};
+      },
+      batchUpdate(resource, id) {
+        api.updates += 1;
+        if (api.fail || api.failUpdates) {
+          throw new Error("Quota exceeded for quota metric 'Write requests'");
+        }
+        const ss = spreadsheets.get(id);
+        const steps = resource.requests.map((request) => plan(ss, request));
+        steps.forEach((step) => step());
+        api.requests.push(resource.requests.map((r) => Object.keys(r)[0]));
+        return {};
+      },
       Values: {
         batchGet(id, {ranges, valueRenderOption}) {
           api.reads += 1;
@@ -434,7 +512,18 @@ export function loadBackend({
   const root = new FakeFolder('root');
   const triggers = [];
   const sharing = new Map(); // spreadsheet id → "ACCESS:PERMISSION"
-  const api = {reads: 0, writes: 0, batches: [], fail: false};
+  const api = {
+    reads: 0,
+    writes: 0,
+    batches: [],
+    fail: false,
+    failUpdates: false,
+    opens: 0,
+    gets: 0,
+    updates: 0,
+    sortRanges: 0,
+    requests: [],
+  };
   const ctx = {
     console,
     JSON,
@@ -466,6 +555,7 @@ export function loadBackend({
         return ss;
       },
       openById(id) {
+        api.opens += 1;
         return spreadsheets.get(id);
       },
       flush() {},

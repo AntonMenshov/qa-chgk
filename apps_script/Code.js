@@ -206,11 +206,28 @@ function registry_(props, tid) {
   if (!raw) {
     fail(`unknown tournament ${tid}`);
   }
-  return JSON.parse(raw);
+  return Object.assign(JSON.parse(raw), {tid});
 }
 
+function saveRegistry_(reg) {
+  PropertiesService.getScriptProperties().setProperty('t:' + reg.tid, JSON.stringify(reg));
+}
+
+/**
+ * The tournament's spreadsheet, opened only when something needs it: opening costs ~0.3 s
+ * (profiled), and the batched read, the batched write and the one-call sort need only its
+ * ID. The methods are the ones the backend uses on a spreadsheet.
+ */
 function open_(reg) {
-  return timed_('open', () => SpreadsheetApp.openById(reg.spreadsheet_id));
+  let ss = null;
+  const real = () => ss || (ss = timed_('open', () => SpreadsheetApp.openById(reg.spreadsheet_id)));
+  return {
+    getId: () => reg.spreadsheet_id,
+    getSheetByName: (name) => real().getSheetByName(name),
+    getSheets: () => real().getSheets(),
+    insertSheet: (...args) => real().insertSheet(...args),
+    setActiveSheet: (sheet) => real().setActiveSheet(sheet),
+  };
 }
 
 function withLock_(fn) {
@@ -587,10 +604,9 @@ function syncTeamRows_(ss, sizes, teams) {
  * Re-sort round tabs (by «Сумма») and «Итоги» (by Итого, then the last round, …), then
  * rewrite any per-row formula that the move left pointing at another row.
  */
-function sortTabs_(ss, sizes, rounds, m) {
+function sortTabs_(ss, sizes, rounds, m, reg) {
   // With the marks at hand (`m` from readMarks_), a tab already in the right order is left
-  // alone: most batches don't change the order, and Range.sort plus the formula checks
-  // are the slow part of a request.
+  // alone: most batches don't change the order.
   const values = {};
   if (m) {
     m.teams.forEach((t) => {
@@ -599,19 +615,11 @@ function sortTabs_(ss, sizes, rounds, m) {
   }
   const inOrder = (current, desired) =>
     current.length === desired.length && current.every((id, i) => id === desired[i]);
-  // Formulas are made right before sorting too, since the sort keys are their results.
-  const sortTab = (sheet, width, spec, firstFormulaCol, rowFor) => {
-    const want = (t, row) => rowFor(t, row).slice(firstFormulaCol - 1);
-    timed_('sort_formulas', () => refreshFormulas_(sheet, firstFormulaCol, want));
-    timed_('sort_range', () => {
-      if (sheet.getLastRow() > 2) {
-        sheet.getRange(2, 1, sheet.getLastRow() - 1, width).sort(spec);
-      }
-    });
-    timed_('sort_formulas', () => refreshFormulas_(sheet, firstFormulaCol, want));
-  };
+  // Each tab to sort, with (given `m`) the rows its teams are on now.
+  const tabs = [];
   rounds.forEach((round) => {
     const lay = roundLayout(sizes, round);
+    let rows = null;
     if (m) {
       const current = Object.keys(values)
         .filter((id) => m.where[`${id}:${lay.first}`])
@@ -619,19 +627,141 @@ function sortTabs_(ss, sizes, rounds, m) {
       if (inOrder(current, roundOrder(sizes, round, current, values))) {
         return;
       }
+      rows = current.map((id) => m.where[`${id}:${lay.first}`].row);
     }
-    sortTab(ss.getSheetByName(lay.name), lay.width, roundSortSpec(lay), lay.sumCol, (t, row) => roundRow(lay, t, row));
+    tabs.push({
+      name: lay.name,
+      width: lay.width,
+      spec: roundSortSpec(lay),
+      firstFormulaCol: lay.sumCol,
+      rowFor: (t, row) => roundRow(lay, t, row),
+      rows,
+    });
   });
   // Also upgrades «Итоги» formulas written by older versions (e.g. Место as a plain RANK).
   const sl = summaryLayout(sizes);
-  const summary = summaryOf_(ss);
+  const summaryTab = {
+    name: TABS.summary,
+    width: sl.width,
+    spec: summarySortSpec(sizes),
+    firstFormulaCol: sl.firstRound,
+    rowFor: (t, row) => summaryRow(sizes, t, row),
+    rows: null,
+  };
   if (m) {
-    const current = teamRowsOf_(summary).map((t) => t.team_id);
-    if (inOrder(current, summaryOrder(sizes, current, values))) {
-      return;
+    const current = m.summaryRows.map((t) => t.team_id);
+    if (!inOrder(current, summaryOrder(sizes, current, values))) {
+      tabs.push(Object.assign(summaryTab, {rows: m.summaryRows.map((t) => t.row)}));
     }
+  } else {
+    tabs.push(summaryTab);
   }
-  sortTab(summary, sl.width, summarySortSpec(sizes), sl.firstRound, (t, row) => summaryRow(sizes, t, row));
+  if (!tabs.length) {
+    return;
+  }
+  if (m && reg && sheetsApi_() && sortWithApi_(ss, reg, tabs)) {
+    return;
+  }
+  // The slow way: per tab, read the formulas and fix the wrong ones, sort, fix them again.
+  tabs.forEach((tab) => {
+    const sheet = tab.name === TABS.summary ? summaryOf_(ss) : ss.getSheetByName(tab.name);
+    const want = (t, row) => tab.rowFor(t, row).slice(tab.firstFormulaCol - 1);
+    timed_('sort_formulas', () => refreshFormulas_(sheet, tab.firstFormulaCol, want));
+    timed_('sort_range', () => {
+      if (sheet.getLastRow() > 2) {
+        sheet.getRange(2, 1, sheet.getLastRow() - 1, tab.width).sort(tab.spec);
+      }
+    });
+    timed_('sort_formulas', () => refreshFormulas_(sheet, tab.firstFormulaCol, want));
+  });
+}
+
+/**
+ * Sort tabs in one Sheets API call. Per tab: write its formula columns (the sort keys are
+ * their results), sort the team rows, write the formulas again (a moved formula may still
+ * point at its old row). The formulas depend only on the row number, so they are written
+ * without being read. Needs the teams on rows 2…n+1 with no gaps, as the backend keeps
+ * them; otherwise, or when the call fails (quota; a cached tab ID that no longer exists,
+ * then dropped from the cache), returns false and the caller sorts the slow way.
+ */
+function sortWithApi_(ss, reg, tabs) {
+  const contiguous = tabs.every((tab) =>
+    tab.rows
+      .slice()
+      .sort((a, b) => a - b)
+      .every((row, i) => row === i + 2),
+  );
+  if (!contiguous) {
+    return false;
+  }
+  try {
+    const ids = sheetIds_(
+      ss,
+      reg,
+      tabs.map((tab) => tab.name),
+    );
+    const requests = [];
+    tabs.forEach((tab) => {
+      const n = tab.rows.length;
+      if (!n) {
+        return;
+      }
+      const sheetId = ids[tab.name];
+      const formulas = {
+        start: {sheetId, rowIndex: 1, columnIndex: tab.firstFormulaCol - 1},
+        rows: Array.from({length: n}, (_, i) => ({
+          values: tab
+            .rowFor({team_id: '', name: ''}, i + 2)
+            .slice(tab.firstFormulaCol - 1)
+            .map((f) => ({userEnteredValue: {formulaValue: f}})),
+        })),
+        fields: 'userEnteredValue',
+      };
+      requests.push({updateCells: formulas});
+      if (n > 1) {
+        requests.push({
+          sortRange: {
+            range: {sheetId, startRowIndex: 1, endRowIndex: n + 1, startColumnIndex: 0, endColumnIndex: tab.width},
+            sortSpecs: tab.spec.map((s) => ({
+              dimensionIndex: s.column - 1,
+              sortOrder: s.ascending === false ? 'DESCENDING' : 'ASCENDING',
+            })),
+          },
+        });
+        requests.push({updateCells: formulas});
+      }
+    });
+    if (requests.length) {
+      timed_('sort', () => Sheets.Spreadsheets.batchUpdate({requests}, ss.getId()));
+    }
+    return true;
+  } catch {
+    if (reg.sheet_ids) {
+      delete reg.sheet_ids;
+      saveRegistry_(reg);
+    }
+    return false;
+  }
+}
+
+/** Tab IDs ("gid") by name, cached in the tournament's registry; fetched with one API call when a name is missing. */
+function sheetIds_(ss, reg, names) {
+  if (!reg.sheet_ids || !names.every((name) => typeof reg.sheet_ids[name] === 'number')) {
+    const res = timed_('sheet_ids', () =>
+      Sheets.Spreadsheets.get(ss.getId(), {fields: 'sheets.properties(sheetId,title)'}),
+    );
+    reg.sheet_ids = {};
+    res.sheets.forEach((t) => {
+      reg.sheet_ids[t.properties.title] = t.properties.sheetId;
+    });
+    saveRegistry_(reg);
+  }
+  names.forEach((name) => {
+    if (typeof reg.sheet_ids[name] !== 'number') {
+      fail(`the Sheet has no «${name}» tab`);
+    }
+  });
+  return reg.sheet_ids;
 }
 
 /** Rewrite the formula cells from `firstCol` on every team row where they differ from `want(team, row)`. */
@@ -780,8 +910,11 @@ function writeSlowly_(ss, batch) {
 
 /** Log time as text in the script's time zone (the Sheets API takes no Date objects). */
 function logTime_(ms) {
-  return Utilities.formatDate(new Date(ms), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss');
+  scriptTimeZone = scriptTimeZone || Session.getScriptTimeZone(); // once per request: it showed in the timings
+  return Utilities.formatDate(new Date(ms), scriptTimeZone, 'yyyy-MM-dd HH:mm:ss');
 }
+
+let scriptTimeZone = null;
 
 /**
  * Every mark: "TEAM:Q" → {value, ts}, where it sits now, and the last value the backend
@@ -810,6 +943,14 @@ function readMarks_(ss, reg, with_) {
   const blocks = readBlocks_(ss, specs);
   const w = writer_(ss);
 
+  // «Итоги» as it is now, row by row (sortTabs_ checks its order without reading it again).
+  const summaryRows = [];
+  blocks[0].forEach((r, j) => {
+    const id = String(r[0]).trim();
+    if (id) {
+      summaryRows.push({team_id: id, row: j + 2});
+    }
+  });
   // ID order (the order of the cards), not the standings order of «Итоги».
   const teams = blocks[0]
     .map((r) => ({team_id: String(r[0]).trim(), name: String(r[1])}))
@@ -861,7 +1002,7 @@ function readMarks_(ss, reg, with_) {
   });
   const meta = {ml, rows, next: Math.max(metaBlock.length, 1) + 1};
 
-  const m = {sizes, n, teams, cells, where, known, meta, w};
+  const m = {sizes, n, teams, summaryRows, cells, where, known, meta, w};
   const extra = blocks.slice(2 + lays.length); // the optional blocks, in the order requested
   if (opts.teams) {
     m.teamsTab = teamsFromRows_(extra.shift());
@@ -1198,7 +1339,7 @@ function recordEvents_(ss, reg, req) {
   updateDisputed_(m, disputedBefore);
   m.w.flush(); // before sorting: the rows above are where the read found them
   if (rounds.size) {
-    sortTabs_(ss, reg.round_sizes, [...rounds], m);
+    sortTabs_(ss, reg.round_sizes, [...rounds], m, reg);
   }
   return {ok: true, results: outcomes};
 }
@@ -1222,6 +1363,7 @@ function onSheetEdit(e) {
   const ss = sheet.getParent();
   const settings = ss.getSheetByName(TABS.settings).getRange(1, 1, 6, 2).getValues();
   const sizes = JSON.parse(settings.find((r) => r[0] === 'round_sizes')[1]);
+  const tid = String((settings.find((r) => r[0] === 'tid') || [])[1] || '');
   // Columns never move, so the columns still tell what was touched.
   const first = e.range.getColumn();
   const last = first + e.range.getNumColumns() - 1;
@@ -1250,7 +1392,13 @@ function onSheetEdit(e) {
       updateDisputed_(m, disputedBefore);
       m.w.flush();
       if (rounds.size) {
-        sortTabs_(ss, sizes, [...rounds], m);
+        let reg = null;
+        try {
+          reg = registry_(PropertiesService.getScriptProperties(), tid);
+        } catch {
+          // a Sheet the backend doesn't know (copied?): sort the slow way
+        }
+        sortTabs_(ss, sizes, [...rounds], m, reg);
       }
     }
   });

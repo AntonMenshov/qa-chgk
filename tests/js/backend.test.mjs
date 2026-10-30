@@ -961,10 +961,11 @@ test('every reply says how long each step took; the steps add up to the total', 
   const {b} = apiWorld();
   const res = b.post({action: 'record_events', tid: TID, token: JURY, events: [ev({question: 2, status: 'disputed'})]});
   const t = res.timing;
-  for (const step of ['access', 'lock', 'open', 'read', 'write', 'rest', 'total']) {
+  for (const step of ['access', 'lock', 'read', 'write', 'rest', 'total']) {
     assert.equal(typeof t[step], 'number', step);
     assert.ok(t[step] >= 0, step);
   }
+  assert.equal(t.open, undefined); // a plain mark doesn't open the spreadsheet
   const steps = Object.keys(t).filter((k) => k !== 'total');
   assert.equal(
     steps.reduce((sum, k) => sum + t[k], 0),
