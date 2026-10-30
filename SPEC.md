@@ -81,8 +81,8 @@ is tied to one account.
   account.
 - **Printed cards don't depend on the account.** QR codes hold only the scanner URL
   and card ID (§6), so cards stay valid whichever account runs the backend.
-- Moving an *existing* tournament's Sheet and photos to another account is out of
-  scope for v1. Phase 9 (next version): `chgk export` / `chgk import`.
+- An existing tournament is never moved to another account (user decision): it is set up
+  and run from one account, and archived by hand afterwards if needed.
 - Step-by-step guide: `docs/google-account.md`.
 
 ### 3.2 Backend requests (speed)

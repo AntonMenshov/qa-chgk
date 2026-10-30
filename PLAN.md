@@ -127,4 +127,4 @@ Tests are written alongside the code, not after it.
 The one list of deferred work (HANDOVER points here): logos from image-generation
 services (OpenAI, Google, …; user decision) · rating.chgk.info export · multi-juror UI ·
 Google sign-in · cache for board/phone reads (backend speed proposal #2) · replacing
-leaked tokens · moving a tournament to another account (`chgk export` / `chgk import`).
+leaked tokens.

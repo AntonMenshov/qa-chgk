@@ -69,8 +69,8 @@ uv run chgk view tournaments/<slug>        # view-only Sheet link
    back any time: `uv run chgk backend use personal`.
 4. `uv run chgk backend list` shows all profiles; `*` marks the active one.
 
-Moving an *existing* tournament's Sheet and photos to another account is not
-supported yet (PLAN.md Phase 9).
+An existing tournament stays on the account it was created on: it is set up and run from
+one account, and archived by hand afterwards if needed.
 
 ## 4. Update the script after code changes
 
