@@ -25,7 +25,7 @@ Full design: [SPEC.md](SPEC.md). Build order: [PLAN.md](PLAN.md).
 | 3 — Scanner web app | 🔶 built and tested (unit + integration + headless-Chrome end-to-end with a fake camera), checked live on Pages against the real backend; the iPhone check is in Phase 7 |
 | 4 — Card photos | ✅ built, tested (phone queue, backend `upload_photo`, headless-Chrome check that each photo shows its card) and checked live (API upload to Drive); the iPhone check is in Phase 7 |
 | 5 — Projector board + stats | ✅ built, tested and checked live |
-| 6 — Logos | ✅ built and tested (SPEC §9.1): SVG logos (resvg, PT Sans lettering, unsafe SVGs refused), `chgk logos` report, Claude-drawn drafts (Claude Opus 5.5 at max effort with a render-and-review loop, key from `ANTHROPIC_API_KEY` only; a brief for Claude Code without it), preview PDF, `--accept`. 22 drafts drawn in a session for the user's teams (`tournaments/logo-drafts/`, kept, not accepted); API drafts go to `tournaments/logo-drafts-api/` for comparison. Image-API logos: Phase 9 |
+| 6 — Logos | ✅ built and tested (SPEC §9.1): SVG logos (resvg, PT Sans lettering, unsafe SVGs refused), `chgk logos` report, Claude-drawn drafts (Claude Opus 5.5 at max effort with a render-and-review loop, key from `ANTHROPIC_API_KEY` only; a brief for Claude Code without it), preview PDF, `--accept`. Tested on the user's 22 teams: drawn in a session (`tournaments/logo-drafts/`) and through the API (`tournaments/logo-drafts-api/`); local only, never accepted. Image-API logos: Phase 9 |
 | 7 — Internal test at home (printouts) | not started: the manual checks (docs/manual-checks.md), a mock game, feedback, bug analysis and fixes, then a docs/comments check |
 | 8 — External test at a tournament | not started: the same loop with real teams |
 | 9 — Next version | the deferred list in PLAN.md |
@@ -186,10 +186,11 @@ Kept in one place: [SPEC.md §14](SPEC.md) (defaults used unless the user says o
 
 ## Next steps
 
-1. **Phase 6 follow-up:** compare the API drafts (`tournaments/logo-drafts-api/`) with the
-   session's 22 (`tournaments/logo-drafts/`); the user picks and accepts. The key is set in the
-   user's shell profile: a Claude Code session started earlier doesn't see it, so run
-   `zsh -ic 'uv run chgk logos … --draw'`. The logo checks are in docs/manual-checks.md.
+1. **Phase 6 follow-up:** the logo drafts are a test only (user, 2026-10-30: they will not be
+   accepted). `tournaments/logo-drafts/` (22 drawn in a session) and `tournaments/logo-drafts-api/`
+   (the same teams through the API) stay local (git-ignored). The key is in the user's shell
+   profile: a Claude Code session started earlier doesn't see it, so run
+   `zsh -ic 'uv run chgk logos … --draw'`.
 2. **Phase 7** internal test at home with printouts: it starts with the user's manual
    checks ([docs/manual-checks.md](docs/manual-checks.md)), then a mock game. Then **Phase 8**,
    an external test at a tournament. Each with feedback entry, bug analysis and fixes, and a
