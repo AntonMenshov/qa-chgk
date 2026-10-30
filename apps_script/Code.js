@@ -384,7 +384,17 @@ function syncTeamRows_(ss, sizes, teams) {
  * Re-sort round tabs (by «Сумма») and «Итоги» (by Итого, then the last round, …), then
  * rewrite any per-row formula that the move left pointing at another row.
  */
-function sortTabs_(ss, sizes, rounds) {
+function sortTabs_(ss, sizes, rounds, m) {
+  // With the marks at hand (`m` from readMarks_), a tab already in the right order is left
+  // alone: most batches don't change the order, and Range.sort plus the formula checks
+  // are the slow part of a request.
+  const values = {};
+  if (m) {
+    m.teams.forEach((t) => {
+      values[t.team_id] = Array.from({ length: m.n }, (_, k) => (m.cells[`${t.team_id}:${k + 1}`] || { value: "" }).value);
+    });
+  }
+  const inOrder = (current, desired) => current.length === desired.length && current.every((id, i) => id === desired[i]);
   // Formulas are made right before sorting too, since the sort keys are their results.
   const sortTab = (sheet, width, spec, firstFormulaCol, rowFor) => {
     const want = (t, row) => rowFor(t, row).slice(firstFormulaCol - 1);
@@ -394,11 +404,21 @@ function sortTabs_(ss, sizes, rounds) {
   };
   rounds.forEach((round) => {
     const lay = roundLayout(sizes, round);
+    if (m) {
+      const current = Object.keys(values).filter((id) => m.where[`${id}:${lay.first}`])
+        .sort((a, b) => m.where[`${a}:${lay.first}`].row - m.where[`${b}:${lay.first}`].row);
+      if (inOrder(current, roundOrder(sizes, round, current, values))) return;
+    }
     sortTab(ss.getSheetByName(lay.name), lay.width, roundSortSpec(lay), lay.sumCol, (t, row) => roundRow(lay, t, row));
   });
   // Also upgrades «Итоги» formulas written by older versions (e.g. Место as a plain RANK).
   const sl = summaryLayout(sizes);
-  sortTab(summaryOf_(ss), sl.width, summarySortSpec(sizes), sl.firstRound, (t, row) => summaryRow(sizes, t, row));
+  const summary = summaryOf_(ss);
+  if (m) {
+    const current = teamRowsOf_(summary).map((t) => t.team_id);
+    if (inOrder(current, summaryOrder(sizes, current, values))) return;
+  }
+  sortTab(summary, sl.width, summarySortSpec(sizes), sl.firstRound, (t, row) => summaryRow(sizes, t, row));
 }
 
 /** Rewrite the formula cells from `firstCol` on every team row where they differ from `want(team, row)`. */
@@ -610,7 +630,7 @@ function recordEvents_(ss, reg, req) {
       ev.question, ev.spare || "", ev.status, STATUS_VALUE[ev.status], o.applied, ev.photo || ""]);
   });
   appendRows_(log, logRows);
-  if (rounds.size) sortTabs_(ss, reg.round_sizes, [...rounds]);
+  if (rounds.size) sortTabs_(ss, reg.round_sizes, [...rounds], m);
   return { ok: true, results: outcomes };
 }
 
@@ -643,7 +663,7 @@ function onSheetEdit(e) {
     if (touchesMarks) {
       const m = readMarks_(ss, { round_sizes: sizes });
       const rounds = applySheetEdits_(ss, m, user);
-      if (rounds.size) sortTabs_(ss, sizes, [...rounds]);
+      if (rounds.size) sortTabs_(ss, sizes, [...rounds], m);
     }
   });
 }

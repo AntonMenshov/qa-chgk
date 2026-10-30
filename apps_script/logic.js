@@ -295,6 +295,22 @@ function roundSortSpec(lay) {
   return [{ column: lay.sumCol, ascending: false }, { column: 1, ascending: true }];
 }
 
+/** Team IDs in the order a round tab should show them (roundSortSpec), from marks {id: [values]}. */
+function roundOrder(roundSizes, round, ids, values) {
+  const lay = roundLayout(roundSizes, round);
+  const sum = (id) => {
+    let s = 0;
+    for (let k = 0; k < lay.size; k++) if ((values[id] || [])[lay.first - 1 + k] === 1) s++;
+    return s;
+  };
+  return [...ids].sort((a, b) => sum(b) - sum(a) || (a < b ? -1 : a > b ? 1 : 0));
+}
+
+/** Team IDs in the order «Итоги» should show them (summarySortSpec). */
+function summaryOrder(roundSizes, ids, values) {
+  return standings(roundSizes, ids, values).sort(compareStandings).map((r) => r.team_id);
+}
+
 /** Hidden Meta tab: team_id, a last-write time per question, then the last value the backend knows. */
 function metaLayout(n) {
   const header = ["team_id"];
@@ -343,6 +359,6 @@ if (typeof module !== "undefined") {
     STATUSES, STATUS_VALUE, RequestError, tokensEqual, colLetter, totalQuestions, validateRequest,
     eventError, mergeCell, applyEvents, normalizeCellInput, roundSheetName, roundLayout, roundRow, questionCell,
     questionAt, summaryLayout, summaryRow, placeFormula, placeLabels, standings, compareStandings, summarySortSpec,
-    roundSortSpec, metaLayout, sheetEdits, statsRows, planTeamRows, validateReserve, reservePlaceholder, nameEdits,
+    roundSortSpec, roundOrder, summaryOrder, metaLayout, sheetEdits, statsRows, planTeamRows, validateReserve, reservePlaceholder, nameEdits,
   };
 }

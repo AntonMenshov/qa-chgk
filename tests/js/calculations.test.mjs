@@ -473,3 +473,45 @@ test("team IDs are checked: 1-8 digits or capital Latin letters, no duplicates",
   assert.match(create([{ team_id: "645", name: "X" }, { team_id: "645", name: "Y" }]).error, /duplicate/);
   assert.equal(create([{ team_id: "7", name: "X" }, { team_id: "ABCD1234", name: "Y" }]).ok, true);
 });
+
+// ---------- sorting only when the order changes (speed) ----------
+
+test("a batch that doesn't change the order doesn't sort; one that does, sorts", () => {
+  const teams = teamList(3);
+  const { b, ss, tab } = world([2, 2], teams);
+  const sorts = () => ["Итоги", "Тур 1", "Тур 2"].map((n) => tab(n).sorts || 0);
+  const before = sorts();
+  // A01 takes question 1: it was already first (ID order), so nothing moves.
+  sendMarks(b, { A01: ["correct", null, null, null] });
+  assert.deepEqual(sorts(), before);
+  // A wrong answer and a «?» change no sums: still no sort.
+  sendMarks(b, { A02: ["incorrect", "disputed", null, null] });
+  assert.deepEqual(sorts(), before);
+  // A03 takes two questions in round 2: «Тур 2» and «Итоги» must re-sort, «Тур 1» not.
+  sendMarks(b, { A03: [null, null, "correct", "correct"] });
+  const after = sorts();
+  assert.deepEqual([after[0] > before[0], after[1] === before[1], after[2] > before[2]], [true, true, true]);
+  assertOrder(ss, [2, 2], ["A01", "A02", "A03"], { A01: [1, "", "", ""], A02: [0, "?", "", ""], A03: ["", "", 1, 1] });
+});
+
+test("roundOrder / summaryOrder agree with the tabs after many random batches", () => {
+  const r = rng(5);
+  for (let k = 0; k < 15; k++) {
+    const sizes = [r.int(1, 4), r.int(1, 4)];
+    const teams = teamList(r.int(2, 9));
+    const { b, ss } = world(sizes, teams);
+    const n = L.totalQuestions(sizes);
+    const all = Object.fromEntries(teams.map((t) => [t.team_id, new Array(n).fill(null)]));
+    for (let batch = 0; batch < 4; batch++) {
+      const marks = {};
+      teams.forEach((t) => {
+        marks[t.team_id] = Array.from({ length: n }, (_, q) => {
+          if (r.next() < 0.3) { all[t.team_id][q] = r.pick(["correct", "incorrect"]); return all[t.team_id][q]; }
+          return null;
+        });
+      });
+      sendMarks(b, marks);
+      assertOrder(ss, sizes, teams.map((t) => t.team_id), asValues(all), `case ${k} batch ${batch}`);
+    }
+  }
+});
