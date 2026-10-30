@@ -198,6 +198,12 @@ access needs HTTPS, which GitHub Pages provides.
    scanning.
 4. **"Missing: n teams ▸"** lists teams with no card for the current question
    (local state merged with server state).
+5. **«Чья карточка?»** (user request): a read-only mode. The camera keeps scanning and
+   each card is only described — team name and ID, question and round (or the spare
+   number), and the mark it already has; another tournament's card, an unknown team or
+   a jury/board QR are named as such. Nothing is recorded and the current question
+   doesn't move. Before setup, scanning a card shows what its QR holds (team ID,
+   question, TID).
 
 ### 7.2 Sync
 - Internet is usually fine, but every event goes to an on-device queue (IndexedDB)

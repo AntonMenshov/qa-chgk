@@ -42,7 +42,9 @@ header { display: flex; align-items: center; gap: 8px; }
 .qlabel { font-size: 20px; color: #c9d1e3; }
 #q-num { font-size: 52px; font-weight: 800; line-height: 1; }
 .qround { font-size: 13px; color: #9aa3b5; }
-.missing { width: 100%; padding: 10px; margin: 4px 0 8px; background: #22304f; color: #fff; font-weight: 600; }
+.row { display: flex; gap: 8px; margin: 4px 0 8px; }
+.missing { flex: 1; padding: 10px; background: #22304f; color: #fff; font-weight: 600; }
+.lookup-open { padding: 10px 12px; background: #22304f; color: #fff; font-weight: 600; white-space: nowrap; }
 .missing.none { background: #1e5631; }
 
 .viewport { position: relative; background: #000; border-radius: 14px; overflow: hidden; }
@@ -62,6 +64,14 @@ video { width: 100%; height: 100%; object-fit: cover; display: block; }
 .sheet h2 { margin: 0 0 10px; }
 .sheet .link { color: #2f6fed; }
 .sheet.warn { background: var(--warn-bg); }
+/* «Чья карточка?» stays low so the camera above it is still visible. */
+.sheet.lookup { max-height: 48%; border-top: 6px solid #2f6fed; }
+.sheet.lookup.bad { background: #ffe3e1; border-top-color: var(--bad); }
+.sheet.lookup.warn { border-top-color: #e0a100; }
+.lk-head { font-weight: 700; color: #2f6fed; margin-bottom: 6px; }
+.lk-head span { font-weight: 400; color: var(--muted); font-size: 14px; }
+.lk-details { list-style: none; padding: 0; margin: 6px 0 4px; font-size: 19px; color: #333; }
+.lk-details li { padding: 2px 0; }
 .c-team { font-size: 34px; font-weight: 800; line-height: 1.1; word-break: break-word; }
 .c-meta { font-size: 18px; color: #444; margin: 6px 0 10px; }
 .warnings { list-style: none; padding: 0; margin: 0 0 10px; }

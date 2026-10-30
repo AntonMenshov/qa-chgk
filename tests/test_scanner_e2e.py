@@ -195,7 +195,24 @@ def test_jury_scans_cards_and_marks_reach_the_backend(folder, tmp_path, backend_
         page.click("#missing-open")
         missing = page.inner_text("#m-list")
         page.click("#m-close")
+
+        # «Чья карточка?»: the same cards (the video loops) are only described, not recorded.
+        marks_before = call("get_state", tid=tid, token=JURY_TOKEN)["marks"]
+        page.click("#lookup-open")
+        seen = {}
+        deadline = time.time() + 60
+        while time.time() < deadline and not ({"Синие зайцы", "Карточка другого турнира"} <= set(seen)):
+            title = page.inner_text("#lk-title")
+            seen.setdefault(title, set()).add(page.inner_text("#lk-details"))
+            time.sleep(0.1)
+        assert page.is_hidden("#card") and page.is_hidden("#spare"), seen
+        assert "Вопрос 1 · тур 1\nID A01\nОтметка: верно" in seen.get("Синие зайцы", set()), seen
+        assert any("Турнир ZZZZZ" in d for d in seen.get("Карточка другого турнира", set())), seen
+        page.click("#lk-close")
+        time.sleep(1.5)
+        assert page.inner_text("#sync").endswith("отправлено")
         browser.close()
+    assert call("get_state", tid=tid, token=JURY_TOKEN)["marks"] == marks_before
 
     # Question 2: A01 (spare) and R1 handed in; A02 and A03 did not. R2 never played.
     assert "Правило трёх буравчиков" in missing and "Думать быстро" in missing

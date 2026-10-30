@@ -47,7 +47,10 @@
     <div class="qnum"><span class="qlabel">Вопрос</span> <span id="q-num">1</span><div id="q-round" class="qround"></div></div>
     <button id="q-next" class="arrow" aria-label="Следующий вопрос">›</button>
   </div>
-  <button id="missing-open" class="missing"></button>
+  <div class="row">
+    <button id="missing-open" class="missing"></button>
+    <button id="lookup-open" class="lookup-open">🔍 Чья карточка?</button>
+  </div>
   <div class="viewport main-viewport">
     <video id="video" playsinline muted></video>
     <div class="frame"></div>
@@ -67,6 +70,14 @@
     <button id="v-disputed" class="v disputed">?</button>
   </div>
   <button id="v-later" class="link">Решить позже (карточка получена)</button>
+</section>
+
+<!-- «Чья карточка?»: read cards without recording anything; the camera keeps scanning. -->
+<section id="lookup" class="sheet lookup" hidden>
+  <div class="lk-head">Чья карточка? <span>ничего не записывается</span></div>
+  <div id="lk-title" class="c-team"></div>
+  <ul id="lk-details" class="lk-details"></ul>
+  <button id="lk-close" class="big">Готово — вернуться к проверке</button>
 </section>
 
 <!-- A spare card: which question? -->

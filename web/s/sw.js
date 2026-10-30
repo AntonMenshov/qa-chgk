@@ -2,10 +2,10 @@
 // updates arrive at once) and from this cache when not. Requests to other sites (the
 // Apps Script backend) are never touched.
 
-const CACHE = "chgk-scanner-v1";
+const CACHE = "chgk-scanner-v2";
 const FILES = [
   "./", "index.html", "app.css", "app.js", "manifest.webmanifest",
-  "lib/api.js", "lib/camera.js", "lib/marks.js", "lib/payload.js", "lib/queue.js", "lib/session.js", "lib/storage.js",
+  "lib/api.js", "lib/camera.js", "lib/lookup.js", "lib/marks.js", "lib/payload.js", "lib/queue.js", "lib/session.js", "lib/storage.js",
   "vendor/zxing-wasm-3.1.4/zxing-reader.iife.js", "vendor/zxing-wasm-3.1.4/zxing_reader.wasm",
   "icons/icon-180.png", "icons/icon-192.png", "icons/icon-512.png",
 ];

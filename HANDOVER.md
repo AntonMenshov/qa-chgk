@@ -66,7 +66,8 @@ spikes/               throwaway Phase 0 experiments (no tests)
 docs/spikes.md        spike instructions and results
 web/                  GitHub Pages site
 web/s/                scanner app (no build step): index.html, app.css, app.js (wiring only), sw.js (offline),
-                      manifest + icons; lib/ = payload, marks, session, queue, api, storage, camera;
+                      manifest + icons; lib/ = payload, marks, session, lookup («Чья карточка?»), queue, api,
+                      storage, camera;
                       vendor/zxing-wasm-3.1.4 (QR reader, vendored: no CDN at the venue)
 web/b/                projector board: index.html, board.css, board.js; lib/board.js = what to show
                       (rounds revealed by hand, places from revealed rounds only, grid vs compact)
@@ -180,6 +181,11 @@ checks that the decks come out in order.
 - Board (user decisions, SPEC §10.1): revealed by hand after each round; full grid up to
   5 teams, else total + last round's grid; «Взяли» row. Read-only board token
   (`get_board`); `chgk board` adds one to tournaments created before Phase 5.
+
+- Scanner «Чья карточка?» (user request, SPEC §7.1 item 5): read-only lookup of a card —
+  team, question, current mark; records nothing. Leaving its sheet (or opening any other)
+  ends the mode. In the e2e test the looping video shows judged cards again and the
+  backend marks must be unchanged.
 
 - Scanner: a link to the open page only changes `#…` (no reload) — handle `hashchange`
   (found by the screenshot run, now in the e2e test). The camera keeps decoding while a

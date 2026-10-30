@@ -5,6 +5,7 @@ import { readFileSync } from "node:fs";
 import { decodeCard, decodeSetup } from "../../web/s/lib/payload.js";
 import { mergeCell, overlay, statusOf } from "../../web/s/lib/marks.js";
 import { Session, WARN } from "../../web/s/lib/session.js";
+import { identify } from "../../web/s/lib/lookup.js";
 import { Queue } from "../../web/s/lib/queue.js";
 import { backend, BackendError } from "../../web/s/lib/api.js";
 
@@ -133,6 +134,34 @@ test("a card already judged warns; one only received does not", () => {
   const again = s.scan(`${TID}.645.1`);
   assert.equal(again.previous, "correct");
   assert.deepEqual(again.warnings.map((w) => [w.code, w.text]), [[WARN.ALREADY, "Уже отмечено: верно"]]);
+});
+
+test("«Чья карточка?»: team, question, round and its mark; nothing recorded, the current question stays", () => {
+  const s = session();
+  s.record("645", 2, null, "correct");
+  const before = JSON.stringify(s.local);
+  assert.deepEqual(identify(`${URL_BASE}${TID}.645.2`, s),
+    { tone: "ok", title: "42", details: ["Вопрос 2 · тур 1", "ID 645", "Отметка: верно"] });
+  assert.deepEqual(identify(`${TID}.58746.5`, s).details, ["Вопрос 5 · тур 2", "ID 58746", "Отметки пока нет"]);
+  assert.deepEqual([JSON.stringify(s.local), s.current], [before, 1]);
+});
+
+test("«Чья карточка?»: spare, unused reserve, foreign, unknown team, question out of range, other QR codes", () => {
+  const s = session();
+  assert.deepEqual(identify(`${TID}.58746.S3`, s).details, ["Запасная карточка №3: номер вопроса вписан от руки", "ID 58746"]);
+  assert.deepEqual(identify(`${TID}.R1.1`, s).details[1], "ID R1 · запасной комплект, команда ещё не названа");
+  assert.deepEqual(identify(`${URL_BASE}PU4WR.645.2`, s),
+    { tone: "bad", title: "Карточка другого турнира", details: [`Турнир PU4WR (здесь ${TID})`, "Команда ID 645 · Вопрос 2"] });
+  assert.deepEqual(identify(`${TID}.Z99.2`, s), { tone: "bad", title: "Команда ID Z99", details: ["Нет в списке команд этого турнира", "Вопрос 2"] });
+  assert.deepEqual(identify(`${TID}.645.7`, s).details[0], "Вопрос 7, а в турнире всего 6");
+  assert.equal(identify("https://example.com/menu", s).title, "Не карточка ЧГК");
+  assert.equal(identify(`${URL_BASE}setup=QHZJ8.abcDEF123_-ghiJKL456mno.AKfycbx_Example-Deployment_ID123`, s).title, "QR «Доступ жюри»");
+  assert.equal(identify("https://x.github.io/qa-chgk/b/?grid=5#board=QHZJ8.abcDEF123_-ghiJKL456mno.AKfycbx_Example-Deployment_ID123", s).title, "QR табло");
+});
+
+test("«Чья карточка?» before setup: only what the QR code holds", () => {
+  assert.deepEqual(identify(`${URL_BASE}${TID}.645.2`), { tone: "ok", title: "Команда ID 645", details: ["Вопрос 2", `Турнир ${TID}`] });
+  assert.equal(identify(`${TID}.645.S1`).details[0], "Запасная карточка №1: номер вопроса вписан от руки");
 });
 
 test("events carry everything the backend needs", () => {

@@ -2,6 +2,7 @@
 // The logic lives in lib/ (tested in Node); this file only wires it to the page.
 
 import { decodeCard, decodeSetup } from "./lib/payload.js";
+import { identify } from "./lib/lookup.js";
 import { STATUS_LABEL } from "./lib/marks.js";
 import { Session } from "./lib/session.js";
 import { Queue } from "./lib/queue.js";
@@ -32,6 +33,7 @@ let camera = null;
 let openCardResult = null; // the card on screen, waiting for a verdict
 let spareResult = null; // the spare card on screen, waiting for its question
 let spareDigits = "";
+let lookingUp = false; // «Чья карточка?»: scans are only shown, never recorded
 let refreshTimer = null;
 let setupCamera = null;
 
@@ -50,7 +52,8 @@ function show(id) {
 
 function sheet(id) {
   for (const s of document.querySelectorAll(".sheet")) s.hidden = s.id !== id;
-  if (camera) id ? camera.pause() : camera.resume();
+  lookingUp = id === "lookup"; // any other sheet ends «Чья карточка?»
+  if (camera) id && id !== "lookup" ? camera.pause() : camera.resume();
 }
 
 // ---------- sound (iOS has no vibration for web pages) ----------
@@ -108,8 +111,9 @@ function startSetupScreen(message = "") {
   const cam = setupCamera = new Camera(video, (text) => {
     const s = decodeSetup(text);
     if (!s) {
-      $("setup-msg").textContent = decodeCard(text)
-        ? "Это карточка команды. Нужен QR «Доступ жюри» с листа жюри."
+      const card = decodeCard(text) && identify(text);
+      $("setup-msg").textContent = card
+        ? `Это карточка: ${[card.title, ...card.details].join(" · ")}. Чтобы отмечать, нужен QR «Доступ жюри» с листа жюри.`
         : "Это не QR-код доступа жюри.";
       return;
     }
@@ -169,6 +173,7 @@ async function startTournament(cardText = null) {
 // ---------- scanning ----------
 
 function handleCode(text) {
+  if (lookingUp) return showLookup(text);
   if (!session || openCardResult || spareResult) return;
   const r = session.scan(text);
   switch (r.kind) {
@@ -239,6 +244,31 @@ function answerSpare(question) {
   }
   spareResult = null;
   openCard(session.card(r.team.team_id, question, r.spare));
+}
+
+// ---------- «Чья карточка?» ----------
+
+async function openLookup() {
+  unlockAudio();
+  $("lookup").className = "sheet lookup";
+  $("lk-title").textContent = "Наведите камеру на карточку";
+  $("lk-details").replaceChildren();
+  sheet("lookup");
+  camera.last = { text: null, seenAt: 0 }; // the card already in front of the camera counts too
+  try {
+    await camera.start();
+    $("start").hidden = true;
+  } catch (err) {
+    $("lk-title").textContent = `Камера недоступна: ${err.message}`;
+  }
+}
+
+function showLookup(text) {
+  const r = identify(text, session);
+  $("lookup").className = `sheet lookup ${r.tone}`;
+  $("lk-title").textContent = r.title;
+  $("lk-details").replaceChildren(...r.details.map((d) => Object.assign(document.createElement("li"), { textContent: d })));
+  beep(r.tone === "ok" ? "ok" : "bad");
 }
 
 // ---------- sending and refreshing ----------
@@ -346,6 +376,8 @@ function wire() {
     };
   }
   $("missing-open").onclick = () => { renderMissing(); sheet("missing"); };
+  $("lookup-open").onclick = openLookup;
+  $("lk-close").onclick = () => sheet(null); // a card still in view is judged only once shown again
   $("m-close").onclick = () => sheet(null);
   $("sync").onclick = () => { renderSync(); sheet("syncinfo"); };
   $("s-now").onclick = async () => { queue.nextAttemptAt = 0; await flush(); renderSync(); };
