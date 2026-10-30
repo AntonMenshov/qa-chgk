@@ -168,11 +168,11 @@ Created by `chgk new`. Tabs:
 |---|---|---|
 | **Settings** | Apps Script (`chgk new`) | TID, name, date, round sizes, created, backend version |
 | **Teams** | organiser (source of truth) | `team_id` (the organiser's own, e.g. the rating.chgk.info number `58746`, used as given; blank → assigned `A01`, `A02`, …; 1-8 digits or capital Latin letters, unique, stable), `name`, `city`, `logo_file`, `reserve` (§8.7) |
-| **Log** | Apps Script, append-only | `server_time`, `client_time` (text, script time zone), `scan_id` (UUID, idempotent), `source` (`app` / `sheet`), `juror`, `device`, `team_id`, `question`, `spare`, `status`, `value`, `applied`, `photo` |
+| **Log** | Apps Script, append-only | `server_time`, `client_time` (text, script time zone), `scan_id` (UUID, idempotent), `source` (`app` / `sheet` / `photo`), `juror`, `device`, `team_id`, `question`, `spare`, `status`, `value`, `applied`, `photo` |
 | **Итоги** (first tab) | formulas | standings: each team's round sums, Итого, Место. A shared place reads «2-3» (user request), a single one is a number. Rows sorted by Итого; on a tie the better last round is higher, then the round before, …, then team ID (user rule; the place stays shared). Round sums are looked up by team ID, so sorting a round tab is harmless. Round columns share their round's colour. Team names are plain text, left-aligned (a team called «42» must not become a number) |
 | **Тур 1 … Тур N** | Apps Script + jury edits | one tab per round (user request): teams × that round's questions (continuous numbers) and «Сумма», sorted by «Сумма» (equal sums in team ID order). Narrow question columns; tab and header coloured, alternating by round |
 | **Статистика** (was «Stats», renamed on older Sheets) | formulas | per question: number of teams that took it, % |
-| **Спорные** (hidden) | Apps Script | user request: every undecided «?» — Тур, Вопрос, Команда, Фото (link or file name from Log, once photos exist) — by question, then team ID, in A–D (the link column wide and clipped); in G–H, two empty columns away: total «?», per round, per team (teams with none left out). Rewritten only when the set of «?» marks (or a name) changes |
+| **Спорные** (hidden) | Apps Script | user request: every undecided «?» — Тур, Вопрос, Команда, Фото (link from Log, once the card's photo has arrived) — by question, then team ID, in A–D (the link column wide and clipped); in G–H, two empty columns away: total «?», per round, per team (teams with none left out). Rewritten only when the set of «?» marks (or a name, or a «?» card's photo) changes |
 | **Meta** (hidden) | Apps Script | per team: the time of each mark and the last value the backend knows (to find jury edits, §5 Rules) |
 
 Only «Итоги», the round tabs and «Статистика» are visible (user request): «Спорные»,
@@ -262,7 +262,7 @@ access needs HTTPS, which GitHub Pages provides.
 - Photos upload separately from marks, 2 at a time, from their own queue on the phone
   (IndexedDB, so they survive a reload), so a slow photo never delays a result. A failed
   upload is retried with growing pauses; one the backend refuses as wrong (`retry: false`
-  in its reply) is dropped. The pill and the «Отправка» panel show how many are waiting.
+  in its reply) is dropped. The pill and the «Отправка отметок» panel show how many are waiting.
 - `upload_photo` (jury token): the backend saves the JPEG in the tournament's `Photos`
   folder as `<TID>_<team>_q<NNN>[_S<n>]_<yyyyMMdd-HHmmss>_<id>.jpg` (Latin, §3.3), outside
   the lock (the Drive save takes ~2 s), then logs it (source `photo`, link in `photo`).
@@ -383,7 +383,7 @@ as `chgk jury-sheet <folder>`.
 - Any team can be renamed this way; a cleared name cell is put back. `chgk teams`
   leaves reserve teams on the backend (they are not written to teams.py).
 - Jury link format: `<scanner_url>#setup=<TID>.<JURY_TOKEN>.<DEPLOYMENT_ID>`. It's
-  encoded in Python, will be decoded by the JS scanner, and has shared test vectors in
+  encoded in Python, decoded by the JS scanner, and has shared test vectors in
   `tests/vectors/jury_links.json`.
 
 ## 9. Logos
@@ -426,6 +426,7 @@ The Claude API does not output raster images, but it can write SVG.
 | «Итоги» + per-round tabs (standings, round sums, place) | ✓ | |
 | «Статистика» tab (teams taking each question) | ✓ | |
 | «Спорные» tab (every undecided «?», with counts) | ✓ | |
+| Card photos in the tournament's `Photos` folder (§7.2), linked from «Спорные» | ✓ | |
 | Projector board (§10.1) | ✓ | |
 | rating.chgk.info export | | after the core is done |
 | Question-rating tiebreak | | not requested |
@@ -490,8 +491,8 @@ CI (`.github/workflows/tests.yml`) runs on every push: `ruff check`, `ruff forma
 - **Apps Script** (`apps_script/`): deployed once as a web app ("execute as me",
   "anyone"). `chgk backend bundle` writes one `Code.gs` that is pasted into the script
   editor; the «Google Sheets API» advanced service is turned on there (§3.2).
-- **Web** (`web/`): plain HTML/JS with a vendored QR decoding library (`zxing-wasm`,
-  picked in spike 2), served by GitHub Pages.
+- **Web** (`web/`): plain HTML/JS with vendored libraries (scanner: QR reader `zxing-wasm`,
+  picked in spike 2; board: `qrcode-generator`), served by GitHub Pages.
 - **Node** (dev only): its built-in `node --test` runner (`npm test`); npm devDependencies
   only for ESLint + Prettier.
 
@@ -499,14 +500,14 @@ CI (`.github/workflows/tests.yml`) runs on every push: `ruff check`, `ruff forma
 
 ```
 uv run chgk backend add|use|list|check|remove|bundle  # named Google-account backends (§3.1)
-uv run chgk new tournaments/<slug>          # create Sheet + Drive folder on the active backend, write state.json
+uv run chgk new tournaments/<slug>          # create Sheet + Drive folder on the active backend, write state.json + jury sheet
 uv run chgk teams tournaments/<slug>        # pull the Teams tab into teams.py, assign team_ids
 uv run chgk logos tournaments/<slug>        # process/generate logos → pale PNGs (Phase 6, not built yet)
 uv run chgk cards tournaments/<slug> [--mode team-pages|cut-stack|scissors] [--teams A01,A07]
 uv run chgk test-page tournaments/<slug>
 uv run chgk jury-sheet tournaments/<slug>   # jury printout (also written by `cards`)
 uv run chgk board tournaments/<slug>        # projector board link (creates its token for older tournaments)
-uv run chgk view tournaments/<slug>         # view-only Sheet link (shares it for older tournaments)
+uv run chgk view tournaments/<slug>         # view-only Sheet link; brings older tournaments up to date (sharing, tabs, Latin Drive names)
 uv run chgk version
 ```
 

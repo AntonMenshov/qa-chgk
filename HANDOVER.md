@@ -21,13 +21,13 @@ Full design: [SPEC.md](SPEC.md). Build order: [PLAN.md](PLAN.md).
 | Spec and plan | ✅ done, agreed with the user |
 | 0 — Skeleton and spikes | ✅ spike 1 (laptop + iPhone Safari), spike 2 (all QR sizes scan well; zxing-wasm chosen), spike 3 (0.65 in QR; logo shade later changed to 12%) |
 | 1 — Config, identity, card PDF | ✅ done; cards + jury sheet work offline from `teams.py` |
-| 2 — Apps Script backend + Sheet | ✅ deployed under the user's Gmail and checked live (sums, places, order, reserve teams, IDs, view-only link); two Sheet-trigger checks still to be confirmed by the user |
+| 2 — Apps Script backend + Sheet | ✅ deployed under the user's Gmail and checked live (sums, places, order, reserve teams, IDs, view-only link); the Sheet-trigger checks still to be confirmed by the user |
 | 3 — Scanner web app | 🔶 built and tested (unit + integration + headless-Chrome end-to-end with a fake camera), checked live on Pages against the real backend; waiting for the user's iPhone check |
 | 4 — Card photos | ✅ built, tested (phone queue, backend `upload_photo`, headless-Chrome check that each photo shows its card) and checked live (API upload to Drive); the iPhone check is in the user's list |
 | 5 — Projector board + stats | ✅ built, tested and checked live |
 | 6 — Logos | partly done: PNG/JPG → pale greyscale, shared private library, fallback owl. Left: SVG, Claude-drawn SVG, image-API generation |
 
-- **Deployed backend:** version **5bee727e1620** under the user's Gmail (local profile
+- **Deployed backend:** version **8249b7275d76** under the user's Gmail (local profile
   `personal`), with the «Google Sheets API» service on. `uv run chgk backend check`
   compares it with the local code.
 - **Example tournament:** `tournaments/example/` (the user's four teams 645 «42», 58746
@@ -61,14 +61,14 @@ logos/                shared logo library (team logos git-ignored; nologo.png pu
 tournaments/example/  working example: config.py, teams.py (the user's real teams)
 tests/                pytest (tests/test_*.py) and node:test (tests/js/*.test.mjs), e.g.:
   conftest.py         shared `folder` fixture: a small tournament on disk
-  test_scanner_e2e.py headless Chrome: fake camera shows real cut-out cards; skipped without Chrome/Node
+  test_scanner_e2e.py headless Chrome: the scanner (fake camera shows real cut-out cards) and the board; skipped without Chrome/Node
   js/fake_apps_script.mjs  in-memory Sheets, Drive, properties and Sheets API to run Code.js in Node:
                       computed values, "42" → 42 unless "@", a formula written in the same API call
                       is not calculated yet for a sortRange (seen live)
   js/sheet_formulas.mjs    evaluator for the Sheets formulas the backend writes
   js/calculations.test.mjs sums, places («2-3»), «Статистика» vs the logic.js reference; random tournaments
   js/sort_api.test.mjs     the one-call API sort against the slow sort and logic.js
-  js/backend.test.mjs, logic.test.mjs, scanner.test.mjs, board.test.mjs, vectors.test.mjs
+  js/backend.test.mjs, logic.test.mjs, scanner.test.mjs, photos.test.mjs, board.test.mjs, vectors.test.mjs
   js/fake_backend_server.mjs  the fake backend over HTTP (for the browser tests)
   vectors/            shared JSON test vectors (qr_payloads, jury_links, board_links, merge_cases)
 docs/google-account.md  deploying the backend under any Gmail account; switching; updating
@@ -89,7 +89,7 @@ README.md             organiser guide (end to end) and contributor commands
 
 ### How to run
 - Tests: `uv run pytest` (401, incl. 2 browser tests that need Google Chrome + Node) and
-  `npm test` (193, then 65 backend tests again with the Sheets API off).
+  `npm test` (213, then 74 backend tests again with the Sheets API off).
 - Lint and format: `uv run ruff format . && uv run ruff check .`, `npm run format && npm run lint`.
 - Backend: `uv run chgk backend add|use|list|check|remove|bundle` (docs/google-account.md).
 - A tournament: `uv run chgk new <folder>` (Sheet + Drive folder), `uv run chgk teams <folder>`
@@ -200,9 +200,8 @@ checks that the decks come out in order.
       logo 10%, logo_size 1.85 in**. The defaults elsewhere stay team name on, 12%, auto size.
 - **Teams:** one stack per team for the whole game, plus at least 2 spares (user rule);
   free slots become extra spares in every mode (guillotine: shared out across the teams),
-  never an extra page. Card photos (Phase 4) will be kept forever in the tournament's
-  Drive folder. Spare cards carry no words: an empty
-  white box where the number goes (user request).
+  never an extra page. Spare cards carry no words: an empty white box where the number
+  goes (user request).
 - **Reserve decks (SPEC §8.7):** R1, R2… for teams that turn up unregistered. They are on
   the Teams tab from the start but join the other tabs only on first scan or when named,
   so they never distort places. Their cards print the ID bottom right.
@@ -224,7 +223,7 @@ Kept in one place: [SPEC.md §14](SPEC.md) (defaults used unless the user says o
 ## Next steps
 
 1. **User checks:** the scanner on an iPhone with the example cards (incl. «Чья
-   карточка?») and the Sheet-trigger checks ([docs/manual-checks.md](docs/manual-checks.md)).
+   карточка?» and card photos) and the Sheet-trigger checks ([docs/manual-checks.md](docs/manual-checks.md)).
 2. **Phase 6 — logos:** SVG input, Claude-drawn SVG, image-API generation.
 3. **Later** (PLAN.md): cache for board/phone reads (#2), rating.chgk.info export,
    multi-juror UI, Google sign-in, token rotation, moving a tournament to another account.
@@ -297,7 +296,7 @@ Kept in one place: [SPEC.md §14](SPEC.md) (defaults used unless the user says o
 
 ## Things that need the user
 
-- The iPhone check of the scanner with the example cards, incl. «Чья карточка?»
+- The iPhone check of the scanner with the example cards, incl. «Чья карточка?» and card photos
   ([docs/manual-checks.md](docs/manual-checks.md), "iPhone scanner").
 - The Sheet-trigger checks: typing a name over «R1 · впишите название», a mark edit on a
   round tab (`+` → `1`, row moves, Log row), and a «?» leaving «Спорные»
@@ -311,7 +310,7 @@ Pages in headless Chrome; the board; the view-only link without a Google login; 
 speed and the one-call sort (10 rounds of order-changing marks, «Итоги» equal to the
 reference); Latin Drive names (version 6719354da92c: the example renamed by `chgk view`;
 a new tournament «Проверка имён «Звёзды» №1» created as `2026-10-30 Proverka imen Zvezdy
-No1 (UDHBH)`, marks, reserve team and standings correct, view-only links open).
-photos (5bee727e1620, throwaway RG3HC: a 66 KB JPEG saved to Drive in ~2 s, a repeat
+No1 (UDHBH)`, marks, reserve team and standings correct, view-only links open);
+card photos (5bee727e1620, throwaway RG3HC: a 66 KB JPEG saved to Drive in ~2 s, a repeat
 upload recognised, a non-JPEG refused) and the board's QR codes on Pages against the real
 backend (decoded = the jury sheet's links). Throwaway tournaments: the user deletes them.

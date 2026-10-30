@@ -30,11 +30,13 @@ Needs [uv](https://docs.astral.sh/uv/) and a Gmail account for the results.
    the secret jury access QR.
 5. **Game day:**
    - each juror scans the jury access QR on page 1 once with the iPhone camera;
-   - after each question, scan the returned cards and tap a verdict;
+   - after each question, scan the returned cards and tap a verdict (each card's photo
+     goes to the tournament's `Photos` folder in Drive by itself);
    - the projector laptop opens the board QR on page 2 and reveals each round with →;
-   - teams can follow the view-only results QR on page 2;
+   - teams can follow the view-only results QR on page 2 (the board shows both QR codes
+     too; Q hides them);
    - decide «?» and appeals by typing `1` or `0` in the Sheet; all open «?» are on the
-     hidden «Спорные» tab («Все листы» at the bottom left).
+     hidden «Спорные» tab, with a link to each card's photo («Все листы» at the bottom left).
 6. **Teams that turn up unregistered** get a spare deck (R1, R2, …) and name themselves
    on the Sheet later.
 

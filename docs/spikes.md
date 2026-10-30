@@ -41,7 +41,7 @@ against the user's deployment. The deployment URL is kept out of the repo.
 - Photos cost ~3 s each with the Drive save, so ~75 s for 25 cards if sequential.
   Upload them in the background with **2–3 in parallel**, separate from marks
   (already in the spec).
-- The test left one file, `spike.jpg`, in the root of the user's Drive.
+- The test left one file, `spike.jpg`, in the root of the user's Drive (since deleted by the user).
 - **Confirmed from iPhone Safari** (user, 2026-10-29) via the GitHub Pages copy of the
   page, opened from a QR code that carried the URL in `#url=`.
 
@@ -70,7 +70,7 @@ release was 2022.
 
 **Lesson:** pasting a long URL on a phone is painful. Anything a phone needs (backend
 URL, tokens) must arrive **by scanning a QR code**, as the jury access QR already does.
-The spike 1 page now accepts `#url=<exec URL>` for this reason.
+The spike 1 page then took `#url=<exec URL>` for this reason.
 
 ## Spike 3: printed test page
 

@@ -57,7 +57,7 @@ uv run chgk teams tournaments/<slug>       # after editing the Teams tab (hidden
 uv run chgk cards tournaments/<slug>       # cards + jury sheet with the secret access QR
 uv run chgk jury-sheet tournaments/<slug>  # the jury sheet alone
 uv run chgk board tournaments/<slug>       # projector board link (adds its token to older tournaments)
-uv run chgk view tournaments/<slug>        # view-only Sheet link (shares older tournaments' Sheets)
+uv run chgk view tournaments/<slug>        # view-only Sheet link (brings older tournaments up to date, §4)
 ```
 
 ## 3. Switch to another account
