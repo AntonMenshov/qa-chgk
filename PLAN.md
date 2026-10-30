@@ -1,0 +1,80 @@
+# Implementation plan
+
+See [SPEC.md](SPEC.md). Each phase ends with:
+- its unit tests passing (`uv run pytest`, and `node --test` where JS is involved);
+- a commit on a feature branch.
+
+Tests are written alongside the code, not after it.
+
+## Phase 0 — Skeleton and spikes
+- `uv init` package layout (`src/chgk`, `tests/`), `pyproject.toml` with dev deps,
+  `.gitignore` (`state.json`, `out/`, `.venv`).
+- CI workflow (pytest + `node --test`).
+- Shared test vectors folder `tests/vectors/`.
+- Spikes (throwaway, findings noted in `docs/spikes.md`):
+  1. POST from a GitHub Pages page to an Apps Script web app (CORS, `text/plain`,
+     a 200 KB photo payload).
+  2. QR library on iPhone Safari: scan speed on a 0.75″ code; frame capture
+     resolution.
+  3. A single printed test card on a real printer.
+- **Tests:** a trivial import test, so CI is green from day one.
+
+## Phase 1 — Config, identity, card PDF (works offline)
+- `chgk.config`: dataclasses, validation, numbering (`question → round`, spares).
+- `chgk.ids`: QR payload encode/decode; `team_id` assignment.
+- `chgk.cards`: layout geometry, rendering, the three imposition modes, the
+  interactive mode prompt, the test page.
+- Teams come from a local CSV fixture until Phase 2.
+- Font bundled under `assets/fonts/` (OFL).
+- **Tests:**
+  - config edge cases (1 round; uneven rounds; 0 spares);
+  - payload round-trip against the vectors;
+  - imposition properties for all modes over many (teams, questions, grid) combos;
+  - geometry (margins, QR minimum size, no overlap);
+  - PDF smoke: page count, Cyrillic text, QR decoded from the rendered pages.
+
+## Phase 2 — Apps Script backend + Sheet
+- `apps_script/logic.js` (pure, Node-testable): request validation, token check,
+  last-write-wins merge, status ↔ cell value, idempotency.
+- `apps_script/Code.js`: `doPost` / `doGet`, `create_tournament` (Sheet from
+  template + Drive folder), `get_teams`, `record_events`, `get_state`, `upload_photo`;
+  `onEdit` → Log.
+- Results formulas: round sums, total, place. Stats tab.
+- Python `chgk.backend` client; CLI `new`, `teams`, `jury-link`.
+- **Tests:**
+  - `node --test` for `logic.js` (merge cases from the shared vectors);
+  - pytest for the client with `respx`;
+  - manual check: deploy once and run `chgk new` against it.
+
+## Phase 3 — Scanner web app
+- `web/s/`: pure modules `payload.js`, `queue.js`, `state.js` (missing teams,
+  warnings), plus thin UI and camera glue.
+- Setup via the jury link; current-question control; ✓/✗/? flow; spare-card
+  confirmation; missing list; sync pill.
+- GitHub Pages deployment.
+- **Tests:**
+  - `node --test` for the pure modules (payload vectors shared with Python; queue
+    retry/dedupe; missing list; warnings);
+  - manual iPhone checklist.
+
+## Phase 4 — Card photos
+- Frame capture at scan; JPEG compression; separate upload queue; Drive storage;
+  photo link in Log.
+- **Tests:** queue ordering (marks never wait for photos); upload-retry logic;
+  backend photo request validation.
+
+## Phase 5 — Projector board + stats polish
+- `web/board/`: read-only token, live standings, round sums, per-question stats.
+- **Tests:** ranking/sorting and tie display logic in a pure module (`node --test`).
+
+## Phase 6 — Logos
+- Provided files → pale greyscale (Pillow).
+- Claude-drawn SVG (by hand in a session, or via the Claude API).
+- Image-API provider (OpenAI / Google) behind an interface.
+- Shade chosen from the test page.
+- **Tests:** processing invariants (greyscale, max darkness, transparent → white,
+  aspect kept); providers tested with mocked HTTP (no real API calls in tests).
+
+## Later
+rating.chgk.info export · multi-juror UI · Google sign-in · freeze-standings option
+on the board.
