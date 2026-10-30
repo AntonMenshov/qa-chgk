@@ -169,9 +169,11 @@ A missing card scores as incorrect, but the sheet always shows whether a card wa
     (error correction M, quiet zone 4 modules). Printed at **0.65″** including the
     quiet zone (user's choice from the test print; configurable).
 - The QR contains no secret. Submitting a mark requires the jury token (§7.4).
-- A numbered card's mark always goes to the question in its QR code. When a **spare
-  card** is scanned (no number in its QR), the app offers the current question (§7.1)
-  for one-tap confirmation, or lets the juror pick the number the team wrote in the box.
+- A numbered card's mark always goes to the question in its QR code. Only when a
+  **spare card** is scanned (no number in its QR) does the app ask the juror, right
+  then, which question it is: «Запасная карточка — какой вопрос?» with a number pad
+  for the number the team wrote in the box, and the current question (§7.1) as one
+  quick button. Nothing is recorded for that card until the juror answers (user rule).
 
 ## 7. Scanner web app (iPhone, GitHub Pages)
 
