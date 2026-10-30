@@ -4,7 +4,7 @@
   "type": "module",
   "description": "JS side of chgk: scanner web app, projector board, Apps Script logic. The pages load no npm packages; devDependencies are only for linting and formatting. Tests use node:test.",
   "scripts": {
-    "test": "node --test --test-timeout=60000 \"tests/js/**/*.test.mjs\" && CHGK_NO_SHEETS_API=1 node --test --test-timeout=60000 tests/js/backend.test.mjs tests/js/calculations.test.mjs",
+    "test": "node --test --test-timeout=60000 \"tests/js/**/*.test.mjs\" && CHGK_NO_SHEETS_API=1 node --test --test-timeout=60000 \"tests/js/backend*.test.mjs\" tests/js/calculations.test.mjs",
     "lint": "eslint .",
     "format": "prettier --write \"**/*.{js,mjs,html,css}\"",
     "format:check": "prettier --check \"**/*.{js,mjs,html,css}\""

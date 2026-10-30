@@ -4,11 +4,19 @@
 import js from '@eslint/js';
 import prettier from 'eslint-config-prettier';
 import globals from 'globals';
-import {createRequire} from 'node:module';
+import {readFileSync} from 'node:fs';
 
-// Code.js and logic.js share one global scope in Apps Script (`chgk backend bundle`).
-const logicExports = Object.keys(createRequire(import.meta.url)('./apps_script/logic.js'));
+// The backend's files share one global scope in Apps Script (`chgk backend bundle` joins
+// them): each may use the top-level functions and constants of the others.
 const readonly = (names) => Object.fromEntries(names.map((name) => [name, 'readonly']));
+const backendFiles = JSON.parse(readFileSync(new URL('./apps_script/bundle.json', import.meta.url), 'utf8')).files;
+const topLevel = (file) => {
+  const source = readFileSync(new URL(`./apps_script/${file}`, import.meta.url), 'utf8');
+  return [...source.matchAll(/^(?:function (\w+)\(|(?:const|let) (\w+) =|class (\w+) )/gm)].map(
+    (m) => m[1] || m[2] || m[3],
+  );
+};
+const sharedGlobals = (file) => readonly(backendFiles.filter((f) => f !== file).flatMap(topLevel));
 
 const google = {
   eqeqeq: ['error', 'always', {null: 'ignore'}],
@@ -54,7 +62,7 @@ export default [
     // Top-level functions are Apps Script entry points or used by the other file.
     rules: {'no-unused-vars': ['error', {args: 'none', vars: 'local'}]},
   },
-  {files: ['apps_script/Code.js'], languageOptions: {globals: readonly(logicExports)}},
+  ...backendFiles.map((file) => ({files: [`apps_script/${file}`], languageOptions: {globals: sharedGlobals(file)}})),
   {files: ['web/**/*.js'], languageOptions: {globals: globals.browser}},
   {files: ['web/s/sw.js'], languageOptions: {globals: globals.serviceworker}},
   {files: ['tests/js/**/*.mjs', 'eslint.config.js'], languageOptions: {globals: globals.node}},

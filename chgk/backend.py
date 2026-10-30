@@ -15,10 +15,10 @@ import httpx
 from chgk.ids import BACKEND_URL_RE
 
 APPS_SCRIPT_DIR = Path(__file__).resolve().parent.parent / "apps_script"
-BUNDLE_SOURCES = ["logic.js", "Code.js"]
-# Code.js goes first in the bundle: the editor's Run button starts on the file's first
-# function, which must be setup(). Neither file runs the other's code at load time.
-BUNDLE_ORDER = ["Code.js", "logic.js"]
+# The backend's files in bundle order (also read by the Node fake and ESLint). Code.js goes
+# first: the editor's Run button starts on the file's first function, which must be setup().
+# They share one global scope; no file runs another's code at load time.
+BUNDLE_ORDER = json.loads((APPS_SCRIPT_DIR / "bundle.json").read_text(encoding="utf-8"))["files"]
 
 
 PERMISSIONS_HINT = (
@@ -169,7 +169,7 @@ class BackendClient:
 
 def source_version() -> str:
     digest = hashlib.sha256()
-    for name in BUNDLE_SOURCES:
+    for name in BUNDLE_ORDER:
         digest.update((APPS_SCRIPT_DIR / name).read_bytes())
     return digest.hexdigest()[:12]
 

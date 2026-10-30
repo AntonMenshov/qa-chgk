@@ -1,0 +1,15 @@
+{
+  "description": "Apps Script files in bundle order (`chgk backend bundle`, the Node fake and the version hash read this). Code.js first: the editor's Run button starts on its first function, setup().",
+  "files": [
+    "Code.js",
+    "logic.js",
+    "sheet_io.js",
+    "marks.js",
+    "sort.js",
+    "teams.js",
+    "drive.js",
+    "disputed.js",
+    "photos.js",
+    "trigger.js"
+  ]
+}

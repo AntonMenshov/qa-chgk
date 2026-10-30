@@ -558,7 +558,7 @@ function chain() {
   return proxy;
 }
 
-/** A fresh Apps Script world with Code.js and logic.js loaded; returns the vm context. */
+/** A fresh Apps Script world with the backend's files (apps_script/bundle.json) loaded; returns the vm context. */
 export function loadBackend({
   account = 'me@gmail.com',
   serviceUrl = 'https://script.google.com/macros/s/AKfycbFAKE00000/exec',
@@ -691,7 +691,9 @@ export function loadBackend({
   }
   vm.createContext(ctx);
   const dir = new URL('../../apps_script/', import.meta.url);
-  const source = readFileSync(new URL('logic.js', dir), 'utf8') + '\n' + readFileSync(new URL('Code.js', dir), 'utf8');
+  // The files in bundle order, as `chgk backend bundle` joins them into one Code.gs.
+  const {files} = JSON.parse(readFileSync(new URL('bundle.json', dir), 'utf8'));
+  const source = files.map((name) => readFileSync(new URL(name, dir), 'utf8')).join('\n');
   vm.runInContext(source, ctx, {filename: 'apps_script bundle'});
   ctx.$ = {props, spreadsheets, root, triggers, sharing, api, scopeRequests: []};
   ctx.post = (body) => ctx.doPost({postData: {contents: JSON.stringify(body)}}).json();
