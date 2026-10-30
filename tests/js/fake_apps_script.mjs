@@ -329,6 +329,25 @@ class FakeFolder {
   getId() {
     return this.id;
   }
+  /** A file in Drive: what DriveApp.Folder.createFile(blob) returns. */
+  createFile(blob) {
+    if (this.registry.failCreateFile) {
+      throw new Error('Service error: Drive');
+    }
+    const id = `file-${++folderCount}`;
+    const file = {
+      id,
+      name: blob.name,
+      contentType: blob.contentType,
+      size: blob.bytes.length,
+      bytes: blob.bytes,
+      getId: () => id,
+      getName: () => file.name,
+      getUrl: () => `https://drive.google.com/file/d/${id}/view`,
+    };
+    this.files.push(file);
+    return file;
+  }
   createFolder(name) {
     const f = new FakeFolder(name, this.registry);
     this.children.push(f);
@@ -635,11 +654,20 @@ export function loadBackend({
     Utilities: {
       getUuid: () => '0123456789abcdef0123456789abcdef',
       formatDate: (d, tz, fmt) => {
-        if (tz !== 'Etc/UTC' || fmt !== 'yyyy-MM-dd HH:mm:ss') {
-          throw new Error(`formatDate ${tz} ${fmt}`);
+        const iso = d.toISOString(); // the fake script runs in UTC
+        if (tz !== 'Etc/UTC') {
+          throw new Error(`formatDate ${tz}`);
         }
-        return d.toISOString().slice(0, 19).replace('T', ' ');
+        if (fmt === 'yyyy-MM-dd HH:mm:ss') {
+          return iso.slice(0, 19).replace('T', ' ');
+        }
+        if (fmt === 'yyyyMMdd-HHmmss') {
+          return iso.slice(0, 19).replace(/[-:]/g, '').replace('T', '-');
+        }
+        throw new Error(`formatDate ${fmt}`);
       },
+      base64Decode: (text) => [...Buffer.from(text, 'base64')].map((b) => (b > 127 ? b - 256 : b)), // Java bytes
+      newBlob: (bytes, contentType, name) => ({bytes, contentType, name}),
     },
     Logger: {log: (...args) => ctx.logged.push(args)},
     logged: [],

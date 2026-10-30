@@ -2,7 +2,7 @@
 // updates arrive at once) and from this cache when not. Requests to other sites (the
 // Apps Script backend) are never touched.
 
-const CACHE = 'chgk-scanner-v2';
+const CACHE = 'chgk-scanner-v3';
 const FILES = [
   './',
   'index.html',
@@ -13,6 +13,8 @@ const FILES = [
   'lib/camera.js',
   'lib/lookup.js',
   'lib/marks.js',
+  'lib/photos.js',
+  'lib/photostore.js',
   'lib/payload.js',
   'lib/queue.js',
   'lib/session.js',

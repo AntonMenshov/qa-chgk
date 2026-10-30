@@ -3,6 +3,7 @@
 //
 // usage: node fake_backend_server.mjs '<create_tournament request as JSON, without token>'
 // prints "READY <port>". A request with token "ADMIN" runs with the admin token.
+// GET /__photos (tests only): the card photos saved in the tournament's Photos folder.
 import http from 'node:http';
 import {loadBackend} from './fake_apps_script.mjs';
 
@@ -28,6 +29,11 @@ const server = http.createServer((req, res) => {
         request.token = admin;
       }
       text = b.doPost({postData: {contents: JSON.stringify(request)}}).text;
+    } else if (req.url === '/__photos') {
+      const folder = b.$.root.children[0].children[0].children.find((f) => f.name === 'Photos');
+      text = JSON.stringify(
+        folder.files.map((f) => ({name: f.name, size: f.size, base64: Buffer.from(f.bytes).toString('base64')})),
+      );
     } else {
       text = b.doGet().text;
     }

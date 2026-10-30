@@ -23,7 +23,7 @@ Full design: [SPEC.md](SPEC.md). Build order: [PLAN.md](PLAN.md).
 | 1 — Config, identity, card PDF | ✅ done; cards + jury sheet work offline from `teams.py` |
 | 2 — Apps Script backend + Sheet | ✅ deployed under the user's Gmail and checked live (sums, places, order, reserve teams, IDs, view-only link); two Sheet-trigger checks still to be confirmed by the user |
 | 3 — Scanner web app | 🔶 built and tested (unit + integration + headless-Chrome end-to-end with a fake camera), checked live on Pages against the real backend; waiting for the user's iPhone check |
-| 4 — Card photos | not started |
+| 4 — Card photos | ✅ built and tested (phone queue, backend `upload_photo`, headless-Chrome check that each photo shows its card); live check after the deploy |
 | 5 — Projector board + stats | ✅ built, tested and checked live |
 | 6 — Logos | partly done: PNG/JPG → pale greyscale, shared private library, fallback owl. Left: SVG, Claude-drawn SVG, image-API generation |
 
@@ -77,7 +77,7 @@ docs/spikes.md        Phase 0 spike results (their code was removed; it is in th
 web/                  GitHub Pages site
 web/s/                scanner app (no build step): index.html, app.css, app.js (wiring only), sw.js (offline),
                       manifest + icons; lib/ = payload, marks, session, lookup («Чья карточка?»), queue, api,
-                      storage, camera; vendor/zxing-wasm-3.1.4 (QR reader, vendored: no CDN at the venue)
+                      storage, camera, photos + photostore (card photos, IndexedDB); vendor/zxing-wasm-3.1.4 (QR reader, vendored: no CDN at the venue)
 web/b/                projector board: index.html, board.css, board.js; lib/board.js = what to show
                       (rounds revealed by hand, places from revealed rounds only, grid vs compact)
 .github/workflows/    tests.yml (ruff + pytest; ESLint + Prettier + npm test), pages.yml (deploys web/)
@@ -176,9 +176,10 @@ checks that the decks come out in order.
   - `1` / `0` / `?` = judged.
   - A missing card scores 0. Last write wins by client timestamp. `?` and appeals are
     resolved by editing the sheet.
-- **Photos (Phase 4, planned):** one photo of every card, uploaded separately from the
-  marks, 2–3 at a time (spike 1: ~3 s per photo with the Drive save). The jury sheet
-  doesn't promise photos until then.
+- **Photos (Phase 4, SPEC §7.2):** one photo per card per phone, taken from the frame the
+  QR was read from; own queue in IndexedDB, 2 uploads at a time, never delaying marks;
+  `upload_photo` saves to the tournament's `Photos` folder (Latin names) outside the lock,
+  logs the link, and shows it on «Спорные» for a «?». Kept forever.
 - **Cards:**
   - Letter, default 3×5 = 15 per page, grid configurable.
   - **Edge to edge in every mode**: neighbouring cards share a cut line. The user
@@ -221,9 +222,8 @@ Kept in one place: [SPEC.md §14](SPEC.md) (defaults used unless the user says o
 
 1. **User checks:** the scanner on an iPhone with the example cards (incl. «Чья
    карточка?») and the Sheet-trigger checks ([docs/manual-checks.md](docs/manual-checks.md)).
-2. **Phase 4 — card photos** (PLAN.md).
-3. **Phase 6 — logos:** SVG input, Claude-drawn SVG, image-API generation.
-4. **Later** (PLAN.md): cache for board/phone reads (#2), rating.chgk.info export,
+2. **Phase 6 — logos:** SVG input, Claude-drawn SVG, image-API generation.
+3. **Later** (PLAN.md): cache for board/phone reads (#2), rating.chgk.info export,
    multi-juror UI, Google sign-in, token rotation, moving a tournament to another account.
 
 ## Lessons learned

@@ -105,7 +105,13 @@ function doPost(e) {
     return json_(reply);
   } catch (err) {
     const known = err instanceof RequestError;
-    return json_({ok: false, error: known ? err.message : `server error: ${err && err.message ? err.message : err}`});
+    // retry: false — the request itself is wrong, sending it again won't help (the phone's
+    // photo queue then drops it instead of retrying).
+    return json_({
+      ok: false,
+      error: known ? err.message : `server error: ${err && err.message ? err.message : err}`,
+      retry: !known,
+    });
   }
 }
 
@@ -153,6 +159,9 @@ function handle_(req) {
         props.setProperty('t:' + req.tid, JSON.stringify(reg));
         return {ok: true};
       });
+    case 'upload_photo':
+      requireJury_(props, reg, req);
+      return uploadPhoto_(open_(reg), reg, req);
     case 'share_view':
       requireAdmin_(props, req);
       shareView_(reg.spreadsheet_id);
@@ -1164,6 +1173,63 @@ function applySheetEdits_(ss, m, user) {
   });
   appendLog_(m, rows);
   return rounds;
+}
+
+// ---- card photos (Phase 4) ----
+
+/**
+ * One card's photo from a phone: saved as a JPEG in the tournament's Photos folder (Latin
+ * name), then logged (source «photo») with its link, which «Спорные» shows for a «?».
+ * The Drive save (~2 s) runs outside the lock, so marks never wait for photos. Idempotent
+ * by photo_id: a phone retrying after a lost reply doesn't save it twice.
+ */
+function uploadPhoto_(ss, reg, req) {
+  if (req.question > totalQuestions(reg.round_sizes)) {
+    fail(`invalid question ${req.question}`);
+  }
+  const scanCol = LOG_HEADER.indexOf('scan_id') + 1;
+  const logged = readBlocks_(ss, [{name: TABS.log, row: 2, col: scanCol, cols: 1}])[0];
+  if (logged.some((r) => String(r[0]) === req.photo_id)) {
+    return {ok: true, photo_id: req.photo_id, duplicate: true};
+  }
+  scriptTimeZone = scriptTimeZone || Session.getScriptTimeZone();
+  const stamp = Utilities.formatDate(new Date(req.client_ts), scriptTimeZone, 'yyyyMMdd-HHmmss');
+  const name = photoFileName(reg.tid, req.team_id, req.question, req.spare, stamp, req.photo_id);
+  const url = timed_('drive', () => {
+    const blob = Utilities.newBlob(Utilities.base64Decode(req.image), 'image/jpeg', name);
+    return DriveApp.getFolderById(reg.photos_folder_id).createFile(blob).getUrl();
+  });
+  return withLock_(() => {
+    const m = readMarks_(ss, reg, {log: true});
+    if (m.log.seen.has(req.photo_id)) {
+      return {ok: true, photo_id: req.photo_id, duplicate: true};
+    }
+    const before = disputedBefore_(m);
+    const now = logTime_(Date.now());
+    appendLog_(m, [
+      [
+        now,
+        logTime_(req.client_ts),
+        req.photo_id,
+        'photo',
+        req.juror || '',
+        req.device || '',
+        req.team_id,
+        req.question,
+        req.spare || '',
+        '',
+        '',
+        '',
+        url,
+      ],
+    ]);
+    // A «?» shows its photo on «Спорные» at once (the set of «?» didn't change).
+    if (markValues_(m)[`${req.team_id}:${req.question}`] === '?') {
+      m.w.set(TABS.disputed, 1, 1, disputedBlock_(m, markValues_(m), m.log.photos, before.rows));
+    }
+    m.w.flush();
+    return {ok: true, photo_id: req.photo_id, url};
+  });
 }
 
 // ---- «Спорные»: every undecided «?» (user request) ----

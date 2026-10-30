@@ -235,7 +235,8 @@ access needs HTTPS, which GitHub Pages provides.
    It is used only for spare cards, the "missing" list and the warnings below; every
    numbered card is marked for the question in its own QR code.
 2. The camera scans continuously. When a card is detected:
-   - a full-resolution **photo of the frame is captured** (every card; Phase 4, not built yet);
+   - a **photo of the frame is kept** (JPEG, longest side ≤ 1600 px, ~150–300 KB; one per
+     card per phone; a spare card's photo waits for its question; none in «Чья карточка?»);
    - the team name is shown in large type and a `received` event is recorded;
    - **warning** (colour + vibration) if the card is from an earlier question than the
      current one («Карточка вопроса 5 (идёт 7) — отмечено для 5»; the mark still goes
@@ -258,8 +259,14 @@ access needs HTTPS, which GitHub Pages provides.
 - Events are idempotent (`scan_id`), so retries never double-count.
 - Marks are sent in batches: everything pending goes in one request, and events that
   arrive while a request is in flight go in the next. A request takes ~1.1–2.2 s (§3.2).
-- Photos (Phase 4) will upload separately from marks (JPEG ≈ 150 KB; spike 1: ~3 s with
-  the Drive save), 2–3 at a time, so a slow photo never delays a result.
+- Photos upload separately from marks, 2 at a time, from their own queue on the phone
+  (IndexedDB, so they survive a reload), so a slow photo never delays a result. A failed
+  upload is retried with growing pauses; one the backend refuses as wrong (`retry: false`
+  in its reply) is dropped. The pill and the «Отправка» panel show how many are waiting.
+- `upload_photo` (jury token): the backend saves the JPEG in the tournament's `Photos`
+  folder as `<TID>_<team>_q<NNN>[_S<n>]_<yyyyMMdd-HHmmss>_<id>.jpg` (Latin, §3.3), outside
+  the lock (the Drive save takes ~2 s), then logs it (source `photo`, link in `photo`).
+  A photo of a «?» card appears on «Спорные» at once. Idempotent by `photo_id`.
 
 ### 7.3 Multi-juror readiness (UI later)
 Every event carries juror name, device ID, client timestamp and UUID, and the

@@ -9,6 +9,8 @@ import {Queue} from './lib/queue.js';
 import {backend} from './lib/api.js';
 import {storage} from './lib/storage.js';
 import {Camera} from './lib/camera.js';
+import {PhotoQueue, blobToBase64} from './lib/photos.js';
+import {photoStore} from './lib/photostore.js';
 
 const FLUSH_EVERY_MS = 1000;
 const REFRESH_EVERY_MS = 20000;
@@ -23,12 +25,14 @@ const K = {
   state: (tid) => `chgk.state.${tid}`,
   current: (tid) => `chgk.current.${tid}`,
   queue: (tid) => `chgk.queue.${tid}`,
+  photographed: (tid) => `chgk.photographed.${tid}`,
 };
 
 let setup = store.get(K.setup); // {tid, juryToken, backendUrl}
 let call = null; // backend(...) for the current tournament
 let session = null;
 let queue = null;
+let photos = null; // card photos waiting to upload (Phase 4)
 let camera = null;
 let openCardResult = null; // the card on screen, waiting for a verdict
 let spareResult = null; // the spare card on screen, waiting for its question
@@ -199,6 +203,13 @@ async function startTournament(cardText = null) {
   });
   session.restorePending(queue.pending);
   session.snapshotAt = started;
+  photos = new PhotoQueue({
+    store: photoStore(tid),
+    send: async (rec) => {
+      const {blob, ...meta} = rec;
+      return call('upload_photo', {...meta, image: await blobToBase64(blob)});
+    },
+  });
   show('main');
   render();
   camera ??= new Camera($('video'), handleCode);
@@ -239,15 +250,49 @@ function handleCode(text) {
       refresh();
       return;
     case 'spare':
-      return openSpare(r);
     case 'card':
-      return openCard(r);
+      // The frame the card was read from: its photo, kept once the question is known.
+      r.shot = camera ? camera.captureJpeg() : Promise.resolve(null);
+      return r.kind === 'spare' ? openSpare(r) : openCard(r);
   }
+}
+
+/** One photo per card per phone (a card scanned again is not photographed again). */
+function keepPhoto(r, shot) {
+  const key = `${r.team.team_id}:${r.question}`;
+  const done = new Set(store.get(K.photographed(setup.tid)) || []);
+  if (!shot || done.has(key)) {
+    return;
+  }
+  done.add(key);
+  store.set(K.photographed(setup.tid), [...done]);
+  const photoQueue = photos;
+  shot.then((blob) => {
+    if (!blob) {
+      return;
+    }
+    const rec = {
+      photo_id: crypto.randomUUID(),
+      tid: setup.tid,
+      team_id: r.team.team_id,
+      question: r.question,
+      client_ts: Date.now(),
+      juror: session.juror,
+      device: session.device,
+      blob,
+    };
+    if (r.spare !== null && r.spare !== undefined) {
+      rec.spare = r.spare;
+    }
+    photoQueue.add(rec).then(render);
+    render();
+  });
 }
 
 function openCard(r) {
   openCardResult = r;
   queue.add(session.record(r.team.team_id, r.question, r.spare, 'received'));
+  keepPhoto(r, r.shot);
   store.set(K.current(setup.tid), session.current);
   const round = session.roundOf(r.question);
   $('c-team').textContent = r.team.name;
@@ -293,7 +338,7 @@ function answerSpare(question) {
     return;
   }
   spareResult = null;
-  openCard(session.card(r.team.team_id, question, r.spare));
+  openCard(Object.assign(session.card(r.team.team_id, question, r.spare), {shot: r.shot}));
 }
 
 // ---------- «Чья карточка?» ----------
@@ -384,6 +429,10 @@ function render() {
       : st.pending
         ? `⏳ ${st.pending}`
         : '✓ отправлено';
+  const ph = photos ? photos.status : {pending: 0};
+  if (ph.pending) {
+    pill.textContent += ` · фото ${ph.pending}`;
+  }
 }
 
 function renderMissing() {
@@ -413,6 +462,12 @@ function renderSync() {
     }),
   );
   $('s-clear').hidden = queue.rejected.length === 0;
+  const ph = photos.status;
+  $('s-photos').textContent =
+    `Фото карточек: отправлено ${ph.sent}` +
+    (ph.pending ? `, ждут отправки ${ph.pending}` : '') +
+    (ph.dropped ? `, отклонено ${ph.dropped}` : '') +
+    (ph.pending && ph.lastError ? `. Последняя ошибка: ${ph.lastError}` : '.');
 }
 
 // ---------- wiring ----------
@@ -469,8 +524,9 @@ function wire() {
   };
   $('s-now').onclick = async () => {
     queue.nextAttemptAt = 0;
-    await flush();
+    await Promise.all([flush(), photos.retryNow()]);
     renderSync();
+    render();
   };
   $('s-clear').onclick = () => {
     queue.clearRejected();
@@ -494,11 +550,11 @@ function wire() {
   };
   $('settings-close').onclick = () => sheet(null);
   $('forget').onclick = () => {
-    const pending = queue.status.pending;
+    const pending = queue.status.pending + photos.status.pending; // marks and photos
     if (
       !confirm(
         pending
-          ? `Есть неотправленные отметки: ${pending}. Они останутся на телефоне. Отключить турнир?`
+          ? `Есть неотправленные отметки или фото: ${pending}. Они останутся на телефоне. Отключить турнир?`
           : 'Отключить этот турнир на телефоне?',
       )
     ) {
@@ -512,6 +568,7 @@ function wire() {
     location.replace(location.pathname);
   };
   setInterval(flush, FLUSH_EVERY_MS);
+  setInterval(() => photos && photos.pump().then(render), FLUSH_EVERY_MS);
   setInterval(refresh, REFRESH_EVERY_MS);
   addEventListener('online', () => {
     if (queue) {

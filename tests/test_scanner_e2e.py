@@ -5,6 +5,7 @@ the page talks to the fake Apps Script backend (tests/js/fake_backend_server.mjs
 test taps the verdicts like a juror. Skipped when Google Chrome or Node is missing.
 """
 
+import base64
 import io
 import json
 import re
@@ -21,6 +22,7 @@ from typing import ClassVar
 import pypdfium2
 import pytest
 import segno
+import zxingcpp
 from PIL import Image
 
 from chgk.cards.build import build_cards
@@ -234,6 +236,16 @@ def test_jury_scans_cards_and_marks_reach_the_backend(folder, tmp_path, backend_
         assert page.inner_text("#q-num") == "2"
 
         page.wait_for_function("document.getElementById('sync').textContent.includes('отправлено')", timeout=20000)
+
+        # Phase 4: one photo per card (the looping video shows cards again: no second photo),
+        # uploaded in the background under a Latin name, showing that very card.
+        photos = []
+        deadline = time.time() + 30
+        while time.time() < deadline and len(photos) < 4:
+            with urllib.request.urlopen(f"{backend_url}/__photos") as r:
+                photos = json.loads(r.read())
+            time.sleep(0.3)
+        page.wait_for_function("!document.getElementById('sync').textContent.includes('фото')", timeout=20000)
         page.wait_for_function("!document.getElementById('missing-open').textContent.includes('R1')", timeout=5000)
         page.click("#missing-open")
         missing = page.inner_text("#m-list")
@@ -274,6 +286,22 @@ def test_jury_scans_cards_and_marks_reach_the_backend(folder, tmp_path, backend_
         ("A03", 0, "3-4"),
     ]  # 1 and 1, both in round 1: ID order
     assert not [line for line in console if "pageerror" in line], console
+
+    with urllib.request.urlopen(f"{backend_url}/__photos") as r:
+        assert len(json.loads(r.read())) == 4  # «Чья карточка?» took no photos
+    names = sorted(p["name"] for p in photos)
+    pattern = re.compile(rf"^{tid}_(A01|A02|R1)_q00[12](_S1)?_\d{{8}}-\d{{6}}_[0-9a-f]{{8}}\.jpg$")
+    assert len(names) == 4 and all(pattern.match(n) for n in names), names
+    assert [n.split("_q")[0] for n in names] == [f"{tid}_A01", f"{tid}_A01", f"{tid}_A02", f"{tid}_R1"], names
+    assert sum("_q002_S1_" in n for n in names) == 1  # the spare card, filed under the juror's question
+    for p in photos:
+        image = Image.open(io.BytesIO(base64.b64decode(p["base64"])))
+        assert image.format == "JPEG" and max(image.size) <= 1600, (p["name"], image.size)
+        seen = [r.text for r in zxingcpp.read_barcodes(image)]
+        card = p["name"].split("_")[1]
+        assert any(f"{tid}.{card}." in text for text in seen), (p["name"], seen)  # the photo shows the card
+    log = call("get_state", tid=tid, token=JURY_TOKEN)  # still consistent after the photo rows in Log
+    assert log["marks"]["A01"][:2] == [1, "?"]
 
 
 def test_projector_board_reveals_round_by_round(folder, tmp_path, backend_server, web_server):

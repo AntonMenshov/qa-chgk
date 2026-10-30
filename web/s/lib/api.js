@@ -1,7 +1,13 @@
 // Calls to the tournament's Apps Script backend. POST with a text/plain body: Apps
 // Script web apps don't answer CORS preflights, and text/plain needs none.
 
-export class BackendError extends Error {}
+export class BackendError extends Error {
+  /** `retry`: false when the server says the request itself is wrong (sending it again won't help). */
+  constructor(message, retry = true) {
+    super(message);
+    this.retry = retry;
+  }
+}
 
 /** A function (action, payload) => reply for one backend and jury token. */
 export function backend(url, token, fetchImpl = (...a) => fetch(...a)) {
@@ -24,7 +30,7 @@ export function backend(url, token, fetchImpl = (...a) => fetch(...a)) {
       throw new BackendError(`сервер ответил не JSON (HTTP ${response.status})`);
     }
     if (!data.ok) {
-      throw new BackendError(data.error || `ошибка сервера (HTTP ${response.status})`);
+      throw new BackendError(data.error || `ошибка сервера (HTTP ${response.status})`, data.retry !== false);
     }
     return data;
   };

@@ -30,6 +30,9 @@ that records marks, and delete its Drive folder afterwards (`docs/google-account
       team on the tabs.
 - [ ] Airplane mode for a few scans, then back online: the marks arrive by themselves.
 - [ ] «Чья карточка?» shows team, question and mark without recording anything.
+- [ ] Photos: after a few cards, the pill's «фото N» counts down to nothing; the
+      tournament's `Photos` folder in Drive has one readable photo per card; a «?» card's
+      photo link is on «Спорные».
 - [ ] Scanning speed: a card on the table is read within about a second.
 
 ## Projector board

@@ -7,6 +7,7 @@ const APP_STATUSES = ['received', 'correct', 'incorrect', 'disputed']; // "clear
 const TID_RE = /^[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{5}$/;
 const TEAM_ID_RE = /^[0-9A-Z]{1,8}$/; // e.g. a rating.chgk.info number (58746) or A07
 const MAX_EVENTS_PER_REQUEST = 500;
+const MAX_PHOTO_CHARS = 4000000; // base64 of a ~3 MB JPEG; phones send ~150-300 KB
 
 class RequestError extends Error {}
 
@@ -72,6 +73,41 @@ function validateTeams(teams) {
 }
 
 /** Reserve teams (decks for teams that turn up unregistered): IDs only, none clashing with a team. */
+/** A card photo from a phone (upload_photo): who, which question, and a base64 JPEG. */
+function validatePhoto(p) {
+  if (typeof p.photo_id !== 'string' || !/^[A-Za-z0-9_-]{8,64}$/.test(p.photo_id)) {
+    fail('invalid photo_id');
+  }
+  if (!TEAM_ID_RE.test(p.team_id || '')) {
+    fail('invalid team_id');
+  }
+  if (!Number.isInteger(p.question) || p.question < 1) {
+    fail('invalid question');
+  }
+  if (p.spare !== undefined && p.spare !== null && !(Number.isInteger(p.spare) && p.spare >= 1)) {
+    fail('invalid spare');
+  }
+  if (typeof p.client_ts !== 'number' || !isFinite(p.client_ts)) {
+    fail('invalid client_ts');
+  }
+  // JPEG files start with FF D8 FF, which is "/9j/" in base64.
+  if (typeof p.image !== 'string' || !p.image.startsWith('/9j/') || !/^[A-Za-z0-9+/]+=*$/.test(p.image)) {
+    fail('image must be a base64 JPEG');
+  }
+  if (p.image.length > MAX_PHOTO_CHARS) {
+    fail('image too large');
+  }
+}
+
+/**
+ * Drive file name of a card photo: Latin only, sorting by tournament, team and question:
+ * «QHZJ8_645_q027_20261115-191502_ab12cd34.jpg» (a spare card adds «_S2»).
+ */
+function photoFileName(tid, teamId, question, spare, stamp, photoId) {
+  const q = String(question).padStart(3, '0');
+  return `${tid}_${teamId}_q${q}${spare ? `_S${spare}` : ''}_${stamp}_${photoId.slice(0, 8)}.jpg`;
+}
+
 function validateReserve(reserve, teams) {
   if (!Array.isArray(reserve)) {
     fail('reserve must be a list of team IDs');
@@ -221,6 +257,9 @@ function validateRequest(body) {
       validateToken(body.board_token, 'board_token');
       return body;
     case 'share_view':
+      return body;
+    case 'upload_photo':
+      validatePhoto(body);
       return body;
     case 'set_teams':
       validateTeams(body.teams);
@@ -640,6 +679,8 @@ if (typeof module !== 'undefined') {
     reservePlaceholder,
     latinName,
     driveNames,
+    photoFileName,
+    MAX_PHOTO_CHARS,
     nameEdits,
   };
 }

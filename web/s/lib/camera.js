@@ -80,6 +80,20 @@ export class Camera {
     }
   }
 
+  /** The current frame as a JPEG (longest side ≤ maxSide, ~150-300 KB), or null without a picture. */
+  captureJpeg({maxSide = 1600, quality = 0.8} = {}) {
+    const v = this.video;
+    if (v.readyState < 2 || !v.videoWidth) {
+      return Promise.resolve(null);
+    }
+    const scale = Math.min(1, maxSide / Math.max(v.videoWidth, v.videoHeight));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(v.videoWidth * scale);
+    canvas.height = Math.round(v.videoHeight * scale);
+    canvas.getContext('2d').drawImage(v, 0, 0, canvas.width, canvas.height);
+    return new Promise((resolve) => canvas.toBlob((blob) => resolve(blob), 'image/jpeg', quality));
+  }
+
   async decodeFrame() {
     const v = this.video;
     if (v.readyState < 2 || !v.videoWidth) {
