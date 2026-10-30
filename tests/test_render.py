@@ -130,22 +130,24 @@ def test_fit_text():
 
 
 @pytest.mark.parametrize(
-    "mode,has_team_logo,tournament_logo,expected",
+    "mode,loaded,expected",
     [
-        (LogoMode.NONE, True, "t.png", None),
-        (LogoMode.TEAM, True, None, "A01"),
-        (LogoMode.TEAM, False, None, None),
-        (LogoMode.TOURNAMENT, True, "t.png", "tournament"),
-        (LogoMode.TEAM_ELSE_TOURNAMENT, True, "t.png", "A01"),
-        (LogoMode.TEAM_ELSE_TOURNAMENT, False, "t.png", "tournament"),
-        (LogoMode.TEAM_ELSE_TOURNAMENT, False, None, None),
+        (LogoMode.NONE, {"A01", "tournament", "fallback"}, None),
+        (LogoMode.TEAM, {"A01", "fallback"}, "A01"),
+        (LogoMode.TEAM, {"tournament", "fallback"}, "fallback"),  # TEAM mode ignores the tournament logo
+        (LogoMode.TEAM, set(), None),
+        (LogoMode.TOURNAMENT, {"A01", "tournament", "fallback"}, "tournament"),
+        (LogoMode.TOURNAMENT, {"A01", "fallback"}, "fallback"),
+        (LogoMode.TEAM_ELSE_TOURNAMENT, {"A01", "tournament", "fallback"}, "A01"),
+        (LogoMode.TEAM_ELSE_TOURNAMENT, {"tournament", "fallback"}, "tournament"),
+        (LogoMode.TEAM_ELSE_TOURNAMENT, {"fallback"}, "fallback"),
+        (LogoMode.TEAM_ELSE_TOURNAMENT, {"A02"}, None),  # another team's logo is never used
     ],
 )
-def test_logo_key(mode, has_team_logo, tournament_logo, expected):
-    team = Team("A01", "X")
-    card = Card(team, CardId("K7M2Q", "A01", question=1), 1)
-    logos = {"A01": Image.new("L", (1, 1))} if has_team_logo else {}
-    assert logo_key(card, CardFields(logo=mode, tournament_logo=tournament_logo), logos) == expected
+def test_logo_key_fallback_chain(mode, loaded, expected):
+    card = Card(Team("A01", "X"), CardId("K7M2Q", "A01", question=1), 1)
+    fields = CardFields(logo=mode, tournament_logo="t.png")
+    assert logo_key(card, fields, {key: Image.new("L", (1, 1)) for key in loaded}) == expected
 
 
 runner = CliRunner()
@@ -196,3 +198,11 @@ def test_test_page_has_real_qr_codes_and_marks_chosen_settings(folder, tmp_path)
     text = PdfReader(out).pages[0].extract_text()
     assert "0.65 in (chosen)" in text
     assert "3% grey (chosen)" in text
+
+
+def test_missing_team_logo_warns_and_falls_back(folder, tmp_path):
+    csv = folder / "teams.csv"
+    csv.write_text(csv.read_text(encoding="utf-8").replace("A02," + LONG_NAME + ",,", "A02," + LONG_NAME + ",,gone.png"),
+                   encoding="utf-8")
+    result = build_cards(folder, Mode.CUT_STACK, tmp_path / "out.pdf")
+    assert any("team A02" in w and "gone.png" in w for w in result.warnings)

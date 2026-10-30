@@ -5,5 +5,6 @@ from pathlib import Path
 
 __version__ = version("chgk")
 
+PROJECT_DIR = Path(__file__).resolve().parent.parent
 ASSETS_DIR = Path(__file__).parent / "assets"
 FONTS_DIR = ASSETS_DIR / "fonts"

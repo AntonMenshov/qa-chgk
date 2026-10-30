@@ -51,3 +51,30 @@ def test_load_png_and_reject_svg(tmp_path):
     (tmp_path / "logo.svg").write_text("<svg/>")
     with pytest.raises(ValueError, match="SVG"):
         load_pale_logo(tmp_path / "logo.svg", 0.03)
+
+
+def test_resolve_prefers_tournament_folder_then_library(tmp_path, monkeypatch):
+    import chgk.logos as logos
+
+    library = tmp_path / "library"
+    folder = tmp_path / "tournament"
+    library.mkdir()
+    folder.mkdir()
+    monkeypatch.setattr(logos, "LOGO_LIBRARY", library)
+    sample_logo().save(library / "a.png")
+    sample_logo().save(library / "b.png")
+    sample_logo().save(folder / "b.png")
+    assert logos.resolve_logo("a.png", folder) == library / "a.png"
+    assert logos.resolve_logo("b.png", folder) == folder / "b.png"
+    assert logos.resolve_logo("missing.png", folder) is None
+
+
+def test_large_logos_are_downscaled(tmp_path):
+    sample_logo(size=(2000, 1000)).save(tmp_path / "big.png")
+    assert load_pale_logo(tmp_path / "big.png", 0.03).size == (600, 300)
+
+
+def test_fallback_owl_ships_with_the_repo():
+    from chgk.logos import LOGO_LIBRARY
+
+    assert (LOGO_LIBRARY / "nologo.png").is_file()

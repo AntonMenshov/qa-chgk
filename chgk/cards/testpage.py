@@ -36,8 +36,7 @@ def render_test_page(
     team: Team,
     out_path: Path,
     source_logo: Image.Image | None = None,
-    team_logos: dict[str, Image.Image] | None = None,
-    tournament_logo: Image.Image | None = None,
+    logos: dict[str, Image.Image] | None = None,
 ) -> None:
     """`source_logo` (unprocessed) is shown at every shade in GREYS; the sample cards use
     the tournament's configured logos and shade."""
@@ -84,10 +83,8 @@ def render_test_page(
     deck = team_deck(tournament, tid, team)
     numbered = [card for card in deck if not card.is_spare]
     samples = [numbered[0], numbered[-1]] + [card for card in deck if card.is_spare][:1]
-    team_logos = team_logos or {}
-    readers = {k: ImageReader(v) for k, v in team_logos.items()}
-    if tournament_logo is not None:
-        readers["tournament"] = ImageReader(tournament_logo)
+    logos = logos or {}
+    readers = {k: ImageReader(v) for k, v in logos.items()}
     rects = card_rects(tournament.layout)
     bottom_row = rects[-tournament.layout.cols :]
     qr_pt = tournament.layout.qr_size * INCH
@@ -95,7 +92,7 @@ def render_test_page(
     c.setStrokeGray(0.65)
     c.setLineWidth(0.3)
     for card, rect in zip(samples, bottom_row):
-        key = logo_key(card, tournament.card, team_logos)
+        key = logo_key(card, tournament.card, logos)
         _draw_card(c, card, card_parts(rect, qr_pt), tournament, readers.get(key), warnings)
         c.rect(rect.x, rect.y, rect.w, rect.h, stroke=1, fill=0)
     c.showPage()

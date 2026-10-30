@@ -1,8 +1,28 @@
-"""Turn a logo image into a very pale greyscale watermark."""
+"""Logos: find them, and turn them into very pale greyscale watermarks.
+
+A logo name is looked up in the tournament folder first, then in the shared library
+`logos/` at the repo root. Team logos in the library stay local (git-ignored); only
+`logos/nologo.png`, the fallback, is in the repo.
+"""
 
 from pathlib import Path
 
 from PIL import Image, ImageOps
+
+from chgk import PROJECT_DIR
+
+LOGO_LIBRARY = PROJECT_DIR / "logos"
+MAX_SIDE = 600  # px; a card's logo area is about 1 in, so this is ~600 dpi and keeps PDFs small
+TOURNAMENT_KEY = "tournament"
+FALLBACK_KEY = "fallback"
+
+
+def resolve_logo(name: str, folder: Path) -> Path | None:
+    for base in (Path(folder), LOGO_LIBRARY):
+        path = base / name
+        if path.is_file():
+            return path
+    return None
 
 
 def pale(image: Image.Image, grey: float) -> Image.Image:
@@ -25,4 +45,5 @@ def load_pale_logo(path: Path, grey: float) -> Image.Image:
     if path.suffix.lower() == ".svg":
         raise ValueError(f"{path.name}: SVG logos are not supported yet (Phase 6); export it as PNG")
     with Image.open(path) as image:
+        image.thumbnail((MAX_SIDE, MAX_SIDE))
         return pale(image, grey)

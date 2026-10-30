@@ -29,7 +29,8 @@ class CardFields:
     tournament_name: bool = True
     date: bool = True
     logo: LogoMode = LogoMode.NONE
-    tournament_logo: str | None = None  # path relative to the tournament folder
+    tournament_logo: str | None = None  # file name: tournament folder first, then the logos/ library
+    fallback_logo: str | None = "nologo.png"  # for cards that would otherwise have no logo
     logo_grey: float = 0.03  # darkest ink of the watermark: 0 = white, 1 = black
 
     def __post_init__(self) -> None:

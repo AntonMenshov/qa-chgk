@@ -285,6 +285,19 @@ as `chgk jury-sheet <folder> [--mode]`.
 
 ## 9. Logos
 
+**Shared logo library:** `logos/` at the repo root (user decision, 2026-10-29).
+- A logo name (`logo_file` in teams.csv, `tournament_logo`, `fallback_logo`) is looked
+  up in the tournament folder first, then in `logos/`, so one team logo serves every
+  tournament.
+- Team logos in `logos/` are **private**: git-ignored, local only. Only
+  `logos/nologo.png` (the fallback owl) is in the public repo.
+- **Fallback chain** per card: team logo → tournament logo (if the mode uses it) →
+  `fallback_logo` (default `nologo.png`) → none. `LogoMode.NONE` disables logos
+  entirely.
+- A logo file that can't be found prints a warning and the card uses the next
+  fallback. A fresh clone without the private logos still prints, with owls.
+- Logos are downscaled to 600 px before embedding, which keeps PDFs small.
+
 A pale greyscale watermark. The source is chosen per team and per tournament:
 
 | Source | How |

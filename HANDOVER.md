@@ -25,7 +25,7 @@ Full design: [SPEC.md](SPEC.md). Build order: [PLAN.md](PLAN.md).
 | 3 — Scanner web app | not started |
 | 4 — Card photos | not started |
 | 5 — Projector board + stats | not started |
-| 6 — Logos | not started (basic PNG/JPG → pale greyscale already done in Phase 1) |
+| 6 — Logos | partly done: PNG/JPG → pale greyscale, shared private library, fallback owl. Left: SVG, Claude-drawn SVG, image-API generation |
 
 ### Repository layout
 ```
@@ -75,6 +75,9 @@ checks that the decks come out in order.
 - **Unit tests are mandatory.** A phase isn't done until `uv run pytest` and
   `npm test` pass.
 - **Git:** commit directly on `main`, no feature branches.
+- **No Claude attribution:** commits are authored only as the user. No
+  `Co-Authored-By: Claude` or "Generated with Claude Code" lines (history rewritten on
+  2026-10-29 to remove them).
 - **Keep this file current:** update it in the same commit as the work it describes.
 - **Questions:** ask the user through the question interface (AskUserQuestion), a
   few questions at a time, with recommended defaults.
@@ -111,6 +114,11 @@ checks that the decks come out in order.
   - Modes: team-pages (light lines + crop marks), cut-stack (same, guillotine order),
     scissors (darker dashed lines, no crop marks). The CLI asks which one.
   - Logo watermark at **3% grey**.
+  - **Logo library** `logos/` at the repo root (SPEC §9):
+    - team logos are private (git-ignored); only `nologo.png` is public;
+    - fallback chain: team → tournament → `nologo.png`;
+    - the user's real teams are in the example: 42, Фиаско, Совхоз Победа, Звезды
+      сошлись (+ one team without a logo).
 - **Teams:** one stack per team for the whole game, plus spares (3 by default). Empty
   slots on a team's last page become extra spares.
 - **Juror view:** the app doesn't show the official answer.
