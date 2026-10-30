@@ -346,3 +346,29 @@ test("phone flow against the backend: scan, judge, send, refresh; reserve team; 
   const log = b.$.spreadsheets.get(created.spreadsheet_id).getSheetByName("Log");
   assert.equal(log.getLastRow() - 1, 10);
 });
+
+// ---------- camera: when a code in view is reported ----------
+
+import { Camera } from "../../web/s/lib/camera.js";
+
+test("camera: a card is reported once while in view; again after it was away; the next card at once", () => {
+  globalThis.document ??= { createElement: () => ({ getContext: () => ({}) }) };
+  const reported = [];
+  const cam = new Camera({}, (text) => reported.push(text));
+  cam.seen("A", 0);
+  cam.seen("A", 100);
+  cam.seen("A", 200); // still lying there
+  assert.deepEqual(reported, ["A"]);
+  cam.pause(); // the juror is judging A, A stays in view
+  cam.seen("A", 1000);
+  cam.seen("B", 1100); // the next card is already held up: not while paused
+  cam.seen("A", 2500);
+  cam.resume();
+  cam.seen("A", 2600); // A never left: not again
+  assert.deepEqual(reported, ["A"]);
+  cam.seen("B", 2700); // B at once
+  assert.deepEqual(reported, ["A", "B"]);
+  cam.seen("A", 2800); // back to A: a different card than the last one, so reported
+  cam.seen("A", 5000); // gone from 2800 to 5000 (no frames): reported again
+  assert.deepEqual(reported, ["A", "B", "A", "A"]);
+});

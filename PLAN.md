@@ -61,13 +61,16 @@ Tests are written alongside the code, not after it.
 ## Phase 3 — Scanner web app
 - `web/s/`: pure modules `payload.js`, `queue.js`, `state.js` (missing teams,
   warnings), plus thin UI and camera glue.
-- Setup via the jury link; current-question control; ✓/✗/? flow; spare-card
-  confirmation; missing list; sync pill.
+- Setup via the jury link (or by scanning it in the app); the current question follows
+  the scans; ✓/✗/? flow; spare card asks for its question; missing list; sync pill;
+  offline reload (service worker); backend skips re-sorting when the order is unchanged.
 - GitHub Pages deployment.
 - **Tests:**
   - `node --test` for the pure modules (payload vectors shared with Python; queue
     retry/dedupe; missing list; warnings);
-  - manual iPhone checklist.
+  - integration: the phone modules against the fake backend;
+  - headless Chrome end to end (fake camera with real cut-out cards);
+  - live check against the user's backend; manual iPhone checklist.
 
 ## Phase 4 — Card photos
 - Frame capture at scan; JPEG compression; separate upload queue; Drive storage;

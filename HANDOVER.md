@@ -21,8 +21,8 @@ Full design: [SPEC.md](SPEC.md). Build order: [PLAN.md](PLAN.md).
 | Spec and plan | ✅ done, agreed with the user |
 | 0 — Skeleton and spikes | ✅ spike 1 (laptop + iPhone Safari), spike 2 (all QR sizes scan well; zxing-wasm chosen), spike 3 (0.65 in QR; logo shade later changed to 12%) |
 | 1 — Config, identity, card PDF | ✅ done; cards + jury sheet work offline from `teams.py` |
-| 2 — Apps Script backend + Sheet | 🔶 code + tests done; waiting for the user to deploy it (docs/google-account.md) for the live end-to-end check |
-| 3 — Scanner web app | not started |
+| 2 — Apps Script backend + Sheet | ✅ deployed under the user's Gmail and checked live (sums, places, order, reserve teams, IDs); two Sheet-trigger checks still to be confirmed by the user |
+| 3 — Scanner web app | 🔶 built and tested (unit + integration + headless-Chrome end-to-end with a fake camera); waiting for the live and iPhone checks |
 | 4 — Card photos | not started |
 | 5 — Projector board + stats | not started |
 | 6 — Logos | partly done: PNG/JPG → pale greyscale, shared private library, fallback owl. Left: SVG, Claude-drawn SVG, image-API generation |
@@ -56,21 +56,27 @@ tests/js/fake_apps_script.mjs  in-memory Sheets/Drive/properties to run Code.js 
                       getValues() returns computed values, "42" becomes 42 unless the cell is "@"
 tests/js/sheet_formulas.mjs   evaluator for the Sheets formulas the backend writes
 tests/js/calculations.test.mjs  sums, places («2-3»), Stats vs logic.js reference; random tournaments
+tests/js/scanner.test.mjs     scanner lib: vectors, session, queue, camera; phone ↔ fake backend
+tests/js/fake_backend_server.mjs  the fake backend over HTTP (for the browser test)
+tests/test_scanner_e2e.py     headless Chrome: fake camera shows real cut-out cards; skipped without Chrome/Node
 tests/vectors/        shared JSON test vectors (qr_payloads, jury_links, merge_cases) for Python and JS
 docs/google-account.md  deploying the backend under any Gmail account; switching; updating
 spikes/               throwaway Phase 0 experiments (no tests)
 docs/spikes.md        spike instructions and results
-web/                  GitHub Pages site; web/s/ = scanner (placeholder until Phase 3)
+web/                  GitHub Pages site
+web/s/                scanner app (no build step): index.html, app.css, app.js (wiring only), sw.js (offline),
+                      manifest + icons; lib/ = payload, marks, session, queue, api, storage, camera;
+                      vendor/zxing-wasm-3.1.4 (QR reader, vendored: no CDN at the venue)
 .github/workflows/    tests.yml (pytest + npm test), pages.yml (deploys web/ + spike pages)
 package.json          only for `npm test` (no npm dependencies)
 ```
 
 ### How to run
-- Python tests: `uv run pytest` (320 pass)
-- JS tests: `npm test` (43 pass)
+- Python tests: `uv run pytest` (384 pass, incl. the browser test, ~12 s; needs Google Chrome + Node, else skipped)
+- JS tests: `npm test` (148 pass)
 - Cards: `uv run chgk cards tournaments/example [--mode team-pages|cut-stack|scissors] [--teams A01,A02]`
   → `out/<slug>/cards-<mode>.pdf` + `out/<slug>/jury.pdf`. Without `--mode` it asks.
-- Jury sheet alone: `uv run chgk jury-sheet tournaments/example [--mode …]`
+- Jury sheet alone: `uv run chgk jury-sheet tournaments/example`
 - Calibration page: `uv run chgk test-page tournaments/example` → `out/<slug>/test-page.pdf`
 
 The render tests decode every QR code back from the rendered PDF and check it sits in
@@ -167,6 +173,12 @@ checks that the decks come out in order.
    offline queue, batches of marks).
 
 ## Lessons learned
+
+- Scanner: a link to the open page only changes `#…` (no reload) — handle `hashchange`
+  (found by the screenshot run, now in the e2e test). The camera keeps decoding while a
+  card is on screen, so the card lying there isn't reported again; another card is.
+- Browser test: Chrome's `--use-file-for-fake-video-capture=<file>.mjpeg` plays real
+  cut-out cards; requests to script.google.com are routed to the fake backend server.
 
 - PDF links: a long URL wrapped over lines is only auto-linked on its first line by
   viewers (user clicked a cut-off Sheet link). Every URL in jury.pdf is a real link
