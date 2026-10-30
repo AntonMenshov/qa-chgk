@@ -202,8 +202,12 @@ checks that the decks come out in order.
 
 ## Things that need the user
 
-- Deploying the real Apps Script (Phase 2) under their Gmail: **deployed** 2026-10-29
-  (version 1a482b60badf, health check OK); profile `personal` saved. First `chgk new` hit a missing Sheets permission;
-  fixed in code, the user re-pastes the bundle (version 23277fdc0e71) and reruns `setup`.
+- Live backend (Phase 2): deployed under the user's Gmail as profile `personal`, now
+  version 1ba5289567d9 (round tabs). The example tournament was re-created on it
+  (new TID; cards and jury.pdf regenerated). Test marks, duplicates, stale scans, a
+  bad team, a wrong token and `chgk teams` all checked live on 2026-10-29.
+  **Still to confirm by the user:** how the tabs look, and a jury edit on a round tab
+  (`+` → `1` plus a Log row; `maybe` → note).
+- Delete the old example folder `ЧГК/… (5R547)` (single Results layout) from Drive.
 - A real print of the cards.
 - Delete `spike.jpg` from the root of their Google Drive (left by spike 1).
