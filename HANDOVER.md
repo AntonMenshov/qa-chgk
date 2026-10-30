@@ -27,7 +27,7 @@ Full design: [SPEC.md](SPEC.md). Build order: [PLAN.md](PLAN.md).
 | 5 — Projector board + stats | ✅ built, tested and checked live |
 | 6 — Logos | partly done: PNG/JPG → pale greyscale, shared private library, fallback owl. Left: SVG, Claude-drawn SVG, image-API generation |
 
-- **Deployed backend:** version **7621fb64ef82** under the user's Gmail (local profile
+- **Deployed backend:** version **6719354da92c** under the user's Gmail (local profile
   `personal`), with the «Google Sheets API» service on. `uv run chgk backend check`
   compares it with the local code.
 - **Example tournament:** `tournaments/example/` (the user's four teams 645 «42», 58746
@@ -306,4 +306,7 @@ duplicates, stale scans, bad teams and tokens; sums, «2-3» places and tie-brea
 the logic.js reference on 4- and 14-team tournaments; reserve decks; the scanner on
 Pages in headless Chrome; the board; the view-only link without a Google login; backend
 speed and the one-call sort (10 rounds of order-changing marks, «Итоги» equal to the
-reference). Throwaway tournaments were deleted by the user.
+reference); Latin Drive names (version 6719354da92c: the example renamed by `chgk view`;
+a new tournament «Проверка имён «Звёзды» №1» created as `2026-10-30 Proverka imen Zvezdy
+No1 (UDHBH)`, marks, reserve team and standings correct, view-only links open).
+Throwaway tournaments: the user deletes them from Drive.
