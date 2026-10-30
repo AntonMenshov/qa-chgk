@@ -208,4 +208,4 @@ def test_links_are_clickable_with_the_full_address(folder, tmp_path):
     board = next(u for u in page2 if "#board=" in u)
     assert page2.count(board) >= 2 and page2.count(VIEW) >= 2 and set(page2) == {board, VIEW}
     assert decode_jury_link(setup).jury_token == state["jury_token"]
-    assert {EDIT, SCANNER, VIEW, board} <= set(link_targets(out, 2))  # page 3 links table
+    assert {EDIT, SCANNER, VIEW, board, BACKEND} <= set(link_targets(out, 2))  # page 3 links table, backend too

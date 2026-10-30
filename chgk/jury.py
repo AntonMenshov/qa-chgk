@@ -244,7 +244,7 @@ def _links_table(t: Tournament, state: State, s) -> Table:
     backend = NOT_YET
     if state.backend_url:
         label = " · ".join(x for x in (state.backend_profile, state.backend_account) if x)
-        backend = f"{escape(label)}<br/>{escape(state.backend_url)}" if label else escape(state.backend_url)
+        backend = f"{escape(label)}<br/>{_link(state.backend_url)}" if label else _link(state.backend_url)
     rows = [
         ("Сканер жюри", _link(t.scanner_url)),
         ("Таблица (редактирование)", _link(state.spreadsheet_url) if state.spreadsheet_url else NOT_YET),
