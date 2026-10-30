@@ -14,7 +14,3 @@ tournaments/*/state.json
 # shared logo library: team logos stay local (private); only the fallback owl is public
 logos/*
 !logos/nologo.png
-
-# logo-drawing tests with the user's real team list: local only
-tournaments/logo-drafts/
-tournaments/logo-drafts-api/

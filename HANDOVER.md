@@ -124,9 +124,7 @@ README.md             organiser guide (end to end) and contributor commands
 - Logos: `uv run chgk logos <folder> [--draw [--team A01]] [--accept all|A01,A02]` (report; drafts;
   `out/<slug>/logo-preview.pdf`). The tests never call the API: the SDK runs on a mocked transport.
   `ANTHROPIC_API_KEY` is set in the user's shell profile; a Claude Code session started before
-  it was set doesn't see it, so run `zsh -ic 'uv run chgk logos … --draw'`. The drafts in
-  `tournaments/logo-drafts/` and `tournaments/logo-drafts-api/` are a test: local (git-ignored),
-  never deleted, overwritten or accepted.
+  it was set doesn't see it, so run `zsh -ic 'uv run chgk logos … --draw'`.
 
 The render tests decode every QR code back from the rendered PDF and check it sits in
 the slot the imposition assigned. The cut-stack test simulates the guillotine and
