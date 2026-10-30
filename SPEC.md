@@ -259,6 +259,30 @@ Each team gets **one stack for the whole game** (numbered cards + spares).
 - QR codes at several sizes;
 - a 1″ ruler, to confirm the page printed at 100%.
 
+### 8.6 Jury printout (Russian)
+
+Every `chgk cards` run also writes the jury sheet, `out/<slug>/jury.pdf`, as a
+separate file so the secret never ends up on team cards. It's also available alone
+as `chgk jury-sheet <folder> [--mode]`.
+
+- **Page 1:**
+  - tournament name, date, rounds × questions, number of teams, TID;
+  - the **secret jury access QR** and link (§7.4), boxed and marked secret. Until
+    `chgk new` has created the backend, the box says how to create it instead;
+  - links with small QRs: scanner, results Sheet, projector board, backend profile
+    and Google-account label;
+  - juror how-to;
+  - «?» and appeals how-to.
+- **Page 2, team roster:** ID, name, city, numbered cards, spares (as actually
+  printed in the chosen mode), and a "handed out" checkbox.
+- **Then a paper backup grid,** for when phones or internet fail: one block per round
+  (teams × questions + a «Сумма» column), then an «Итого» block (teams × rounds +
+  total).
+- Every page has a footer: tournament · лист жюри · секретно.
+- Jury link format: `<scanner_url>#setup=<TID>.<JURY_TOKEN>.<DEPLOYMENT_ID>`. It's
+  encoded in Python, will be decoded by the JS scanner, and has shared test vectors in
+  `tests/vectors/jury_links.json`.
+
 ## 9. Logos
 
 A pale greyscale watermark. The source is chosen per team and per tournament:
@@ -324,7 +348,7 @@ uv run chgk teams tournaments/<slug>        # pull Teams tab, assign team_ids, v
 uv run chgk logos tournaments/<slug>        # process/generate logos → pale PNGs
 uv run chgk cards tournaments/<slug> [--mode team-pages|cut-stack|scissors] [--teams A01,A07]
 uv run chgk test-page tournaments/<slug>
-uv run chgk jury-link tournaments/<slug>    # print setup URL + QR
+uv run chgk jury-sheet tournaments/<slug> [--mode …]   # jury printout (also written by `cards`)
 uv run chgk board-link tournaments/<slug>   # projector URL
 ```
 

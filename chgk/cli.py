@@ -5,7 +5,7 @@ from pathlib import Path
 import typer
 
 from chgk import __version__
-from chgk.cards.build import INSTRUCTIONS, build_cards, build_test_page
+from chgk.cards.build import INSTRUCTIONS, build_cards, build_jury_sheet, build_test_page
 from chgk.cards.impose import Mode
 
 app = typer.Typer(help="ЧГК answer cards and jury scanning.", no_args_is_help=True)
@@ -58,6 +58,7 @@ def cards(
     for warning in result.warnings:
         typer.secho(f"Warning: {warning}", fg="yellow", err=True)
     typer.echo(f"{result.path}: {result.teams} teams, {result.cards} cards, {result.pages} pages ({mode.value}).")
+    typer.echo(f"{result.jury_path}: jury sheet (contains the secret jury access QR once `chgk new` has run).")
     typer.echo("Print on Letter at 100% / Actual size.")
     typer.echo(INSTRUCTIONS[mode])
 
@@ -74,3 +75,20 @@ def test_page(
         typer.secho(f"Error: {err}", fg="red", err=True)
         raise typer.Exit(1) from err
     typer.echo(f"{path}: print on Letter at 100% / Actual size and check the rulers, QR sizes and logo shades.")
+
+
+@app.command("jury-sheet")
+def jury_sheet(
+    folder: Path = typer.Argument(..., help="Tournament folder with config.py and teams.csv"),
+    mode: Mode | None = typer.Option(None, help="Count the extra spares this imposition prints"),
+    out: Path | None = typer.Option(None, help="Output PDF (default: out/<slug>/jury.pdf)"),
+) -> None:
+    """Print the jury sheet: access QR, links, how-to, team roster, paper backup grid."""
+    try:
+        path, warnings = build_jury_sheet(folder, mode, out)
+    except ValueError as err:
+        typer.secho(f"Error: {err}", fg="red", err=True)
+        raise typer.Exit(1) from err
+    for warning in warnings:
+        typer.secho(f"Warning: {warning}", fg="yellow", err=True)
+    typer.echo(f"{path}: jury sheet. Keep it away from the teams: it holds the jury access QR.")

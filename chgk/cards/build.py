@@ -10,6 +10,7 @@ from chgk.cards.model import team_deck
 from chgk.cards.render import render_cards
 from chgk.cards.testpage import render_test_page
 from chgk.config import LogoMode, Tournament, load_config
+from chgk.jury import render_jury_sheet
 from chgk.logos import load_pale_logo
 from chgk.state import load_or_create_state
 from chgk.teams import Team, load_teams_csv
@@ -42,6 +43,7 @@ def _load_logos(folder: Path, tournament: Tournament, teams: list[Team]) -> tupl
 @dataclass(frozen=True)
 class BuildResult:
     path: Path
+    jury_path: Path
     teams: int
     cards: int
     pages: int
@@ -61,10 +63,30 @@ def build_cards(folder: Path, mode: Mode, out: Path | None = None, team_ids: lis
     team_logos, tournament_logo = _load_logos(folder, tournament, teams)
     decks = [team_deck(tournament, state.tid, team) for team in teams]
     pages = impose(mode, decks, tournament.layout.per_page, state.tid)
-    out = Path(out) if out else Path("out") / tournament.slug / f"cards-{mode.value}.pdf"
+    if out:
+        out = Path(out)
+        jury_out = out.with_name(f"{out.stem}-jury.pdf")
+    else:
+        out = Path("out") / tournament.slug / f"cards-{mode.value}.pdf"
+        jury_out = out.with_name("jury.pdf")
     warnings = render_cards(pages, tournament, mode, out, team_logos, tournament_logo)
+    warnings += render_jury_sheet(tournament, state, teams, jury_out, pages)
     n_cards = sum(1 for page in pages for card in page if card is not None)
-    return BuildResult(out, len(teams), n_cards, len(pages), warnings)
+    return BuildResult(out, jury_out, len(teams), n_cards, len(pages), sorted(set(warnings)))
+
+
+def build_jury_sheet(folder: Path, mode: Mode | None = None, out: Path | None = None) -> tuple[Path, list[str]]:
+    """Jury sheet on its own. With `mode`, card counts include the extra spares that mode prints."""
+    folder = Path(folder)
+    tournament = load_config(folder)
+    teams = load_teams_csv(folder / TEAMS_FILE)
+    state = load_or_create_state(folder)
+    pages = None
+    if mode is not None:
+        decks = [team_deck(tournament, state.tid, team) for team in teams]
+        pages = impose(mode, decks, tournament.layout.per_page, state.tid)
+    out = Path(out) if out else Path("out") / tournament.slug / "jury.pdf"
+    return out, render_jury_sheet(tournament, state, teams, out, pages)
 
 
 def build_test_page(folder: Path, out: Path | None = None) -> Path:

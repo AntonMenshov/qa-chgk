@@ -84,3 +84,37 @@ def assign_team_ids(existing: list[str | None]) -> list[str]:
             used.add(team_id)
         result.append(team_id)
     return result
+
+
+# Jury setup link: `<scanner_url>#setup=<TID>.<JURY_TOKEN>.<DEPLOYMENT_ID>`.
+# The deployment ID is the part of the Apps Script URL between /macros/s/ and /exec,
+# so the phone learns which backend (Google account) this tournament lives on.
+BACKEND_URL_RE = re.compile(r"^https://script\.google\.com/macros/s/(?P<id>[A-Za-z0-9_-]{10,})/exec$")
+_SETUP_RE = re.compile(
+    rf"^setup=(?P<tid>[{TID_ALPHABET}]{{{TID_LENGTH}}})\.(?P<token>[A-Za-z0-9_-]{{16,}})\.(?P<dep>[A-Za-z0-9_-]{{10,}})$"
+)
+
+
+@dataclass(frozen=True)
+class JuryAccess:
+    tid: str
+    jury_token: str
+    backend_url: str
+
+
+def generate_jury_token() -> str:
+    return secrets.token_urlsafe(18)  # 24 chars of [A-Za-z0-9_-]
+
+
+def encode_jury_link(scanner_url: str, access: JuryAccess) -> str:
+    m = BACKEND_URL_RE.match(access.backend_url)
+    if not m:
+        raise ValueError(f"not an Apps Script web app URL: {access.backend_url!r}")
+    return f"{scanner_url}#setup={access.tid}.{access.jury_token}.{m['id']}"
+
+
+def decode_jury_link(link: str) -> JuryAccess:
+    m = _SETUP_RE.match(link.rsplit("#", 1)[-1])
+    if not m:
+        raise PayloadError(f"not a jury setup link: {link!r}")
+    return JuryAccess(m["tid"], m["token"], f"https://script.google.com/macros/s/{m['dep']}/exec")

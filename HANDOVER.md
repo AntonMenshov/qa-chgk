@@ -20,7 +20,7 @@ Full design: [SPEC.md](SPEC.md). Build order: [PLAN.md](PLAN.md).
 |---|---|
 | Spec and plan | ✅ done, agreed with the user |
 | 0 — Skeleton and spikes | 🔶 skeleton ✅; spike 1 ✅; spike 3 ✅ (user chose 0.65 in QR, 3% grey); spike 2 ready on Pages, waiting for the user's iPhone |
-| 1 — Config, identity, card PDF | ✅ done; cards work offline from `teams.csv` |
+| 1 — Config, identity, card PDF | ✅ done; cards + jury sheet work offline from `teams.csv` |
 | 2 — Apps Script backend + Sheet | next |
 | 3 — Scanner web app | not started |
 | 4 — Card photos | not started |
@@ -30,12 +30,13 @@ Full design: [SPEC.md](SPEC.md). Build order: [PLAN.md](PLAN.md).
 ### Repository layout
 ```
 chgk/                 Python package (at repo root, no src/ — user's preference)
-  cli.py              typer app: version, cards, test-page
+  cli.py              typer app: version, cards, test-page, jury-sheet
   config.py           Tournament / CardFields / Layout / LogoMode dataclasses + load_config
   ids.py              TID, team IDs, QR payload encode/decode
   teams.py            teams.csv loader (assigns + writes back missing team_ids)
-  state.py            tournaments/<slug>/state.json (TID; later sheet ID + jury token)
+  state.py            tournaments/<slug>/state.json (TID, backend URL/profile, sheet ID, jury token)
   logos.py            image → pale greyscale watermark
+  jury.py             jury printout (platypus): access QR, links, how-to, roster, backup grid
   cards/
     model.py          a team's deck: numbered cards, then spares
     impose.py         team-pages / cut-stack / scissors slot assignment
@@ -46,7 +47,8 @@ chgk/                 Python package (at repo root, no src/ — user's preferenc
   assets/fonts/       PT Sans Regular/Bold (OFL) — Cyrillic
 tournaments/example/  working example: config.py, teams.csv, placeholder logos
 tests/                pytest (test_*.py) + JS tests in tests/js/*.test.mjs
-tests/vectors/        shared JSON test vectors (qr_payloads.json) for Python and JS
+tests/conftest.py     shared `folder` fixture: a small tournament on disk
+tests/vectors/        shared JSON test vectors (qr_payloads.json, jury_links.json) for Python and JS
 spikes/               throwaway Phase 0 experiments (no tests)
 docs/spikes.md        spike instructions and results
 web/                  GitHub Pages site; web/s/ = scanner (placeholder until Phase 3)
@@ -55,10 +57,11 @@ package.json          only for `npm test` (no npm dependencies)
 ```
 
 ### How to run
-- Python tests: `uv run pytest` (277 pass)
+- Python tests: `uv run pytest` (296 pass)
 - JS tests: `npm test` (1 passes)
 - Cards: `uv run chgk cards tournaments/example [--mode team-pages|cut-stack|scissors] [--teams A01,A02]`
-  → `out/<slug>/cards-<mode>.pdf`. Without `--mode` it asks.
+  → `out/<slug>/cards-<mode>.pdf` + `out/<slug>/jury.pdf`. Without `--mode` it asks.
+- Jury sheet alone: `uv run chgk jury-sheet tournaments/example [--mode …]`
 - Calibration page: `uv run chgk test-page tournaments/example` → `out/<slug>/test-page.pdf`
 
 The render tests decode every QR code back from the rendered PDF and check it sits in
@@ -111,6 +114,14 @@ checks that the decks come out in order.
 - **Teams:** one stack per team for the whole game, plus spares (3 by default). Empty
   slots on a team's last page become extra spares.
 - **Juror view:** the app doesn't show the official answer.
+- **Jury printout** (user request, SPEC §8.6), in Russian, written with every
+  `cards` run:
+  - secret access QR;
+  - details and links;
+  - juror how-to and «?»/appeals how-to;
+  - team roster with a "handed out" checkbox;
+  - paper backup grid.
+- **Jury link:** `<scanner_url>#setup=<TID>.<TOKEN>.<DEPLOYMENT_ID>`.
 - **Jurors:** one at a time for now; the data model is ready for several.
 - **Deferred:**
   - rating.chgk.info export;
@@ -136,7 +147,8 @@ checks that the decks come out in order.
 
 ## Lessons learned
 
-- PT Sans has no `″` or `→` glyphs. `render.missing_glyphs` guards every drawn string,
+- PT Sans has no `″ → ✓ ✗ ◀ ▶ ☐ Σ` glyphs: use words («верно», «неверно»), drawn boxes, «Сумма».
+- PT Sans glyph gaps: `render.missing_glyphs` guards every drawn string,
   and unknown characters print as `?` with a warning.
 - typer 0.27 no longer depends on click: don't `import click`.
 - Draw cut guides **after** the cards, or the QR's white quiet zone hides them.

@@ -42,6 +42,8 @@ def _fonts() -> TTFont:
     regular = TTFont(FONT, FONTS_DIR / "PT_Sans-Web-Regular.ttf")
     pdfmetrics.registerFont(regular)
     pdfmetrics.registerFont(TTFont(FONT_BOLD, FONTS_DIR / "PT_Sans-Web-Bold.ttf"))
+    # Lets <b> work inside reportlab Paragraphs (jury sheet).
+    pdfmetrics.registerFontFamily(FONT, normal=FONT, bold=FONT_BOLD, italic=FONT, boldItalic=FONT_BOLD)
     return regular
 
 

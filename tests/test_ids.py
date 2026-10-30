@@ -7,10 +7,14 @@ from chgk.ids import (
     TID_ALPHABET,
     TID_LENGTH,
     CardId,
+    JuryAccess,
     PayloadError,
     assign_team_ids,
+    decode_jury_link,
     decode_payload,
+    encode_jury_link,
     encode_payload,
+    generate_jury_token,
     generate_tid,
 )
 
@@ -71,3 +75,30 @@ def test_assign_team_ids_rolls_over_to_next_letter():
 def test_assign_team_ids_rejects_bad_input(bad):
     with pytest.raises(ValueError):
         assign_team_ids(bad)
+
+
+JURY = json.loads((Path(__file__).parent / "vectors" / "jury_links.json").read_text(encoding="utf-8"))
+
+
+@pytest.mark.parametrize("case", [c for c in JURY["cases"] if c["valid"]], ids=lambda c: c["link"][-30:])
+def test_jury_links_decode(case):
+    access = decode_jury_link(case["link"])
+    assert access == JuryAccess(case["tid"], case["jury_token"], case["backend_url"])
+    if case["link"].startswith("https://"):
+        assert encode_jury_link(JURY["scanner_url"], access) == case["link"]
+
+
+@pytest.mark.parametrize("case", [c for c in JURY["cases"] if not c["valid"]], ids=lambda c: c["note"])
+def test_invalid_jury_links(case):
+    with pytest.raises(PayloadError):
+        decode_jury_link(case["link"])
+
+
+def test_generated_jury_token_round_trips():
+    access = JuryAccess("K7M2Q", generate_jury_token(), "https://script.google.com/macros/s/AKfycbx_Example-123/exec")
+    assert decode_jury_link(encode_jury_link("https://e.github.io/qa-chgk/s/", access)) == access
+
+
+def test_jury_link_rejects_non_apps_script_backend():
+    with pytest.raises(ValueError):
+        encode_jury_link("https://e.github.io/qa-chgk/s/", JuryAccess("K7M2Q", generate_jury_token(), "https://evil.example/exec"))

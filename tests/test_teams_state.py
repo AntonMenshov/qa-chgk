@@ -56,3 +56,18 @@ def test_state_created_once_and_reused(tmp_path):
     assert len(first.tid) == 5 and set(first.tid) <= set(TID_ALPHABET)
     assert load_or_create_state(tmp_path).tid == first.tid
     assert json.loads((tmp_path / "state.json").read_text())["tid"] == first.tid
+
+
+def test_state_derived_links_and_tolerates_unknown_keys(tmp_path):
+    (tmp_path / "state.json").write_text(json.dumps({
+        "tid": "K7M2Q", "spreadsheet_id": "abc123", "jury_token": "t" * 24,
+        "backend_url": "https://script.google.com/macros/s/AKfycbx_Example-123/exec", "future_field": 1,
+    }))
+    state = load_or_create_state(tmp_path)
+    assert state.spreadsheet_url == "https://docs.google.com/spreadsheets/d/abc123/edit"
+    assert state.jury_access.tid == "K7M2Q"
+
+
+def test_state_without_backend_has_no_jury_access(tmp_path):
+    state = load_or_create_state(tmp_path)
+    assert state.jury_access is None and state.spreadsheet_url is None
