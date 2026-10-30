@@ -147,11 +147,12 @@ class FakeSpreadsheet {
 }
 
 class FakeFolder {
-  constructor(name) { Object.assign(this, { name, children: [], id: `folder-${name}` }); }
+  constructor(name) { Object.assign(this, { name, children: [], id: `folder-${name}`, trashed: false }); }
+  isTrashed() { return this.trashed; }
   getId() { return this.id; }
   createFolder(name) { const f = new FakeFolder(name); this.children.push(f); return f; }
   getFoldersByName(name) {
-    const found = this.children.filter((f) => f.name === name);
+    const found = this.children.filter((f) => f.name === name); // like Drive: trashed ones too
     return { hasNext: () => found.length > 0, next: () => found.shift() };
   }
 }

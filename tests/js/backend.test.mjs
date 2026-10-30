@@ -421,3 +421,16 @@ test("reserve IDs are checked", () => {
   assert.match(create(["r1"]).error, /invalid reserve/);
   assert.match(create("R1").error, /list/);
 });
+
+test("a trashed «ЧГК» folder is not reused: new tournaments go to a fresh one", () => {
+  const { b, admin } = world();
+  const first = b.$.root.children[0];
+  assert.equal(first.children.length, 1);
+  first.trashed = true; // the organiser cleaned up Drive
+  const res = b.post({ action: "create_tournament", token: admin, tid: "Z2345", name: "Кубок", date: "2026-11-16",
+    round_sizes: [3], jury_token: JURY, teams: TEAMS });
+  assert.equal(res.ok, true);
+  assert.equal(b.$.root.children.length, 2);
+  assert.equal(first.children.length, 1);
+  assert.equal(b.$.root.children[1].children[0].name, "2026-11-16 Кубок (Z2345)");
+});

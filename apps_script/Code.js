@@ -145,9 +145,14 @@ function json_(obj) {
 
 // ---- tournament creation ----
 
+/** The «ЧГК» folder in My Drive. A trashed one is skipped: Drive still finds it by name. */
 function rootFolder_() {
   const it = DriveApp.getRootFolder().getFoldersByName(ROOT_FOLDER);
-  return it.hasNext() ? it.next() : DriveApp.getRootFolder().createFolder(ROOT_FOLDER);
+  while (it.hasNext()) {
+    const folder = it.next();
+    if (!folder.isTrashed()) return folder;
+  }
+  return DriveApp.getRootFolder().createFolder(ROOT_FOLDER);
 }
 
 function createTournament_(props, req) {
