@@ -267,6 +267,12 @@ checks that the decks come out in order.
   2026-10-30: the user trashed the old folders; example re-created as QHZJ8 on version
   097f2269b709 (fresh ЧГК folder, no test marks), cards and jury.pdf regenerated and
   checked (270 QRs, jury QR, full-URL links).
+  2026-10-30 scanner live check: headless Chrome on the deployed GitHub Pages app (fake
+  camera, real cut-out cards) against the real backend (version 097f2269b709), throwaway
+  tournament «Проверка сканера» (6VQPF; the user may delete its folder): 4 cards judged
+  (incl. spare → keypad, reserve R1), foreign card refused, marks and places correct in
+  the Sheet, no page errors. Sending took ~14 s after the last tap (background); the
+  sort-skipping speedup is in 34a5241c5813, not yet deployed.
   **Still to confirm by the user (needs the edit trigger):** typing a name over
   «R1 · впишите название», and a mark edit on a round tab (`+` → `1`, row moves, Log row).
 - Delete the old example folder `ЧГК/… (5R547)` (single Results layout) from Drive.
