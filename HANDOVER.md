@@ -22,10 +22,10 @@ Full design: [SPEC.md](SPEC.md). Build order: [PLAN.md](PLAN.md).
 | 0 — Skeleton and spikes | ✅ spike 1 (laptop + iPhone Safari), spike 2 (all QR sizes scan well; zxing-wasm chosen), spike 3 (0.65 in QR, later 0.85; logo shade later changed to 12%) |
 | 1 — Config, identity, card PDF | ✅ done; cards + jury sheet work offline from `teams.py` |
 | 2 — Apps Script backend + Sheet | ✅ deployed under the user's Gmail and checked live (sums, places, order, reserve teams, IDs, view-only link); the Sheet-trigger checks are in Phase 7 |
-| 3 — Scanner web app | 🔶 built and tested (unit + integration + headless-Chrome end-to-end with a fake camera), checked live on Pages against the real backend; the iPhone check is in Phase 7 |
+| 3 — Scanner web app | ✅ built and tested (unit + integration + headless-Chrome end-to-end with a fake camera), checked live on Pages against the real backend; the iPhone check is in Phase 7 |
 | 4 — Card photos | ✅ built, tested (phone queue, backend `upload_photo`, headless-Chrome check that each photo shows its card) and checked live (API upload to Drive); the iPhone check is in Phase 7 |
 | 5 — Projector board + stats | ✅ built, tested and checked live |
-| 6 — Logos | ✅ built and tested (SPEC §9.1): SVG logos (resvg, PT Sans lettering, unsafe SVGs refused), `chgk logos` report, Claude-drawn drafts (Claude Opus 5.5 at max effort with a render-and-review loop, key from `ANTHROPIC_API_KEY` only; a brief for Claude Code without it), preview PDF, `--accept`. Tested on the user's 22 teams: drawn in a session (`tournaments/logo-drafts/`) and through the API (`tournaments/logo-drafts-api/`); local only, never accepted. Image-API logos: Phase 9 |
+| 6 — Logos | ✅ built and tested (SPEC §9.1); tried on the user's 22 teams, in a session and through the API (local test folders, never accepted) |
 | 7 — Internal test at home (printouts) | not started: the manual checks (docs/manual-checks.md), a mock game, feedback, bug analysis and fixes, then a docs/comments check |
 | 8 — External test at a tournament | not started: the same loop with real teams |
 | 9 — Next version | the deferred list in PLAN.md |
@@ -121,6 +121,10 @@ README.md             organiser guide (end to end) and contributor commands
 - Jury sheet alone: `uv run chgk jury-sheet <folder>`; calibration page: `uv run chgk test-page <folder>`.
 - Logos: `uv run chgk logos <folder> [--draw [--team A01]] [--accept all|A01,A02]` (report; drafts;
   `out/<slug>/logo-preview.pdf`). The tests never call the API: the SDK runs on a mocked transport.
+  `ANTHROPIC_API_KEY` is set in the user's shell profile; a Claude Code session started before
+  it was set doesn't see it, so run `zsh -ic 'uv run chgk logos … --draw'`. The drafts in
+  `tournaments/logo-drafts/` and `tournaments/logo-drafts-api/` are a test: local (git-ignored),
+  never deleted, overwritten or accepted.
 
 The render tests decode every QR code back from the rendered PDF and check it sits in
 the slot the imposition assigned. The cut-stack test simulates the guillotine and
@@ -188,16 +192,11 @@ Kept in one place: [SPEC.md §14](SPEC.md) (defaults used unless the user says o
 
 ## Next steps
 
-1. **Phase 6 follow-up:** the logo drafts are a test only (user, 2026-10-30: they will not be
-   accepted). `tournaments/logo-drafts/` (22 drawn in a session) and `tournaments/logo-drafts-api/`
-   (the same teams through the API) stay local (git-ignored). The key is in the user's shell
-   profile: a Claude Code session started earlier doesn't see it, so run
-   `zsh -ic 'uv run chgk logos … --draw'`.
-2. **Phase 7** internal test at home with printouts: it starts with the user's manual
+1. **Phase 7** internal test at home with printouts: it starts with the user's manual
    checks ([docs/manual-checks.md](docs/manual-checks.md)), then a mock game. Then **Phase 8**,
    an external test at a tournament. Each with feedback entry, bug analysis and fixes, and a
    docs/comments check.
-3. **Phase 9 — next version:** the deferred list in PLAN.md.
+2. **Phase 9 — next version:** the deferred list in PLAN.md.
 
 ## Lessons learned
 
@@ -217,9 +216,13 @@ Kept in one place: [SPEC.md §14](SPEC.md) (defaults used unless the user says o
   Now a 100k task budget plus one retry of a cut-off drawing.
 - **reportlab stores identical images once:** two teams with the same draft gave one image
   in the PDF; tests that count images need different drawings.
-- **Redeploying:** run `chgk backend bundle` right before pasting; a stale
-  `out/apps_script/Code.gs` was pasted once and the backend stayed old (`chgk backend check`
-  now says so). After "deployed": `chgk backend check`, a live check, this file's version line.
+- **Redeploying:** whenever a commit changes `apps_script/`, run `chgk backend bundle` and
+  `pbcopy < out/apps_script/Code.gs` *before* asking the user to redeploy, and give the version
+  and the steps (paste, save, Deploy → Manage deployments → edit → New version). A stale
+  `Code.gs` was pasted once and the backend stayed old (`chgk backend check` now says so).
+  After "deployed": `chgk backend check`, a live check, this file's version line.
+- **Temp paths differ by OS:** a test asserting "no `/tmp` in the output" passed on macOS
+  (`/private/var/folders/…`) and failed on Linux CI, where pytest's tmp_path is under `/tmp`.
 - **Tests of a rule must state the rule themselves.** The first access tests read the allowed
   token from the ACTIONS table, so weakening the table weakened the tests too; found by
   deliberately breaking the table. backend_access.test.mjs now pins the rule on its own.
@@ -294,39 +297,25 @@ Kept in one place: [SPEC.md §14](SPEC.md) (defaults used unless the user says o
 - Repo: <https://github.com/AntonMenshov/qa-chgk> (public). `gh` is logged in as
   AntonMenshov.
 - Pages: <https://antonmenshov.github.io/qa-chgk/>, deployed by `.github/workflows/pages.yml`
-  on pushes touching `web/` or `apps_script/logic.js` (web/shared/logic.js links to it). The scanner URL printed in QR codes is
-  `https://antonmenshov.github.io/qa-chgk/s/`.
+  on pushes touching `web/` or `apps_script/logic.js` (web/shared/logic.js links to it). The
+  scanner URL printed in QR codes is `https://antonmenshov.github.io/qa-chgk/s/`.
 - Push after each commit: `git push`.
+- The repo is public: never commit a Google account, deployment URL or token. The Gmail
+  account behind the backend must stay switchable (named local profiles, SPEC §3.1).
 
 ## Things that need the user
 
 - The manual checks ([docs/manual-checks.md](docs/manual-checks.md)): iPhone scanner, the
   Sheet's edit trigger, a real print. They are the start of Phase 7 (PLAN.md).
 
-Live checks done so far, all against the user's backend:
-- **2026-10-29/30:** marks, duplicates, stale scans, bad teams and tokens; sums, «2-3»
-  places and tie-break order vs the logic.js reference on 4- and 14-team tournaments;
-  reserve decks; the scanner on Pages in headless Chrome; the board; the view-only link
-  without a Google login.
-- **2026-10-30, speed:** the one-call sort (10 rounds of order-changing marks, «Итоги»
-  equal to the reference).
-- **2026-10-30, Latin Drive names** (6719354da92c): a new tournament «Проверка имён «Звёзды»
-  №1» created as `2026-10-30 Proverka imen Zvezdy No1 (UDHBH)`; marks, reserve team and
-  standings correct, view-only links open.
-- **2026-10-30, card photos** (5bee727e1620, throwaway RG3HC): a 66 KB JPEG saved to Drive
-  in ~2 s, a repeat upload recognised, a non-JPEG refused; the board's QR codes on Pages
-  decode to the jury sheet's links.
-- **2026-10-30, cleaned-up backend** (e08511993c86): split files, migrations removed,
-  photos for unknown teams refused, `share_view` gone; marks, reserve, standings, photo
-  3.4 s, board, example OK.
-- **2026-10-30, ac4a2b56a43a:** board and phone data for both examples (UYDJ7, U9FP4);
-  `set_board_token` refused as unknown.
-- **2026-10-30, cf91a9af927e (ACTIONS table):** admin, jury, board and a wrong token against
-  get_teams / get_state / get_board on the example: each token reaches exactly its level.
-- **2026-10-30, 8ec3eeb36149 (review fixes):** both examples' get_state / get_board; throwaway
-  UAHQT: a re-scan keeps the judgement, `R`, `?`, question 99 refused alone, the batch in. The
-  cleared-cell and deleted-row cases need a Sheet edit: docs/manual-checks.md.
-- **2026-10-30, d02647fb3bc0 (review items):** both examples' get_state / get_board; throwaway
-  UAHQT: marks in, an unknown team refused alone; a jury token with `.`/`+` refused.
+Live checks, all against the user's backend. Earlier versions (2026-10-29/30) covered marks,
+duplicates, stale scans, bad teams and tokens, sums, «2-3» places and tie-break order against
+the logic.js reference, reserve decks, the one-call sort, Latin Drive names, card photos in
+Drive, the board and its QR codes, the view-only link signed out, and each token reaching
+exactly its level. Latest:
+- **2026-10-30, d02647fb3bc0:** both examples' get_state / get_board; throwaway UAHQT: a re-scan
+  keeps the judgement, question 99 and an unknown team refused alone with the batch in, a jury
+  token with `.`/`+` refused. The cleared-cell and deleted-row cases need a Sheet edit
+  (docs/manual-checks.md).
 
 Throwaway tournaments: the user deletes them.

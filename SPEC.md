@@ -282,7 +282,8 @@ instead of the card.
 - `upload_photo` (jury token): the backend saves the JPEG in the tournament's `Photos`
   folder as `<TID>_<team>_q<NNN>[_S<n>]_<yyyyMMdd-HHmmss>_<id>.jpg` (Latin, §3.3), outside
   the lock (the Drive save takes ~2 s), then logs it (source `photo`, link in `photo`).
-  A photo of a «?» card appears on «Спорные» at once. Idempotent by `photo_id`.
+  A photo of a «?» card appears on «Спорные» at once. Idempotent by `photo_id`. Photos
+  are kept forever (user decision).
 
 ### 7.3 Multi-juror readiness (UI later)
 Every event carries juror name, device ID, client timestamp and UUID, and the
@@ -516,7 +517,7 @@ The Claude API does not output raster images, but it can write SVG.
   presses → (or space, or «Показать тур N»); each press reveals the next round, ← takes
   the last one back. Totals, order and places use only the revealed rounds, so marks
   already coming in for the next round never leak. The page refreshes every 15 s, so
-  appeal corrections in revealed rounds appear on their own.
+  appeal corrections in revealed rounds appear on their own. So no board freeze is needed.
 - **Up to `board_grid_max_teams` teams (default 5):** the full grid of every revealed
   round (+ / − per question, «Σ» per round), then Итого and Место. **More teams:** Место,
   Команда, Итого and the grid of the last revealed round. G switches views; F fullscreen.
@@ -589,16 +590,6 @@ uv run chgk view tournaments/<slug>         # view-only Sheet link
 uv run chgk version
 ```
 
-## 14. Open items (non-blocking; defaults in brackets)
+## 14. Open items
 
-The one list of open items; HANDOVER.md points here.
-
-Decided (user, 2026-10-30):
-- Spare cards: at least 2 per team, more where the layout has free slots, never an
-  extra page (§8.4).
-- Projector board: shown only after each round, revealed by hand (§10.1); no freeze.
-- Card photos (Phase 4): kept forever, inside the tournament's own Drive folder (`Photos`),
-  with Latin file names (§3.3).
-- Empty slots on a team's last page become extra spares.
-
-Nothing is open right now.
+The one list of open items; HANDOVER.md points here. Nothing is open right now.
