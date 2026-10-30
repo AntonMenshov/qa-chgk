@@ -2,7 +2,8 @@
 
 See [SPEC.md](SPEC.md). Each phase ends with:
 - its unit tests passing (`uv run pytest`, and `node --test` where JS is involved);
-- a commit on a feature branch.
+- a commit on `main`;
+- [HANDOVER.md](HANDOVER.md) updated in the same commit.
 
 Tests are written alongside the code, not after it.
 
