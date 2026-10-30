@@ -278,9 +278,13 @@ only, not data-model changes.
   the tournament's backend URL, its TID and the jury token. Opening it once stores
   them on the phone, which is what lets a tournament run on any Google account
   (§3.1).
+- Jury link format: `<scanner_url>#setup=<TID>.<JURY_TOKEN>.<DEPLOYMENT_ID>`. It's
+  encoded in Python, decoded by the JS scanner, and has shared test vectors in
+  `tests/vectors/jury_links.json`.
 - Later option: Google sign-in with an allow-list of emails.
-- Caveat: on iOS a Home-Screen app and Safari keep separate storage, so a card URL
-  opened from the built-in Camera may ask for the jury link once.
+- Caveat: on iOS a Home-Screen app and Safari keep separate storage, so after adding the
+  app to the Home Screen the jury QR is scanned once more inside it (the printed how-to
+  says so); a card URL opened from the built-in Camera may ask for the jury link once.
 
 ### 7.5 The juror does **not** see the official answer
 The app doesn't show it (decided).
@@ -357,8 +361,8 @@ as `chgk jury-sheet <folder>`.
   round is revealed. A link that doesn't exist yet gets a dashed empty box.
 - **Page 3:** tournament name, date, rounds × questions, teams (+ reserve decks), TID;
   the links as text (no QR codes) with the backend profile and Google-account label;
-  juror how-to; «?» and appeals how-to; how to handle a team that turns up
-  unregistered (when reserve decks exist).
+  juror how-to; «?» and appeals how-to; the board («Табло») how-to; how to handle a
+  team that turns up unregistered (when reserve decks exist).
 - **Team forms** (user request; replaces the old roster): one per team with only the
   ID and name, then 8 numbered lines for the players' names, two forms per row. Blank forms for the
   reserve decks (R1, R2, …) with a «Название команды:» field. Handed to the teams.
@@ -382,10 +386,6 @@ as `chgk jury-sheet <folder>`.
   reserve team on Teams before its first scan adds it too.
 - Any team can be renamed this way; a cleared name cell is put back. `chgk teams`
   leaves reserve teams on the backend (they are not written to teams.py).
-- Jury link format: `<scanner_url>#setup=<TID>.<JURY_TOKEN>.<DEPLOYMENT_ID>`. It's
-  encoded in Python, decoded by the JS scanner, and has shared test vectors in
-  `tests/vectors/jury_links.json`.
-
 ## 9. Logos
 
 **Shared logo library:** `logos/` at the repo root (user decision, 2026-10-29).
@@ -433,7 +433,10 @@ The Claude API does not output raster images, but it can write SVG.
 
 ### 10.1 Projector board (user decisions)
 - A web page next to the scanner (`…/b/`), opened on the projector laptop from the board
-  link (QR on page 2 of the jury sheet, or `chgk board`). Read-only: its board token can
+  link (QR on page 2 of the jury sheet, or `chgk board`):
+  `<board_url>?grid=<N>#board=<TID>.<BOARD_TOKEN>.<DEPLOYMENT_ID>`, where `<board_url>`
+  is the scanner URL's sibling `…/b/` and N is `board_grid_max_teams` (encoded in
+  chgk/ids.py and web/s/lib/payload.js; shared vectors in `tests/vectors/board_links.json`). Read-only: its board token can
   read teams and marks but nothing else, and is separate from the jury token.
 - **Shown only after each round.** Nothing appears until the person at the projector
   presses → (or space, or «Показать тур N»); each press reveals the next round, ← takes
@@ -466,8 +469,10 @@ stays a thin layer.
 | Python (`chgk/`) | `uv run pytest` | config validation and question/round numbering; QR payload encode/decode; imposition (every card placed exactly once; simulated cut-and-stack yields sorted decks; page count); layout geometry (everything inside margins, QR ≥ min size, a sized logo centred on the card); logo processing (greyscale, darkest pixel ≤ chosen shade); Apps Script client with mocked HTTP (`respx`) |
 | PDF output | `uv run pytest` | smoke tests: page count; Cyrillic text extractable (`pypdf`); **QR codes decoded back from the rendered PDF** (`pypdfium2` + `zxing-cpp`) and matching the expected payloads |
 | Apps Script logic (`apps_script/`) | `npm test` (node:test) | last-write-wins merge, status → cell mapping, request validation, token check, idempotency by `scan_id`. Pure functions live in a file that runs both in Apps Script and in Node |
-| Web app logic (`web/`) | `npm test` (node:test) | payload parsing, offline queue (retry, dedupe), missing-teams computation, question-mismatch / duplicate warnings, spare-card handling |
-| Cross-language contract | both | shared test vectors in `tests/vectors/*.json` (QR payloads, events, merge cases), checked by both the Python and JS suites, so the encoder and the decoders can't drift apart |
+| Backend in Node (`apps_script/Code.js`) | `npm test` (node:test) | every action against in-memory fakes of Sheets, Drive and the Sheets API (`tests/js/fake_apps_script.mjs`): tabs, sums and places vs the logic.js reference on random tournaments, sorting (one-call API sort vs the slow sort), «Спорные», `upload_photo`, Latin Drive names; run again with the Sheets API off |
+| Web app logic (`web/`) | `npm test` (node:test) | payload parsing, offline queue (retry, dedupe), missing-teams computation, question-mismatch / duplicate warnings, spare-card handling, «Чья карточка?», the photo queue (two at a time, retry, drop on refusal, survives a reload), the board's model, link encoder and QR drawing |
+| Browser end to end | `uv run pytest` (headless Chrome) | the scanner with a fake camera showing real cut-out cards against the fake backend: verdicts, spare keypad, reserve deck, foreign card, «Чья карточка?», one photo per card whose QR decodes back to that card; the board: rounds revealed by hand, places, its QR codes decoded from screenshots = the jury sheet's links |
+| Cross-language contract | both | shared test vectors in `tests/vectors/*.json` (QR payloads, jury and board links, merge cases), checked by both the Python and JS suites, so the encoder and the decoders can't drift apart |
 
 Not unit-testable, so covered by a manual checklist per release
 ([docs/manual-checks.md](docs/manual-checks.md)):
@@ -500,10 +505,10 @@ CI (`.github/workflows/tests.yml`) runs on every push: `ruff check`, `ruff forma
 
 ```
 uv run chgk backend add|use|list|check|remove|bundle  # named Google-account backends (§3.1)
-uv run chgk new tournaments/<slug>          # create Sheet + Drive folder on the active backend, write state.json + jury sheet
+uv run chgk new tournaments/<slug> [--backend <profile>]  # Sheet + Drive folder; state.json + jury sheet
 uv run chgk teams tournaments/<slug>        # pull the Teams tab into teams.py, assign team_ids
-uv run chgk logos tournaments/<slug>        # process/generate logos → pale PNGs (Phase 6, not built yet)
-uv run chgk cards tournaments/<slug> [--mode team-pages|cut-stack|scissors] [--teams A01,A07]
+uv run chgk logos tournaments/<slug>        # logo report, Claude-drawn drafts, preview, accept (Phase 6, planned)
+uv run chgk cards tournaments/<slug> [--mode team-pages|cut-stack|scissors] [--teams A01,A07] [--out file.pdf]
 uv run chgk test-page tournaments/<slug>
 uv run chgk jury-sheet tournaments/<slug>   # jury printout (also written by `cards`)
 uv run chgk board tournaments/<slug>        # projector board link (creates its token for older tournaments)

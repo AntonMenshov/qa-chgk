@@ -18,7 +18,8 @@ that records marks, and delete its Drive folder afterwards (`docs/google-account
 - [ ] On «Тур 1», type `+` into an empty mark cell: it becomes `1`, the row moves to its
       sorted place, «Итоги» follows, and the hidden Log gets a `sheet` row.
 - [ ] Mark a card «?» from the phone, then type `1` over it in the Sheet: it leaves the
-      hidden «Спорные» tab, and the counts there go down.
+      hidden «Спорные» tab, and the counts there go down. While it is there: its photo
+      link sits in the wide «Фото» column (cut at the edge), the counts in G–H, clear of it.
 
 ## iPhone scanner
 
@@ -27,7 +28,7 @@ that records marks, and delete its Drive folder afterwards (`docs/google-account
 - [ ] Numbered cards: team name in large type, verdict buttons; the current question
       follows the cards; a card of an earlier question warns.
 - [ ] A spare card asks for the question (keypad); a reserve deck card (R1) puts the
-      team on the tabs.
+      team on the tabs. The spare card's photo is filed under that question (`…_q<NNN>_S1_…`).
 - [ ] Airplane mode for a few scans, then back online: the marks arrive by themselves.
 - [ ] «Чья карточка?» shows team, question and mark without recording anything.
 - [ ] Photos: after a few cards, the pill's «фото N» counts down to nothing; the

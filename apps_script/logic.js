@@ -598,7 +598,7 @@ function disputedKeys(values) {
  * the card when there is one — by question, then team ID; and how many there are overall,
  * per round and per team (teams with none left out, most first).
  * @param values {"TEAM:Q": mark}   @param names {team_id: name}   @param photos {"TEAM:Q": link or file name}
- * @returns {{list: any[][], summary: any[][]}}  list goes to A1 (4 columns), summary to F1 (2 columns)
+ * @returns {{list: any[][], summary: any[][]}}  list goes to A–D, summary to G–H (Code.js disputedBlock_)
  */
 function disputedSheet(roundSizes, names, values, photos) {
   const items = disputedKeys(values)

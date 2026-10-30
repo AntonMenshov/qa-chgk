@@ -154,9 +154,10 @@ checks that the decks come out in order.
     that re-sorts ~1.7–2.2 s, 15 marks ~1.4 s (before: 2.6 / 2.8 / 4.3 / 5.0 / 5.9 s);
     ~0.7–1 s of each is Google outside the script.
 - **Sheet tabs:** «Итоги», «Тур 1…N» (sorted), «Статистика» (was «Stats»; older Sheets
-  renamed automatically), hidden «Спорные» (every undecided «?», with counts overall,
-  per round and per team; rewritten only when the set of «?» changes), hidden Teams,
-  Log, Settings, Meta. Only the visible ones appear on the view-only link.
+  renamed automatically), hidden «Спорные» (every undecided «?» with its card photo's
+  link, in A–D; counts overall, per round and per team in G–H, two empty columns away;
+  rewritten only when the set of «?» changes or a «?» card's photo arrives), hidden
+  Teams, Log, Settings, Meta. Only the visible ones appear on the view-only link.
 - **Scanner:** static web app on GitHub Pages, public repo **`qa-chgk`**; v1 access via
   a secret jury link. The current question follows the scans; a spare card asks for its
   question; «Чья карточка?» reads a card without recording anything.
@@ -209,12 +210,12 @@ checks that the decks come out in order.
 - **Jury printout** (user requests, SPEC §8.6), in Russian, written with every `cards` run:
   - page 1 (secret): jury access (top half), editable Sheet, scanner;
   - page 2: board + view-only Sheet; no QR on other pages;
-  - page 3: details, links, juror and «?»/appeals how-tos;
+  - page 3: details, links, juror, «?»/appeals and board («Табло») how-tos;
   - team forms (ID, name, 8 player lines), two per row;
   - paper backup grid; the date in the QR pages' titles and every footer.
 - **Jury link:** `<scanner_url>#setup=<TID>.<TOKEN>.<DEPLOYMENT_ID>`.
 - **Jurors:** one at a time for now; the data model is ready for several.
-- **Deferred:** rating.chgk.info export; multi-juror UI; Google sign-in.
+- **Deferred:** one list, in [PLAN.md](PLAN.md) («Later»).
 
 ## Open items
 
@@ -224,9 +225,10 @@ Kept in one place: [SPEC.md §14](SPEC.md) (defaults used unless the user says o
 
 1. **User checks:** the scanner on an iPhone with the example cards (incl. «Чья
    карточка?» and card photos) and the Sheet-trigger checks ([docs/manual-checks.md](docs/manual-checks.md)).
-2. **Phase 6 — logos:** SVG input, Claude-drawn SVG, image-API generation.
-3. **Later** (PLAN.md): cache for board/phone reads (#2), rating.chgk.info export,
-   multi-juror UI, Google sign-in, token rotation, moving a tournament to another account.
+2. **Phase 6 — logos** (PLAN.md, agreed with the user 2026-10-30): SVG input and
+   `chgk logos` (report, preview, accept), then Claude-drawn SVG drafts (API, or in a
+   session without a key) in the style of the existing logos.
+3. **Later:** see PLAN.md «Later».
 
 ## Lessons learned
 

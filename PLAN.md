@@ -84,18 +84,33 @@ Tests are written alongside the code, not after it.
 
 ## Phase 5 — Projector board + stats polish
 - `web/b/`: read-only board token; standings of the rounds revealed so far (revealed by
-  hand after each round, SPEC §10.1), round sums, «Взяли» per question.
+  hand after each round, SPEC §10.1), round sums, «Взяли» per question; QR codes of the
+  view-only table and of the board itself (the jury sheet's links).
 - **Tests:** ranking/sorting and tie display logic in a pure module (`npm test`).
 
-## Phase 6 — Logos
-- Provided files → pale greyscale (Pillow).
-- Claude-drawn SVG (by hand in a session, or via the Claude API).
-- Image-API provider (OpenAI / Google) behind an interface.
-- Shade chosen from the test page.
-- **Tests:** processing invariants (greyscale, max darkness, transparent → white,
-  aspect kept); providers tested with mocked HTTP (no real API calls in tests).
+## Phase 6 — Logos (decisions: user, 2026-10-30)
+- Done earlier: provided PNG/JPG files → pale greyscale (Pillow); shade chosen from the
+  test page; shared private library `logos/` with the fallback owl.
+- SVG files wherever PNG is accepted (rasterised, then the same pale step; lettering in
+  the cards' font PT Sans; unsafe SVGs refused). `chgk logos <folder>`: which logo each
+  team's cards use, missing or broken files.
+- Claude-drawn SVG drafts in the style of the existing logos (the ЧГК owl acting out the
+  team name, question marks / hourglass, flat light grey, the name in bold capitals
+  below): `chgk logos <folder> --draw` calls the Claude API with the existing logos as
+  references; without an API key it writes a brief (`out/<slug>/logo-brief.md`) for
+  drawing them in a Claude Code session instead.
+- The API key is never in the repo: `chgk key set anthropic` stores it in
+  `~/.config/chgk/` (owner-only), `ANTHROPIC_API_KEY` overrides it, `chgk key status`.
+- Preview, then accept: drafts in `logos/drafts/<slug>/`, a preview PDF on real cards at
+  the tournament's shade, `chgk logos <folder> --accept all|A01,A02` records them in
+  teams.py; `--draw --team A01` redraws one.
+- **Tests:** processing invariants (greyscale, max darkness, transparent → white, aspect
+  kept), SVG rendering and refusal of unsafe SVGs, the API with mocked HTTP (no real
+  calls; key never logged), the no-key brief, preview and accept.
 
 ## Later
-rating.chgk.info export · multi-juror UI · Google sign-in · cache for board/phone reads
-(backend speed proposal #2) · replacing leaked tokens · moving a tournament to another
-account. (A board freeze is not needed: the board shows a round only when revealed.)
+The one list of deferred work (HANDOVER points here): logos from image-generation
+services (OpenAI, Google, …; next version, user decision) · rating.chgk.info export ·
+multi-juror UI · Google sign-in · cache for board/phone reads (backend speed proposal #2)
+· replacing leaked tokens · moving a tournament to another account. (A board freeze is
+not needed: the board shows a round only when revealed.)

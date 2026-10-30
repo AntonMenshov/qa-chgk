@@ -34,8 +34,8 @@ against the user's deployment. The deployment URL is kept out of the repo.
 
 **Conclusions**
 - The Apps Script backend works as designed. `text/plain` POST needs no preflight,
-  and the CORS header is present on the final response. Still to confirm in real iPhone
-  Safari during spike 2 (the page is ready).
+  and the CORS header is present on the final response (confirmed from iPhone Safari
+  too, see the last point).
 - ~1 s per request means marks must go **from the background queue, several events
   per request**, never blocking the juror.
 - Photos cost ~3 s each with the Drive save, so ~75 s for 25 cards if sequential.
