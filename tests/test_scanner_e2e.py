@@ -136,7 +136,13 @@ def web_server():
         def log_message(self, *args):
             pass
 
-    server = ThreadingHTTPServer(("127.0.0.1", 0), partial(Handler, directory=str(ROOT / "web")))
+    class Server(ThreadingHTTPServer):
+        # Chrome fetches the scanner's ~13 module files at once; the default backlog of 5
+        # occasionally reset one (ERR_CONNECTION_RESET), and the page never started.
+        request_queue_size = 128
+        daemon_threads = True
+
+    server = Server(("127.0.0.1", 0), partial(Handler, directory=str(ROOT / "web")))
     threading.Thread(target=server.serve_forever, daemon=True).start()
     yield f"http://127.0.0.1:{server.server_address[1]}"
     server.shutdown()
