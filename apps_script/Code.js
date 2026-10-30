@@ -4,13 +4,14 @@
 
 const VERSION = "dev"; // replaced by `chgk backend bundle`
 const ROOT_FOLDER = "ЧГК";
-const TABS = { results: "Results", stats: "Stats", teams: "Teams", log: "Log", settings: "Settings", meta: "Meta" };
+// Plus one tab per round, «Тур 1» … «Тур N», right after «Итоги» (see logic.js).
+const TABS = { summary: "Итоги", stats: "Stats", teams: "Teams", log: "Log", settings: "Settings", meta: "Meta" };
 const TEAMS_HEADER = ["team_id", "name", "city", "logo_file"];
 const LOG_HEADER = ["server_time", "client_time", "scan_id", "source", "juror", "device", "team_id", "question",
   "spare", "status", "value", "applied", "photo"];
 const COLORS = { 1: "#d9ead3", 0: "#f4cccc", "?": "#fff2cc", R: "#eeeeee" };
-const ROUND_TINTS = ["#cfe2f3", "#fce5cd"]; // header shading, alternating by round
-const WIDTHS = { id: 44, name: 180, question: 28, round: 52, total: 52 }; // pixels
+const ROUND_TINTS = ["#cfe2f3", "#fce5cd"]; // header and tab colour, alternating by round
+const WIDTHS = { id: 44, name: 180, question: 28, sum: 52 }; // pixels
 
 /** Run once from the editor after deploying: creates the admin token and prints the CLI command. */
 function setup() {
@@ -168,36 +169,45 @@ function createTournament_(props, req) {
 }
 
 function buildTabs_(ss, req) {
-  const lay = resultsLayout(req.round_sizes);
-  const results = ss.getSheets()[0].setName(TABS.results);
-  ensureSize_(results, 1, lay.width);
-  results.getRange(1, 1, 1, lay.width).setValues([lay.header]).setFontWeight("bold");
-  results.setFrozenRows(1);
-  results.setFrozenColumns(2);
-  formatResults_(results, req.round_sizes);
+  const sizes = req.round_sizes;
+  const summary = ss.getSheets()[0].setName(TABS.summary);
+  const sl = summaryLayout(sizes);
+  ensureSize_(summary, 1, sl.width);
+  summary.getRange(1, 1, 1, sl.width).setValues([sl.header]).setFontWeight("bold");
+  sizes.forEach((_, i) => {
+    const lay = roundLayout(sizes, i + 1);
+    const sheet = ss.insertSheet(lay.name, ss.getSheets().length);
+    ensureSize_(sheet, 1, lay.width);
+    sheet.getRange(1, 1, 1, lay.width).setValues([lay.header]).setFontWeight("bold");
+  });
 
-  const stats = ss.insertSheet(TABS.stats);
-  const rows = statsRows(req.round_sizes);
+  const stats = ss.insertSheet(TABS.stats, ss.getSheets().length);
+  const rows = statsRows(sizes);
   stats.getRange(1, 1, rows.length, 4).setValues(rows);
   stats.getRange(1, 1, 1, 4).setFontWeight("bold");
   stats.getRange(2, 4, rows.length - 1, 1).setNumberFormat("0%");
 
-  ss.insertSheet(TABS.teams).getRange(1, 1, 1, TEAMS_HEADER.length).setValues([TEAMS_HEADER]).setFontWeight("bold");
-  const log = ss.insertSheet(TABS.log);
+  ss.insertSheet(TABS.teams, ss.getSheets().length)
+    .getRange(1, 1, 1, TEAMS_HEADER.length).setValues([TEAMS_HEADER]).setFontWeight("bold");
+  const log = ss.insertSheet(TABS.log, ss.getSheets().length);
   log.getRange(1, 1, 1, LOG_HEADER.length).setValues([LOG_HEADER]).setFontWeight("bold");
   log.setFrozenRows(1);
-  const settings = ss.insertSheet(TABS.settings);
+  const settings = ss.insertSheet(TABS.settings, ss.getSheets().length);
   settings.getRange(1, 1, 6, 2).setValues([
-    ["tid", req.tid], ["name", req.name], ["date", req.date], ["round_sizes", JSON.stringify(req.round_sizes)],
+    ["tid", req.tid], ["name", req.name], ["date", req.date], ["round_sizes", JSON.stringify(sizes)],
     ["created", new Date()], ["backend_version", VERSION],
   ]);
-  const meta = ss.insertSheet(TABS.meta); // last-write timestamps, same shape as the marks block
-  ensureSize_(meta, 1, lay.n);
+  // Last-write timestamps: team_id, then one column per question.
+  const meta = ss.insertSheet(TABS.meta, ss.getSheets().length);
+  const n = totalQuestions(sizes);
+  ensureSize_(meta, 1, 1 + n);
+  meta.getRange(1, 1, 1, 1 + n).setValues([["team_id"].concat(Array.from({ length: n }, (_, k) => k + 1))]);
   meta.hideSheet();
 
   writeTeams_(ss, req.teams || []);
-  appendResultRows_(ss, req.round_sizes, req.teams || []);
-  ss.setActiveSheet(results);
+  syncTeamRows_(ss, sizes, req.teams || []);
+  formatSheets_(ss, sizes);
+  ss.setActiveSheet(summary);
 }
 
 // ---- teams ----
@@ -220,79 +230,150 @@ function writeTeams_(ss, teams) {
   }
 }
 
-/** Column widths, round borders and tints, mark colours. Safe to re-run on an existing Sheet. */
-function formatResults_(results, roundSizes) {
-  const lay = resultsLayout(roundSizes);
-  const rows = results.getMaxRows();
-  results.setColumnWidth(1, WIDTHS.id);
-  results.setColumnWidth(2, WIDTHS.name);
-  results.setColumnWidths(lay.firstQ, lay.n, WIDTHS.question);
-  results.setColumnWidths(lay.firstRound, roundSizes.length, WIDTHS.round);
-  results.setColumnWidths(lay.totalCol, 2, WIDTHS.total);
-  results.getRange(1, lay.firstQ, rows, lay.width - lay.firstQ + 1).setHorizontalAlignment("center");
-
+/** Widths, round tints, borders and mark colours on «Итоги» and the round tabs. Safe to re-run. */
+function formatSheets_(ss, sizes) {
   const thick = SpreadsheetApp.BorderStyle.SOLID_MEDIUM;
-  roundBands(roundSizes).forEach((band, i) => {
+  const lineBefore = (sheet, col) =>
+    sheet.getRange(1, col, sheet.getMaxRows(), 1).setBorder(null, true, null, null, null, null, "#000000", thick);
+  const frame = (sheet, width) => {
+    sheet.setFrozenRows(1);
+    sheet.setFrozenColumns(2);
+    sheet.setColumnWidth(1, WIDTHS.id);
+    sheet.setColumnWidth(2, WIDTHS.name);
+    sheet.getRange(1, FIRST_MARK_COL, sheet.getMaxRows(), width - FIRST_MARK_COL + 1).setHorizontalAlignment("center");
+  };
+
+  const summary = ss.getSheetByName(TABS.summary);
+  const sl = summaryLayout(sizes);
+  frame(summary, sl.width);
+  summary.setColumnWidths(sl.firstRound, sl.width - sl.firstRound + 1, WIDTHS.sum);
+  lineBefore(summary, sl.totalCol);
+
+  sizes.forEach((_, i) => {
+    const lay = roundLayout(sizes, i + 1);
     const tint = ROUND_TINTS[i % ROUND_TINTS.length];
-    // A thick line before each round, through every row.
-    results.getRange(1, band.firstCol, rows, 1).setBorder(null, true, null, null, null, null, "#000000", thick);
-    results.getRange(1, band.firstCol, 1, band.size).setBackground(tint);
-    results.getRange(1, band.totalCol).setBackground(tint);
+    summary.getRange(1, sl.firstRound + i).setBackground(tint);
+
+    const sheet = ss.getSheetByName(lay.name);
+    frame(sheet, lay.width);
+    sheet.setTabColor(tint);
+    sheet.getRange(1, lay.firstCol, 1, lay.size).setBackground(tint);
+    sheet.setColumnWidths(lay.firstCol, lay.size, WIDTHS.question);
+    sheet.setColumnWidth(lay.sumCol, WIDTHS.sum);
+    lineBefore(sheet, lay.sumCol);
+    const marks = sheet.getRange(2, lay.firstCol, sheet.getMaxRows() - 1, lay.size);
+    sheet.setConditionalFormatRules(Object.keys(COLORS).map((v) =>
+      SpreadsheetApp.newConditionalFormatRule()
+        .whenFormulaSatisfied(`=${colLetter(lay.firstCol)}2&""="${v}"`)
+        .setBackground(COLORS[v]).setRanges([marks]).build()));
   });
-  results.getRange(1, lay.firstRound, rows, 1).setBorder(null, true, null, null, null, null, "#000000", thick);
-  results.getRange(1, lay.totalCol, rows, 1).setBorder(null, true, null, null, null, null, "#000000", thick);
-
-  const marks = results.getRange(2, lay.firstQ, rows - 1, lay.n);
-  results.setConditionalFormatRules(Object.keys(COLORS).map((v) =>
-    SpreadsheetApp.newConditionalFormatRule()
-      .whenFormulaSatisfied(`=${colLetter(lay.firstQ)}2&""="${v}"`)
-      .setBackground(COLORS[v]).setRanges([marks]).build()));
 }
 
-function resultTeamRows_(results) {
-  const n = results.getLastRow() - 1;
+/** [{team_id, name, row}] for the rows of a tab that have a team ID in column A. */
+function teamRowsOf_(sheet) {
+  const n = sheet.getLastRow() - 1;
   if (n < 1) return [];
-  return results.getRange(2, 1, n, 2).getValues().map((r) => ({ team_id: String(r[0]), name: String(r[1]) }));
+  return sheet.getRange(2, 1, n, 2).getValues()
+    .map((r, i) => ({ team_id: String(r[0]).trim(), name: String(r[1]), row: i + 2 }))
+    .filter((t) => t.team_id !== "");
 }
 
-function appendResultRows_(ss, roundSizes, teams) {
-  if (!teams.length) return;
-  const results = ss.getSheetByName(TABS.results);
-  const first = results.getLastRow() + 1;
-  appendRows_(results, teams.map((t, i) => resultsRow(roundSizes, t, first + i)));
+function summaryOf_(ss) {
+  const summary = ss.getSheetByName(TABS.summary);
+  if (!summary) fail("this tournament's Sheet uses an older layout (one Results tab): create the tournament again");
+  return summary;
+}
+
+/** Give every team a row on «Итоги», on each round tab and in Meta; rename changed names. */
+function syncTeamRows_(ss, sizes, teams) {
+  const tabs = [[summaryOf_(ss), (t, row) => summaryRow(sizes, t, row)]].concat(sizes.map((_, i) => {
+    const lay = roundLayout(sizes, i + 1);
+    return [ss.getSheetByName(lay.name), (t, row) => roundRow(lay, t, row)];
+  }));
+  let counts = null;
+  tabs.forEach(([sheet, rowFor]) => {
+    const existing = teamRowsOf_(sheet);
+    const plan = planTeamRows(existing, teams);
+    plan.rename.forEach((t) => sheet.getRange(existing.find((r) => r.team_id === t.team_id).row, 2).setValue(t.name));
+    const first = sheet.getLastRow() + 1;
+    appendRows_(sheet, plan.append.map((t, i) => rowFor(t, first + i)));
+    counts = counts || { appended: plan.append.length, renamed: plan.rename.length };
+  });
   const meta = ss.getSheetByName(TABS.meta);
-  ensureSize_(meta, first - 1 + teams.length, resultsLayout(roundSizes).n);
+  const inMeta = new Set(teamRowsOf_(meta).map((t) => t.team_id));
+  const n = totalQuestions(sizes);
+  appendRows_(meta, teams.filter((t) => !inMeta.has(t.team_id))
+    .map((t) => [t.team_id].concat(new Array(n).fill(""))));
+  return counts;
 }
 
 function setTeams_(ss, reg, teams) {
   writeTeams_(ss, teams);
-  const results = ss.getSheetByName(TABS.results);
-  const existing = resultTeamRows_(results);
-  const plan = planTeamRows(existing, teams);
-  plan.rename.forEach((t) => {
-    const row = existing.findIndex((r) => r.team_id === t.team_id) + 2;
-    results.getRange(row, 2).setValue(t.name);
-  });
-  appendResultRows_(ss, reg.round_sizes, plan.append);
-  formatResults_(results, reg.round_sizes); // also brings Sheets made by older versions up to date
-  return { ok: true, appended: plan.append.length, renamed: plan.rename.length };
+  const counts = syncTeamRows_(ss, reg.round_sizes, teams);
+  formatSheets_(ss, reg.round_sizes);
+  return { ok: true, appended: counts.appended, renamed: counts.renamed };
 }
 
 // ---- marks ----
 
+/** Meta row per team ID; a team without one gets it appended. */
+function metaRows_(ss, n) {
+  const meta = ss.getSheetByName(TABS.meta);
+  const rows = new Map(teamRowsOf_(meta).map((t) => [t.team_id, t.row]));
+  const rowOf = (teamId) => {
+    if (!rows.has(teamId)) {
+      appendRows_(meta, [[teamId].concat(new Array(n).fill(""))]);
+      rows.set(teamId, meta.getLastRow());
+    }
+    return rows.get(teamId);
+  };
+  return { meta, rows, rowOf };
+}
+
+/** Every mark as "TEAM:Q" → {value, ts}, plus where each one sits on its round tab. */
 function readMarks_(ss, reg) {
-  const lay = resultsLayout(reg.round_sizes);
-  const results = ss.getSheetByName(TABS.results);
-  const teams = resultTeamRows_(results);
-  const values = teams.length ? results.getRange(2, lay.firstQ, teams.length, lay.n).getValues() : [];
-  const stamps = teams.length ? ss.getSheetByName(TABS.meta).getRange(1, 1, teams.length, lay.n).getValues() : [];
-  return { lay, results, teams, values, stamps };
+  const sizes = reg.round_sizes;
+  const n = totalQuestions(sizes);
+  const teams = teamRowsOf_(summaryOf_(ss)).map((t) => ({ team_id: t.team_id, name: t.name }));
+  const cells = {};
+  const where = {};
+  sizes.forEach((_, i) => {
+    const lay = roundLayout(sizes, i + 1);
+    const sheet = ss.getSheetByName(lay.name);
+    const last = sheet.getLastRow();
+    if (last < 2) return;
+    sheet.getRange(2, 1, last - 1, lay.sumCol - 1).getValues().forEach((r, j) => {
+      const id = String(r[0]).trim();
+      if (!id) return;
+      for (let k = 0; k < lay.size; k++) {
+        const key = `${id}:${lay.first + k}`;
+        cells[key] = { value: r[lay.firstCol - 1 + k], ts: 0 };
+        where[key] = { sheet, row: j + 2, col: lay.firstCol + k };
+      }
+    });
+  });
+  const m = metaRows_(ss, n);
+  const lastMeta = m.meta.getLastRow();
+  if (lastMeta >= 2) {
+    m.meta.getRange(2, 1, lastMeta - 1, 1 + n).getValues().forEach((r) => {
+      for (let q = 1; q <= n; q++) {
+        const cell = cells[`${String(r[0]).trim()}:${q}`];
+        if (cell) cell.ts = Number(r[q]) || 0;
+      }
+    });
+  }
+  return { n, teams, cells, where, meta: m };
 }
 
 function readState_(ss, reg) {
   const m = readMarks_(ss, reg);
   const marks = {};
-  m.teams.forEach((t, i) => { marks[t.team_id] = m.values[i]; });
+  m.teams.forEach((t) => {
+    marks[t.team_id] = Array.from({ length: m.n }, (_, k) => {
+      const cell = m.cells[`${t.team_id}:${k + 1}`];
+      return cell ? cell.value : "";
+    });
+  });
   return {
     ok: true,
     tournament: { name: reg.name, date: reg.date, round_sizes: reg.round_sizes },
@@ -303,28 +384,23 @@ function readState_(ss, reg) {
 
 function recordEvents_(ss, reg, req) {
   const m = readMarks_(ss, reg);
-  const cells = {};
-  m.teams.forEach((t, i) => {
-    for (let q = 1; q <= m.lay.n; q++) {
-      cells[`${t.team_id}:${q}`] = { value: m.values[i][q - 1], ts: Number(m.stamps[i][q - 1]) || 0 };
-    }
-  });
+  const cells = m.cells;
   const before = Object.assign({}, cells);
   const log = ss.getSheetByName(TABS.log);
   const nLog = log.getLastRow() - 1;
   const seen = new Set(nLog > 0 ? log.getRange(2, 3, nLog, 1).getValues().map((r) => String(r[0])) : []);
+  // Only teams with rows on the round tabs can be marked.
+  const teamIds = new Set(m.teams.map((t) => t.team_id).filter((id) => m.where[`${id}:1`]));
 
-  const outcomes = applyEvents(cells, seen, req.events, new Set(m.teams.map((t) => t.team_id)), reg.round_sizes, Date.now());
+  const outcomes = applyEvents(cells, seen, req.events, teamIds, reg.round_sizes, Date.now());
 
   // Write only the cells that changed, so a juror editing the sheet at the same moment is not overwritten.
-  const meta = ss.getSheetByName(TABS.meta);
-  const rowOf = new Map(m.teams.map((t, i) => [t.team_id, i]));
   Object.keys(cells).forEach((key) => {
     if (cells[key] === before[key]) return;
+    const at = m.where[key];
+    at.sheet.getRange(at.row, at.col).setValue(cells[key].value);
     const [teamId, q] = key.split(":");
-    const i = rowOf.get(teamId);
-    m.results.getRange(i + 2, m.lay.firstQ + Number(q) - 1).setValue(cells[key].value);
-    meta.getRange(i + 1, Number(q)).setValue(cells[key].ts);
+    m.meta.meta.getRange(m.meta.rowOf(teamId), 1 + Number(q)).setValue(cells[key].ts);
   });
 
   const now = new Date();
@@ -339,18 +415,18 @@ function recordEvents_(ss, reg, req) {
   return { ok: true, results: outcomes };
 }
 
-/** Installable onEdit trigger on each tournament sheet: jury edits in Results are logged and time-stamped. */
+/** Installable onEdit trigger on each tournament sheet: jury edits on round tabs are logged and time-stamped. */
 function onSheetEdit(e) {
   const sheet = e.range.getSheet();
-  if (sheet.getName() !== TABS.results) return;
+  const name = sheet.getName();
+  if (!/^Тур \d+$/.test(name)) return;
   const ss = sheet.getParent();
   const settings = ss.getSheetByName(TABS.settings).getRange(1, 1, 6, 2).getValues();
-  const roundSizes = JSON.parse(settings.find((r) => r[0] === "round_sizes")[1]);
-  const lay = resultsLayout(roundSizes);
+  const sizes = JSON.parse(settings.find((r) => r[0] === "round_sizes")[1]);
   const user = e.user && e.user.getEmail ? e.user.getEmail() : "";
 
   withLock_(() => {
-    const meta = ss.getSheetByName(TABS.meta);
+    const meta = metaRows_(ss, totalQuestions(sizes));
     const log = ss.getSheetByName(TABS.log);
     const now = Date.now();
     const rows = [];
@@ -358,8 +434,10 @@ function onSheetEdit(e) {
     values.forEach((rowValues, dr) => rowValues.forEach((raw, dc) => {
       const row = e.range.getRow() + dr;
       const col = e.range.getColumn() + dc;
-      const q = col - lay.firstQ + 1;
-      if (row < 2 || q < 1 || q > lay.n) return;
+      const q = questionAt(sizes, name, row, col);
+      if (q === null) return;
+      const teamId = String(sheet.getRange(row, 1).getValue()).trim();
+      if (!teamId) return;
       const cell = sheet.getRange(row, col);
       const status = normalizeCellInput(raw);
       if (status === null) {
@@ -369,8 +447,7 @@ function onSheetEdit(e) {
       cell.clearNote();
       const value = STATUS_VALUE[status];
       if (raw !== value) cell.setValue(value);
-      meta.getRange(row - 1, q).setValue(now);
-      const teamId = String(sheet.getRange(row, 1).getValue());
+      meta.meta.getRange(meta.rowOf(teamId), 1 + q).setValue(now);
       rows.push([new Date(now), new Date(now), `sheet-${now}-${row}-${col}`, "sheet", user, "", teamId, q, "", status, value, true, ""]);
     }));
     appendRows_(log, rows);

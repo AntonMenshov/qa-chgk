@@ -129,10 +129,11 @@ Created by `chgk new`. Tabs:
 | **Settings** | CLI | name, date, rounds, questions per round, IDs |
 | **Teams** | organizer (source of truth) | `team_id` (auto, e.g. `A07`, stable), `name`, `city`, `logo_file`, `logo_prompt` |
 | **Log** | Apps Script, append-only | `scan_id` (UUID, idempotent), server time, client time, juror, device, team, question, status, photo link, source (`app` / `sheet`) |
-| **Results** | Apps Script + jury edits | teams × questions matrix, per-round sums, total, place. Narrow question columns; rounds split by a thick line and alternating header tints (round totals share their round's tint) |
+| **Итоги** (first tab) | formulas | standings: each team's round sums, Итого, Место. Round sums are looked up by team ID, so sorting a round tab is harmless. Round columns share their round's colour |
+| **Тур 1 … Тур N** | Apps Script + jury edits | one tab per round (user request): teams × that round's questions (continuous numbers) and «Сумма». Narrow question columns; tab and header coloured, alternating by round |
 | **Stats** | formulas | per question: number of teams that took it, % |
 
-### Cell values in Results
+### Cell values on the round tabs
 
 | Value | Meaning | Counts as |
 |---|---|---|
@@ -148,7 +149,7 @@ A missing card scores as incorrect, but the sheet always shows whether a card wa
 ### Rules
 - **Last scan wins**, decided by the client timestamp of the action, so an offline
   scan synced late does not overwrite a newer decision. Every action stays in Log.
-- The jury resolves `?` and appeals **by editing the Results cell in the sheet**. An
+- The jury resolves `?` and appeals **by editing the mark cell on the round tab**. An
   `onEdit` trigger records those edits in Log (`source = sheet`) with a timestamp, so
   they take part in last-write-wins.
 - Writes are serialized with `LockService`, which keeps several simultaneous jurors
@@ -323,7 +324,7 @@ The Claude API does not output raster images, but it can write SVG.
 
 | Output | v1 | Later |
 |---|---|---|
-| Results tab (standings, round sums, place) | ✓ | |
+| «Итоги» + per-round tabs (standings, round sums, place) | ✓ | |
 | Stats tab (teams taking each question) | ✓ | |
 | Projector board (web page, live standings, read-only token) | ✓ | |
 | rating.chgk.info export | | after the core is done |

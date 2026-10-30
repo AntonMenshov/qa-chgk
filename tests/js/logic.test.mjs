@@ -99,31 +99,44 @@ test("normalizeCellInput", () => {
   assert.equal(L.normalizeCellInput(null), "cleared");
 });
 
-test("resultsLayout and resultsRow", () => {
-  const lay = L.resultsLayout([12, 12, 15]);
-  assert.equal(lay.n, 39);
-  assert.deepEqual(lay.header.slice(0, 3), ["ID", "Команда", 1]);
-  assert.deepEqual(lay.header.slice(-5), ["Тур 1", "Тур 2", "Тур 3", "Итого", "Место"]);
+test("roundLayout and roundRow", () => {
+  const lay = L.roundLayout([12, 12, 15], 3);
+  assert.deepEqual([lay.name, lay.first, lay.size, lay.firstCol, lay.sumCol], ["Тур 3", 25, 15, 3, 18]);
+  assert.deepEqual(lay.header.slice(0, 3), ["ID", "Команда", 25]);
+  assert.deepEqual(lay.header.slice(-2), [39, "Сумма"]);
   assert.equal(lay.header.length, lay.width);
-
-  const row = L.resultsRow([2, 3], { team_id: "A01", name: "Синие зайцы" }, 4);
-  // A ID, B name, C-G marks (5), H-I rounds, J total, K place
-  assert.deepEqual(row, ["A01", "Синие зайцы", "", "", "", "", "", "=COUNTIF(C4:D4,1)", "=COUNTIF(E4:G4,1)", "=SUM(H4:I4)", "=RANK(J4,J$2:J)"]);
+  const row = L.roundRow(L.roundLayout([2, 3], 2), { team_id: "A01", name: "Синие зайцы" }, 4);
+  assert.deepEqual(row, ["A01", "Синие зайцы", "", "", "", "=COUNTIF(C4:E4,1)"]);
 });
 
-test("roundBands", () => {
-  // C-D round 1, E-G round 2; totals in H and I
-  assert.deepEqual(L.roundBands([2, 3]), [
-    { round: 1, firstCol: 3, size: 2, totalCol: 8 },
-    { round: 2, firstCol: 5, size: 3, totalCol: 9 },
-  ]);
+test("questionCell and questionAt agree for every question", () => {
+  const sizes = [12, 12, 15];
+  for (let q = 1; q <= 39; q++) {
+    const at = L.questionCell(sizes, q);
+    assert.equal(L.questionAt(sizes, at.name, 7, at.col), q);
+  }
+  assert.deepEqual(L.questionCell(sizes, 13), { round: 2, name: "Тур 2", col: 3 });
+  assert.equal(L.questionCell(sizes, 40), null);
+  assert.equal(L.questionAt(sizes, "Тур 1", 1, 3), null); // header
+  assert.equal(L.questionAt(sizes, "Тур 1", 2, 2), null); // name
+  assert.equal(L.questionAt(sizes, "Тур 1", 2, 15), null); // Сумма
+  assert.equal(L.questionAt(sizes, "Тур 4", 2, 3), null);
+  assert.equal(L.questionAt(sizes, "Итоги", 2, 3), null);
+});
+
+test("summaryLayout and summaryRow", () => {
+  const lay = L.summaryLayout([2, 3]);
+  assert.deepEqual(lay.header, ["ID", "Команда", "Тур 1", "Тур 2", "Итого", "Место"]);
+  assert.deepEqual(L.summaryRow([2, 3], { team_id: "A01", name: "X" }, 4), ["A01", "X",
+    "=IFERROR(INDEX('Тур 1'!$E:$E,MATCH($A4,'Тур 1'!$A:$A,0)),0)",
+    "=IFERROR(INDEX('Тур 2'!$F:$F,MATCH($A4,'Тур 2'!$A:$A,0)),0)", "=SUM(C4:D4)", "=RANK(E4,E$2:E)"]);
 });
 
 test("statsRows", () => {
   const rows = L.statsRows([2, 1]);
   assert.deepEqual(rows[0], ["Вопрос", "Тур", "Взяли", "Доля"]);
-  assert.deepEqual(rows[1], [1, 1, "=COUNTIF(Results!C$2:C,1)", "=IFERROR(C2/COUNTA(Results!$A$2:$A),0)"]);
-  assert.deepEqual(rows[3], [3, 2, "=COUNTIF(Results!E$2:E,1)", "=IFERROR(C4/COUNTA(Results!$A$2:$A),0)"]);
+  assert.deepEqual(rows[1], [1, 1, "=COUNTIF('Тур 1'!C$2:C,1)", "=IFERROR(C2/COUNTA('Тур 1'!$A$2:$A),0)"]);
+  assert.deepEqual(rows[3], [3, 2, "=COUNTIF('Тур 2'!C$2:C,1)", "=IFERROR(C4/COUNTA('Тур 2'!$A$2:$A),0)"]);
 });
 
 test("planTeamRows", () => {

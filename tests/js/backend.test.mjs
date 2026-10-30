@@ -63,13 +63,22 @@ test("doGet is a health check; bad JSON and bad tokens are refused", () => {
 
 test("create_tournament builds every tab and is idempotent for the same jury token", () => {
   const { b, admin, ss, tab } = world();
-  assert.deepEqual(ss.getSheets().map((s) => s.getName()), ["Results", "Stats", "Teams", "Log", "Settings", "Meta"]);
+  assert.deepEqual(ss.getSheets().map((s) => s.getName()),
+    ["Итоги", "Тур 1", "Тур 2", "Stats", "Teams", "Log", "Settings", "Meta"]);
   assert.equal(tab("Meta").hidden, true);
-  assert.deepEqual(tab("Results").row(1, 11), ["ID", "Команда", 1, 2, 3, 4, 5, 6, "Тур 1", "Тур 2", "Итого"]);
-  assert.deepEqual(tab("Results").row(3, 12), ["A02", "Фиаско", "", "", "", "", "", "", "=COUNTIF(C3:E3,1)",
-    "=COUNTIF(F3:H3,1)", "=SUM(I3:J3)", "=RANK(K3,K$2:K)"]);
+  assert.deepEqual(tab("Итоги").row(1, 6), ["ID", "Команда", "Тур 1", "Тур 2", "Итого", "Место"]);
+  assert.deepEqual(tab("Итоги").row(3, 6), ["A02", "Фиаско",
+    "=IFERROR(INDEX('Тур 1'!$F:$F,MATCH($A3,'Тур 1'!$A:$A,0)),0)",
+    "=IFERROR(INDEX('Тур 2'!$F:$F,MATCH($A3,'Тур 2'!$A:$A,0)),0)", "=SUM(C3:D3)", "=RANK(E3,E$2:E)"]);
+  // Round tabs keep the continuous question numbers.
+  assert.deepEqual(tab("Тур 1").row(1, 6), ["ID", "Команда", 1, 2, 3, "Сумма"]);
+  assert.deepEqual(tab("Тур 2").row(1, 6), ["ID", "Команда", 4, 5, 6, "Сумма"]);
+  assert.deepEqual(tab("Тур 2").row(3, 6), ["A02", "Фиаско", "", "", "", "=COUNTIF(C3:E3,1)"]);
+  assert.deepEqual(tab("Meta").row(1, 7), ["team_id", 1, 2, 3, 4, 5, 6]);
+  assert.deepEqual(tab("Meta").row(3, 1), ["A02"]);
   assert.deepEqual(tab("Teams").row(3, 4), ["A02", "Фиаско", "Бостон", ""]);
   assert.equal(tab("Stats").getLastRow(), 7);
+  assert.deepEqual(tab("Stats").row(5, 3), [4, 2, "=COUNTIF('Тур 2'!C$2:C,1)"]);
   assert.deepEqual(b.$.triggers, ["onSheetEdit"]);
   assert.equal(b.$.root.children[0].name, "ЧГК");
 
@@ -81,35 +90,39 @@ test("create_tournament builds every tab and is idempotent for the same jury tok
   assert.match(clash.error, /already exists/);
 });
 
-test("Results: narrow centred question columns, a thick line and a tint per round", () => {
-  const { tab } = world({ roundSizes: [3, 3] });
-  const r = tab("Results"); // C-E round 1, F-H round 2, I-J round totals, K Итого, L Место
-  assert.deepEqual([3, 4, 5, 6, 7, 8].map((c) => r.widths.get(c)), [28, 28, 28, 28, 28, 28]);
-  assert.ok(r.widths.get(2) > 100);
-  assert.equal(r.align.get("5,4"), "center");
-  for (const col of [3, 6, 9, 11]) assert.equal(r.leftBorders.get(`500,${col}`), "SOLID_MEDIUM", `col ${col}`);
-  assert.equal(r.leftBorders.get("2,4"), undefined);
-  const tint = (c) => r.backgrounds.get(`1,${c}`);
-  assert.equal(tint(3), tint(5));
-  assert.equal(tint(3), tint(9)); // round 1 total matches round 1
-  assert.notEqual(tint(3), tint(6));
-  assert.equal(tint(6), tint(10));
+test("round tabs: narrow centred question columns, a tint per round, a thick line before the sum", () => {
+  const { tab } = world({ roundSizes: [3, 3, 2] });
+  const r1 = tab("Тур 1"); // C-E questions, F Сумма
+  assert.deepEqual([3, 4, 5].map((c) => r1.widths.get(c)), [28, 28, 28]);
+  assert.ok(r1.widths.get(2) > 100);
+  assert.equal(r1.align.get("5,4"), "center");
+  assert.equal(r1.leftBorders.get("500,6"), "SOLID_MEDIUM");
+  assert.equal(r1.leftBorders.get("2,4"), undefined);
+  const tints = ["Тур 1", "Тур 2", "Тур 3"].map((n) => tab(n).tabColor);
+  assert.equal(tints[0], tints[2]);
+  assert.notEqual(tints[0], tints[1]);
+  assert.equal(r1.backgrounds.get("1,3"), tints[0]);
+  // «Итоги»: each round's column has that round's colour; a line before Итого (F).
+  const sum = tab("Итоги");
+  assert.deepEqual([3, 4, 5].map((c) => sum.backgrounds.get(`1,${c}`)), tints);
+  assert.equal(sum.leftBorders.get("10,6"), "SOLID_MEDIUM");
 });
 
-test("set_teams re-applies the Results formatting (Sheets from older versions)", () => {
+test("set_teams re-applies the formatting", () => {
   const { b, admin, tab } = world();
-  tab("Results").widths.clear();
+  tab("Тур 1").widths.clear();
   b.post({ action: "set_teams", tid: TID, token: admin, teams: TEAMS });
-  assert.equal(tab("Results").widths.get(3), 28);
+  assert.equal(tab("Тур 1").widths.get(3), 28);
 });
 
-test("a wide tournament (8 × 15 questions) fits: sheets grow past 26 columns", () => {
+test("a wide tournament (8 × 15 questions) fits: Meta grows past 26 columns", () => {
   const { tab } = world({ roundSizes: new Array(8).fill(15) });
-  assert.equal(tab("Results").get(1, 2 + 120 + 8 + 2), "Место");
-  assert.ok(tab("Meta").getMaxColumns() >= 120);
+  assert.equal(tab("Итоги").get(1, 2 + 8 + 2), "Место");
+  assert.equal(tab("Тур 8").get(1, 3), 106);
+  assert.ok(tab("Meta").getMaxColumns() >= 121);
 });
 
-test("record_events writes marks, timestamps and the log; duplicates and bad events are reported", () => {
+test("record_events writes marks to the round tabs, timestamps and the log; duplicates and bad events are reported", () => {
   const { b, tab } = world();
   const now = Date.now();
   const res = b.post({ action: "record_events", tid: TID, token: JURY, events: [
@@ -121,9 +134,10 @@ test("record_events writes marks, timestamps and the log; duplicates and bad eve
   assert.equal(res.ok, true);
   assert.deepEqual(res.results.map((r) => [r.scan_id, r.applied, Boolean(r.error)]),
     [["r1", true, false], ["j1", true, false], ["j2", true, false], ["bad", false, true]]);
-  assert.equal(tab("Results").get(2, 4), 0); // A01 q2
-  assert.equal(tab("Results").get(3, 8), "?"); // A02 q6
-  assert.equal(tab("Meta").get(1, 2), now - 2000);
+  assert.equal(tab("Тур 1").get(2, 4), 0); // A01 q2
+  assert.equal(tab("Тур 2").get(3, 5), "?"); // A02 q6
+  assert.equal(tab("Meta").get(2, 1 + 2), now - 2000); // A01 q2
+  assert.equal(tab("Meta").get(3, 1 + 6), now - 2000); // A02 q6
   assert.equal(tab("Log").getLastRow(), 4); // header + 3 valid events
   assert.deepEqual(tab("Log").row(2, 12).slice(2, 12), ["r1", "app", "Анна", "iphone", "A01", 2, "", "received", "R", true]);
 
@@ -134,7 +148,26 @@ test("record_events writes marks, timestamps and the log; duplicates and bad eve
 
   // Re-scanning a judged card does not undo the judgement.
   b.post({ action: "record_events", tid: TID, token: JURY, events: [ev({ status: "received", question: 2, client_ts: now })] });
-  assert.equal(tab("Results").get(2, 4), 0);
+  assert.equal(tab("Тур 1").get(2, 4), 0);
+});
+
+test("rows are found by team ID: sorting a round tab doesn't misplace marks", () => {
+  const { b, tab } = world();
+  const r2 = tab("Тур 2");
+  // The jury sorts «Тур 2» so that A02 comes first.
+  const [row2, row3] = [r2.row(2, 6), r2.row(3, 6)];
+  row3.forEach((v, c) => r2.set(2, c + 1, v));
+  row2.forEach((v, c) => r2.set(3, c + 1, v));
+  b.post({ action: "record_events", tid: TID, token: JURY, events: [ev({ team_id: "A02", question: 4 })] });
+  assert.deepEqual(r2.row(2, 3), ["A02", "Фиаско", 1]);
+  assert.equal(r2.get(3, 3), "");
+  assert.deepEqual(b.post({ action: "get_state", tid: TID, token: JURY }).marks.A02, ["", "", "", 1, "", ""]);
+});
+
+test("a Sheet with the old single Results tab gets a clear error", () => {
+  const { b, ss } = world();
+  ss.getSheetByName("Итоги").setName("Results");
+  assert.match(b.post({ action: "get_state", tid: TID, token: JURY }).error, /older layout/);
 });
 
 test("record_events needs the jury (or admin) token", () => {
@@ -145,44 +178,56 @@ test("record_events needs the jury (or admin) token", () => {
 
 test("get_state returns teams and marks for the scanner", () => {
   const { b } = world();
-  b.post({ action: "record_events", tid: TID, token: JURY, events: [ev({ question: 3 })] });
+  b.post({ action: "record_events", tid: TID, token: JURY, events: [ev({ question: 3 }), ev({ team_id: "A02", question: 5 })] });
   const state = b.post({ action: "get_state", tid: TID, token: JURY });
   assert.deepEqual(state.tournament.round_sizes, [3, 3]);
   assert.deepEqual(state.teams.map((t) => t.team_id), ["A01", "A02"]);
   assert.deepEqual(state.marks.A01, ["", "", 1, "", "", ""]);
+  assert.deepEqual(state.marks.A02, ["", "", "", "", 1, ""]);
 });
 
-test("set_teams appends Results rows for new teams and renames changed ones", () => {
+test("set_teams adds rows on every tab for new teams and renames changed ones", () => {
   const { b, admin, tab } = world();
   const res = b.post({ action: "set_teams", tid: TID, token: admin, teams: [
     { team_id: "A01", name: "42 (новое имя)" }, { team_id: "A02", name: "Фиаско" }, { team_id: "A03", name: "Совхоз Победа" },
   ] });
   assert.deepEqual([res.appended, res.renamed], [1, 1]);
-  assert.equal(tab("Results").get(2, 2), "42 (новое имя)");
-  assert.deepEqual(tab("Results").row(4, 2), ["A03", "Совхоз Победа"]);
-  assert.equal(tab("Results").get(4, 11), "=SUM(I4:J4)");
+  for (const name of ["Итоги", "Тур 1", "Тур 2"]) {
+    assert.equal(tab(name).get(2, 2), "42 (новое имя)", name);
+    assert.deepEqual(tab(name).row(4, 2), ["A03", "Совхоз Победа"], name);
+  }
+  assert.equal(tab("Итоги").get(4, 5), "=SUM(C4:D4)");
+  assert.equal(tab("Тур 2").get(4, 6), "=COUNTIF(C4:E4,1)");
+  assert.equal(tab("Meta").get(4, 1), "A03");
   assert.deepEqual(b.post({ action: "get_teams", tid: TID, token: admin }).teams.map((t) => t.team_id), ["A01", "A02", "A03"]);
+  // Marks for the new team work straight away.
+  assert.equal(b.post({ action: "record_events", tid: TID, token: JURY, events: [ev({ team_id: "A03", question: 6 })] })
+    .results[0].applied, true);
+  assert.equal(tab("Тур 2").get(4, 5), 1);
 });
 
-test("onSheetEdit: jury edits are normalised, time-stamped and logged; nonsense gets a note", () => {
+test("onSheetEdit: jury edits on a round tab are normalised, time-stamped and logged; nonsense gets a note", () => {
   const { b, tab } = world();
-  const results = tab("Results");
-  results.set(2, 3, "+");
-  b.onSheetEdit({ range: results.getRange(2, 3), user: { getEmail: () => "judge@gmail.com" } });
-  assert.equal(results.get(2, 3), 1);
-  assert.ok(tab("Meta").get(1, 1) > 0);
-  assert.deepEqual(tab("Log").row(2, 11).slice(3, 11), ["sheet", "judge@gmail.com", "", "A01", 1, "", "correct", 1]);
+  const r2 = tab("Тур 2");
+  r2.set(3, 4, "+"); // A02, question 5
+  b.onSheetEdit({ range: r2.getRange(3, 4), user: { getEmail: () => "judge@gmail.com" } });
+  assert.equal(r2.get(3, 4), 1);
+  assert.ok(tab("Meta").get(3, 1 + 5) > 0);
+  assert.deepEqual(tab("Log").row(2, 11).slice(3, 11), ["sheet", "judge@gmail.com", "", "A02", 5, "", "correct", 1]);
 
-  results.set(2, 4, "maybe");
-  b.onSheetEdit({ range: results.getRange(2, 4) });
-  assert.match(results.notes.get("2,4"), /Непонятное/);
+  r2.set(2, 3, "maybe");
+  b.onSheetEdit({ range: r2.getRange(2, 3) });
+  assert.match(r2.notes.get("2,3"), /Непонятное/);
   assert.equal(tab("Log").getLastRow(), 2);
 
-  // Edits outside the marks block (names, totals) are ignored.
-  b.onSheetEdit({ range: results.getRange(2, 2) });
+  // Names, sums, headers and other tabs are ignored.
+  b.onSheetEdit({ range: r2.getRange(2, 2) });
+  b.onSheetEdit({ range: r2.getRange(2, 6) });
+  b.onSheetEdit({ range: r2.getRange(1, 3) });
+  b.onSheetEdit({ range: tab("Итоги").getRange(2, 3) });
   assert.equal(tab("Log").getLastRow(), 2);
 
   // A later app event older than the jury's edit does not overwrite it.
-  b.post({ action: "record_events", tid: TID, token: JURY, events: [ev({ status: "incorrect", question: 1, client_ts: Date.now() - 3600000 })] });
-  assert.equal(results.get(2, 3), 1);
+  b.post({ action: "record_events", tid: TID, token: JURY, events: [ev({ team_id: "A02", status: "incorrect", question: 5, client_ts: Date.now() - 3600000 })] });
+  assert.equal(r2.get(3, 4), 1);
 });

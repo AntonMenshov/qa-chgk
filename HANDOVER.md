@@ -104,7 +104,7 @@ checks that the decks come out in order.
   a secret jury link.
 - **QR:** a URL, `…/s/#<TID>.<TEAM>.<Q>`; spare cards use `S1…Sn`. Printed at
   **0.65 in** including the quiet zone, error correction M, vector.
-- **Results cells:**
+- **Mark cells (round tabs):**
   - blank = no card;
   - `R` = received, not judged;
   - `1` / `0` / `?` = judged.
@@ -156,7 +156,7 @@ checks that the decks come out in order.
      `setup`, and runs the printed `chgk backend add` command.
    - Then run the live end-to-end check: `chgk backend check`,
      `chgk new tournaments/example`, post a few events with the jury token (scratch
-     script, no commit), look at the Sheet, try a jury edit in Results, and
+     script, no commit), look at the Sheet, try a jury edit on a round tab, and
      `chgk teams`.
    - Fix whatever the real Sheets service does differently from the fakes in
      `tests/js/fake_apps_script.mjs`.
@@ -175,9 +175,11 @@ checks that the decks come out in order.
   logos it was invisible. Scaling by the darkest pixel was a bug (a few stray dark pixels);
   now the darkest 10% of the drawing sets the shade.
 - Draw cut guides **after** the cards, or the QR's white quiet zone hides them.
-- Results formatting lives in `formatResults_` and is re-applied by `set_teams`, so
-  `chgk teams` upgrades Sheets made by older backend versions (user asked for narrow
-  question columns split by round).
+- The Sheet has «Итоги» plus one tab per round (user request), not one Results tab.
+  Every lookup goes by team ID in column A (round tabs, «Итоги» formulas via MATCH, Meta
+  with `team_id` in column A), so the jury can sort any tab. Formatting lives in
+  `formatSheets_` and is re-applied by `set_teams`. Sheets with the old Results layout
+  get a clear "older layout" error: create the tournament again.
 - Google's consent screen lets the owner untick single permissions. The first live
   `chgk new` failed with "no permission to call SpreadsheetApp.create". Now `setup()`
   calls `ScriptApp.requireAllScopes`, ping reports `authorized`, and the CLI explains

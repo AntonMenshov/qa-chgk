@@ -60,6 +60,7 @@ export class FakeSheet {
     if (col + n - 1 > this.maxCols) throw new Error("setColumnWidths out of bounds");
     for (let i = 0; i < n; i++) this.widths.set(col + i, w);
   }
+  setTabColor(c) { this.tabColor = c; return this; }
   setFrozenRows() {}
   setFrozenColumns() {}
   hideSheet() { this.hidden = true; return this; }
@@ -72,7 +73,12 @@ class FakeSpreadsheet {
   constructor(id, name) { Object.assign(this, { id, name, sheets: [] }); this.sheets.push(new FakeSheet(this, "Sheet1")); }
   getId() { return this.id; }
   getSheets() { return this.sheets; }
-  insertSheet(name) { const s = new FakeSheet(this, name); this.sheets.push(s); return s; }
+  insertSheet(name, index = this.sheets.length) {
+    if (this.getSheetByName(name)) throw new Error(`sheet ${name} exists`);
+    const s = new FakeSheet(this, name);
+    this.sheets.splice(index, 0, s);
+    return s;
+  }
   getSheetByName(name) { return this.sheets.find((s) => s.name === name) || null; }
   setActiveSheet() {}
 }

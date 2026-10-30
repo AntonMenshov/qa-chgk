@@ -95,7 +95,7 @@ function eventError(ev, teamIds, roundSizes, nowMs) {
 }
 
 /**
- * Last-write-wins for one Results cell. `cell` is {value, ts}; returns the new cell.
+ * Last-write-wins for one mark cell. `cell` is {value, ts}; returns the new cell.
  * - "received" only fills an empty cell: re-scanning a card never undoes a judgement.
  * - Any other status replaces the cell if it is at least as new as the cell.
  */
@@ -108,7 +108,7 @@ function mergeCell(cell, status, ts) {
 }
 
 /**
- * Apply a batch of events to an in-memory view of the Results matrix.
+ * Apply a batch of events to an in-memory view of all marks.
  * `cells` maps "TEAM:Q" → {value, ts}; `seen` is a Set of already-applied scan_ids.
  * Mutates both; returns one outcome per event (same order).
  */
@@ -126,7 +126,7 @@ function applyEvents(cells, seen, events, teamIds, roundSizes, nowMs) {
   });
 }
 
-/** What a juror typed into a Results cell → status, or null if it isn't a valid mark. */
+/** What a juror typed into a mark cell → status, or null if it isn't a valid mark. */
 function normalizeCellInput(raw) {
   const v = String(raw == null ? "" : raw).trim().toLowerCase();
   if (v === "") return "cleared";
@@ -137,41 +137,73 @@ function normalizeCellInput(raw) {
   return null;
 }
 
-/** Results tab layout: column positions and the header row. */
-function resultsLayout(roundSizes) {
-  const n = totalQuestions(roundSizes);
-  const firstQ = 3; // A: ID, B: Команда
-  const firstRound = firstQ + n;
-  const totalCol = firstRound + roundSizes.length;
-  const placeCol = totalCol + 1;
+// Sheet layout: an «Итоги» summary tab, then one tab per round («Тур 1», «Тур 2», …).
+// Every tab starts with A: ID, B: Команда; rows are found by team ID, never by position.
+
+const FIRST_MARK_COL = 3;
+
+function roundSheetName(round) {
+  return `Тур ${round}`;
+}
+
+/** Round tab `round` (1-based): its question numbers, columns and header row. */
+function roundLayout(roundSizes, round) {
+  const first = roundSizes.slice(0, round - 1).reduce((a, b) => a + b, 0) + 1;
+  const size = roundSizes[round - 1];
+  const sumCol = FIRST_MARK_COL + size;
   const header = ["ID", "Команда"];
-  for (let q = 1; q <= n; q++) header.push(q);
-  roundSizes.forEach((_, i) => header.push(`Тур ${i + 1}`));
-  header.push("Итого", "Место");
-  return { n, firstQ, firstRound, totalCol, placeCol, width: placeCol, header };
+  for (let k = 0; k < size; k++) header.push(first + k);
+  header.push("Сумма");
+  return { round, name: roundSheetName(round), first, size, firstCol: FIRST_MARK_COL, sumCol, width: sumCol, header };
 }
 
-/** Per round: its question columns and its total column (1-based), for borders and tints. */
-function roundBands(roundSizes) {
-  const L = resultsLayout(roundSizes);
-  let col = L.firstQ;
-  return roundSizes.map((size, i) => {
-    const band = { round: i + 1, firstCol: col, size, totalCol: L.firstRound + i };
-    col += size;
-    return band;
-  });
-}
-
-/** One Results row for a team at sheet row `row` (1-based): IDs, empty marks, formulas. */
-function resultsRow(roundSizes, team, row) {
-  const L = resultsLayout(roundSizes);
+/** One row of a round tab for a team at sheet row `row` (1-based): IDs, empty marks, the round sum. */
+function roundRow(lay, team, row) {
   const cells = [team.team_id, team.name];
-  for (let q = 0; q < L.n; q++) cells.push("");
-  let start = L.firstQ;
-  for (const size of roundSizes) {
-    cells.push(`=COUNTIF(${colLetter(start)}${row}:${colLetter(start + size - 1)}${row},1)`);
-    start += size;
+  for (let k = 0; k < lay.size; k++) cells.push("");
+  cells.push(`=COUNTIF(${colLetter(lay.firstCol)}${row}:${colLetter(lay.sumCol - 1)}${row},1)`);
+  return cells;
+}
+
+/** Where question q's marks live: round, tab name and column. */
+function questionCell(roundSizes, q) {
+  let first = 1;
+  for (let r = 1; r <= roundSizes.length; r++) {
+    if (q >= first && q < first + roundSizes[r - 1]) return { round: r, name: roundSheetName(r), col: FIRST_MARK_COL + q - first };
+    first += roundSizes[r - 1];
   }
+  return null;
+}
+
+/** The question a cell holds the mark for, or null (names, sums, headers, other tabs). */
+function questionAt(roundSizes, sheetName, row, col) {
+  const m = /^Тур (\d+)$/.exec(sheetName);
+  if (!m || row < 2) return null;
+  const round = Number(m[1]);
+  if (round < 1 || round > roundSizes.length) return null;
+  const lay = roundLayout(roundSizes, round);
+  const k = col - lay.firstCol;
+  return k >= 0 && k < lay.size ? lay.first + k : null;
+}
+
+/** «Итоги» tab: one column per round, then Итого and Место. */
+function summaryLayout(roundSizes) {
+  const firstRound = FIRST_MARK_COL;
+  const totalCol = firstRound + roundSizes.length;
+  const header = ["ID", "Команда"].concat(roundSizes.map((_, i) => roundSheetName(i + 1)), ["Итого", "Место"]);
+  return { firstRound, totalCol, placeCol: totalCol + 1, width: totalCol + 1, header };
+}
+
+/** One «Итоги» row: each round's sum looked up by team ID, so sorting a round tab is harmless. */
+function summaryRow(roundSizes, team, row) {
+  const L = summaryLayout(roundSizes);
+  const cells = [team.team_id, team.name];
+  roundSizes.forEach((_, i) => {
+    const lay = roundLayout(roundSizes, i + 1);
+    const tab = `'${lay.name}'`;
+    const sum = colLetter(lay.sumCol);
+    cells.push(`=IFERROR(INDEX(${tab}!$${sum}:$${sum},MATCH($A${row},${tab}!$A:$A,0)),0)`);
+  });
   cells.push(`=SUM(${colLetter(L.firstRound)}${row}:${colLetter(L.totalCol - 1)}${row})`);
   const tc = colLetter(L.totalCol);
   cells.push(`=RANK(${tc}${row},${tc}$2:${tc})`);
@@ -180,20 +212,18 @@ function resultsRow(roundSizes, team, row) {
 
 /** Stats tab rows: one per question with how many teams took it. */
 function statsRows(roundSizes) {
-  const L = resultsLayout(roundSizes);
   const rows = [["Вопрос", "Тур", "Взяли", "Доля"]];
-  let q = 1;
-  roundSizes.forEach((size, i) => {
-    for (let k = 0; k < size; k++, q++) {
-      const col = colLetter(L.firstQ + q - 1);
-      const r = rows.length + 1;
-      rows.push([q, i + 1, `=COUNTIF(Results!${col}$2:${col},1)`, `=IFERROR(C${r}/COUNTA(Results!$A$2:$A),0)`]);
-    }
-  });
+  for (let q = 1; q <= totalQuestions(roundSizes); q++) {
+    const at = questionCell(roundSizes, q);
+    const tab = `'${at.name}'`;
+    const col = colLetter(at.col);
+    const r = rows.length + 1;
+    rows.push([q, at.round, `=COUNTIF(${tab}!${col}$2:${col},1)`, `=IFERROR(C${r}/COUNTA(${tab}!$A$2:$A),0)`]);
+  }
   return rows;
 }
 
-/** Which teams need new Results rows and which names changed, given the IDs already there. */
+/** Which teams need new rows on a tab and which names changed, given the IDs already there. */
 function planTeamRows(existingRows, teams) {
   const byId = new Map(existingRows.map((r) => [r.team_id, r.name]));
   const append = teams.filter((t) => !byId.has(t.team_id));
@@ -204,6 +234,7 @@ function planTeamRows(existingRows, teams) {
 if (typeof module !== "undefined") {
   module.exports = {
     STATUSES, STATUS_VALUE, RequestError, tokensEqual, colLetter, totalQuestions, validateRequest,
-    eventError, mergeCell, applyEvents, normalizeCellInput, resultsLayout, roundBands, resultsRow, statsRows, planTeamRows,
+    eventError, mergeCell, applyEvents, normalizeCellInput, roundSheetName, roundLayout, roundRow, questionCell,
+    questionAt, summaryLayout, summaryRow, statsRows, planTeamRows,
   };
 }

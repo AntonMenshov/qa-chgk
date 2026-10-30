@@ -81,5 +81,5 @@ def sync_teams(folder: Path, profiles: Profiles, client: BackendClient | None = 
             raise ValueError(f"Teams tab: team {team_id} has no name")
         teams.append(Team(team_id, name, (row.get("city") or "").strip(), (row.get("logo_file") or "").strip()))
     write_teams_csv(folder / TEAMS_FILE, teams)
-    client.set_teams(state.tid, _team_dicts(teams))  # writes assigned IDs back and adds Results rows
+    client.set_teams(state.tid, _team_dicts(teams))  # writes assigned IDs back and adds rows on every tab
     return teams
