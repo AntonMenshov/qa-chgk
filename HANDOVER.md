@@ -19,7 +19,7 @@ Full design: [SPEC.md](SPEC.md). Build order: [PLAN.md](PLAN.md).
 | Phase | Status |
 |---|---|
 | Spec and plan | ✅ done, agreed with the user |
-| 0 — Skeleton and spikes | 🔶 skeleton ✅; spike 1 ✅; spike 3 ✅ (user chose 0.65 in QR, 3% grey); spike 2 waiting for GitHub Pages |
+| 0 — Skeleton and spikes | 🔶 skeleton ✅; spike 1 ✅; spike 3 ✅ (user chose 0.65 in QR, 3% grey); spike 2 ready on Pages, waiting for the user's iPhone |
 | 1 — Config, identity, card PDF | ✅ done; cards work offline from `teams.csv` |
 | 2 — Apps Script backend + Sheet | next |
 | 3 — Scanner web app | not started |
@@ -49,7 +49,8 @@ tests/                pytest (test_*.py) + JS tests in tests/js/*.test.mjs
 tests/vectors/        shared JSON test vectors (qr_payloads.json) for Python and JS
 spikes/               throwaway Phase 0 experiments (no tests)
 docs/spikes.md        spike instructions and results
-.github/workflows/    CI: pytest + npm test (no remote yet, so not running)
+web/                  GitHub Pages site; web/s/ = scanner (placeholder until Phase 3)
+.github/workflows/    tests.yml (pytest + npm test), pages.yml (deploys web/ + spike pages)
 package.json          only for `npm test` (no npm dependencies)
 ```
 
@@ -79,8 +80,14 @@ checks that the decks come out in order.
 
 ## Key decisions (details in SPEC.md)
 
-- **Backend:** one Apps Script web app under the user's personal Gmail. It creates
-  one Sheet and one Drive folder per tournament. No Google Cloud project.
+- **Backend:** one Apps Script web app per Google account. It creates one Sheet and
+  one Drive folder per tournament. No Google Cloud project.
+- **Switchable Google account (user requirement, SPEC §3.1):**
+  - no account is named in the repo;
+  - backends are named local profiles in `~/.config/chgk/backends.json`;
+  - each tournament's `state.json` records its backend;
+  - the jury link carries the backend URL;
+  - QR codes don't depend on the account.
 - **Scanner:** static web app on GitHub Pages, public repo **`qa-chgk`**; v1 access via
   a secret jury link.
 - **QR:** a URL, `…/s/#<TID>.<TEAM>.<Q>`; spare cards use `S1…Sn`. Printed at
@@ -117,15 +124,15 @@ checks that the decks come out in order.
 
 ## Next steps
 
-1. **GitHub:** the user must run `gh auth login` (`gh` is installed, not logged in).
-   Then create the public repo `qa-chgk`, push, and enable Pages. Put the real
-   `scanner_url` (`https://<user>.github.io/qa-chgk/s/`) in
-   `tournaments/example/config.py`.
-2. **Spike 2** (iPhone QR scan) once Pages is live: open `…/spikes/qr_scan/` on the
-   iPhone, choose the QR library, and record the results in `docs/spikes.md`. Also
-   confirm the spike 1 page works from iPhone Safari.
-3. **Phase 2:** Apps Script backend + Sheet (see PLAN.md). The user already deployed
-   the spike 1 script, so they know the deploy flow.
+1. **Spike 2** (iPhone QR scan): the user opens
+   <https://antonmenshov.github.io/qa-chgk/spikes/qr_scan/> on the iPhone and scans
+   `out/example/test-page.pdf`, printed or on a screen. Record the results in
+   `docs/spikes.md` and choose the QR library. Also open
+   <https://antonmenshov.github.io/qa-chgk/spikes/apps_script_post/> on the iPhone to
+   confirm spike 1 from real Safari.
+2. **Phase 2:** Apps Script backend + Sheet, including switchable Google-account
+   backends (SPEC §3.1, PLAN Phase 2). The user already deployed the spike 1 script,
+   so they know the deploy flow.
 
 ## Lessons learned
 
@@ -134,9 +141,17 @@ checks that the decks come out in order.
 - typer 0.27 no longer depends on click: don't `import click`.
 - Draw cut guides **after** the cards, or the QR's white quiet zone hides them.
 
+## GitHub
+
+- Repo: <https://github.com/AntonMenshov/qa-chgk> (public). `gh` is logged in as
+  AntonMenshov.
+- Pages: <https://antonmenshov.github.io/qa-chgk/>, deployed by `.github/workflows/pages.yml`
+  on pushes touching `web/` or `spikes/`. The scanner URL printed in QR codes is
+  `https://antonmenshov.github.io/qa-chgk/s/`.
+- Push after each commit: `git push`.
+
 ## Things that need the user
 
-- `gh auth login`, so the repo can be created and pushed.
 - Deploying the real Apps Script (Phase 2) under their Gmail.
 - iPhone test (spike 2) and a real print of the cards.
 - Delete `spike.jpg` from the root of their Google Drive (left by spike 1).
