@@ -94,16 +94,3 @@ def sync_teams(folder: Path, profiles: Profiles, client: BackendClient | None = 
     write_teams(folder / TEAMS_FILE, teams)
     client.set_teams(state.tid, _team_dicts(teams))  # writes assigned IDs back and adds rows on every tab
     return teams
-
-
-def ensure_board(folder: Path, profiles: Profiles, client: BackendClient | None = None) -> State:
-    """Give the tournament a read-only board token (tournaments created before Phase 5 have none)."""
-    folder = Path(folder)
-    state, default_client = tournament_client(folder, profiles)
-    if state.board_token:
-        return state
-    client = client or default_client
-    state = replace(state, board_token=generate_jury_token())
-    client.set_board_token(state.tid, state.board_token)
-    save_state(folder, state)
-    return state

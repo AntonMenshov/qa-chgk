@@ -158,9 +158,6 @@ class BackendClient:
             **extra,
         )
 
-    def set_board_token(self, tid: str, board_token: str) -> dict:
-        return self.call("set_board_token", tid=tid, board_token=board_token)
-
     def get_teams(self, tid: str) -> list[dict]:
         return self.call("get_teams", tid=tid)["teams"]
 

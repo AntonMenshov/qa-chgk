@@ -32,8 +32,8 @@ Full design: [SPEC.md](SPEC.md). Build order: [PLAN.md](PLAN.md).
 
 - **Deployed backend:** version **e08511993c86** under the user's Gmail (local profile
   `personal`), with the «Google Sheets API» service on. `uv run chgk backend check`
-  compares it with the local code. The local code is **a359471f56f1**: only comments differ,
-  so redeploying can wait for the next real backend change.
+  compares it with the local code. The local code is **e99016bdef89** (comments, and the
+  `set_board_token` action removed). The deployed one still works with it; redeploy when convenient.
 - **Example tournament:** `tournaments/example/` (the user's four teams 645 «42», 58746
   Фиаско, 40400 Совхоз Победа, A01 Звезды сошлись; reserve decks R1, R2), TID **UYDJ7** (re-created 2026-10-30 after the user deleted the old folder)
   on that backend; `out/example/` holds its cards (team-pages, 3×4, 24 pages) and jury.pdf.
@@ -46,7 +46,7 @@ chgk/                 Python package (at repo root, no src/ — user's preferenc
   cli.py              typer app: version, cards, test-page, jury-sheet, new, teams, board, view,
                       backend add|use|list|check|remove|bundle
   backend.py          backend profiles (~/.config/chgk/backends.json, CHGK_CONFIG_DIR), HTTP client, Code.gs bundler
-  remote.py           new_tournament / sync_teams / ensure_board / ensure_view (a tournament keeps its own backend)
+  remote.py           new_tournament / sync_teams (a tournament keeps its own backend)
   config.py           Tournament / CardFields / Layout / LogoMode dataclasses + load_config
   ids.py              TID, team IDs, QR payload, jury and board links
   teams.py            teams.py loader/writer (keeps given team_ids, assigns + writes back missing ones)
@@ -98,7 +98,7 @@ web/shared/logic.js   link to apps_script/logic.js: the scanner (merge rule) and
 web/b/                projector board: index.html, board.css, board.js; lib/board.js = what to show
                       (rounds revealed by hand, places from revealed rounds only, grid vs compact);
                       lib/qr.js + vendor/qrcode-generator-1.4.4 (QR codes on screen)
-.github/workflows/    tests.yml (ruff + pytest; ESLint + Prettier + npm test), pages.yml (deploys web/)
+.github/workflows/    tests.yml (ruff + pytest; ESLint + Prettier + npm test), pages.yml (deploys web/, also when apps_script/logic.js changes)
 package.json          `npm test`, `npm run lint|format|format:check` (devDependencies: ESLint + Prettier only)
 eslint.config.js, .prettierrc.json, pyproject.toml ([tool.ruff])  lint and format settings
 README.md             organiser guide (end to end) and contributor commands
@@ -324,7 +324,7 @@ Kept in one place: [SPEC.md §14](SPEC.md) (defaults used unless the user says o
 - Repo: <https://github.com/AntonMenshov/qa-chgk> (public). `gh` is logged in as
   AntonMenshov.
 - Pages: <https://antonmenshov.github.io/qa-chgk/>, deployed by `.github/workflows/pages.yml`
-  on pushes touching `web/`. The scanner URL printed in QR codes is
+  on pushes touching `web/` or `apps_script/logic.js` (web/shared/logic.js links to it). The scanner URL printed in QR codes is
   `https://antonmenshov.github.io/qa-chgk/s/`.
 - Push after each commit: `git push`.
 

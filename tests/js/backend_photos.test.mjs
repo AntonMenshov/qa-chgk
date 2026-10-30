@@ -1,7 +1,7 @@
 // Card photos (upload_photo): saved to Drive, logged, shown on «Спорные».
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {L, TID, JURY, world, ev, JPEG, photo} from './backend_world.mjs';
+import {L, TID, JURY, BOARD, world, ev, JPEG, photo} from './backend_world.mjs';
 
 test('upload_photo saves the JPEG in Photos under a Latin name and logs its link', () => {
   const {b, tab} = world();
@@ -80,16 +80,7 @@ test('upload_photo checks what it gets; a wrong request is not worth retrying, a
   bad({spare: 0}, /spare/);
   bad({photo_id: 'short'}, /photo_id/);
   // Tokens: the jury's (or admin); not the board's or none.
-  b.post({
-    action: 'set_board_token',
-    tid: TID,
-    token: b.$.props.get('ADMIN_TOKEN'),
-    board_token: 'board-token-0123456789',
-  });
-  assert.match(
-    b.post({action: 'upload_photo', tid: TID, token: 'board-token-0123456789', ...photo()}).error,
-    /forbidden/,
-  );
+  assert.match(b.post({action: 'upload_photo', tid: TID, token: BOARD, ...photo()}).error, /forbidden/);
   assert.match(b.post({action: 'upload_photo', tid: TID, ...photo()}).error, /forbidden/);
   // Drive fails: a server error the phone retries; nothing was logged.
   const photos = b.$.root.children[0].children[0].children.find((f) => f.name === 'Photos');

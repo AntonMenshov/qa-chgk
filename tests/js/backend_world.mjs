@@ -10,6 +10,8 @@ export const TID = 'K7M2Q';
 
 export const JURY = 'jury-token-0123456789';
 
+export const BOARD = 'board-token-0123456789';
+
 export const TEAMS = [
   {team_id: 'A01', name: '42'},
   {team_id: 'A02', name: 'Фиаско', city: 'Бостон'},
@@ -27,6 +29,7 @@ export function world({roundSizes = [3, 3], teams = TEAMS} = {}) {
     date: '2026-11-15',
     round_sizes: roundSizes,
     jury_token: JURY,
+    board_token: BOARD,
     teams,
   });
   assert.equal(created.ok, true, JSON.stringify(created));

@@ -159,13 +159,6 @@ function handle_(req) {
     case 'get_board':
       requireBoard_(props, reg, req);
       return readBoard_(open_(reg), reg);
-    case 'set_board_token':
-      requireAdmin_(props, req);
-      return withLock_(() => {
-        reg.board_token = req.board_token;
-        props.setProperty('t:' + req.tid, JSON.stringify(reg));
-        return {ok: true};
-      });
     case 'upload_photo':
       requireJury_(props, reg, req);
       return uploadPhoto_(open_(reg), reg, req);

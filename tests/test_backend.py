@@ -244,7 +244,7 @@ def test_sync_teams_needs_a_backend(folder):
 # ---- bundle ----
 
 
-def test_bundle_contains_both_files_and_a_stable_version(tmp_path):
+def test_bundle_contains_every_file_and_a_stable_version(tmp_path):
     out, version = bundle_apps_script(tmp_path / "Code.gs")
     text = out.read_text(encoding="utf-8")
     assert version == source_version() and len(version) == 12
@@ -329,24 +329,22 @@ def test_cli_new_without_profile_explains(folder):
 # ---- projector board ----
 
 
-def test_cli_board_gives_an_older_tournament_a_board_link(folder, backends):
+def test_cli_board_prints_the_link_made_by_new(folder, backends):
     a, _ = backends
+    result = runner.invoke(app, ["board", str(folder)])
+    assert result.exit_code == 1 and "chgk new" in result.output  # no tournament yet
     runner.invoke(app, ["backend", "add", "personal", "--url", URL_A, "--token", "tokA"])
     runner.invoke(app, ["new", str(folder)])
-    # A tournament created before the board existed: no board token yet.
-    state = json.loads((folder / "state.json").read_text())
-    state.pop("board_token")
-    (folder / "state.json").write_text(json.dumps(state))
     result = runner.invoke(app, ["board", str(folder)])
     assert result.exit_code == 0, result.output
     link = next(line for line in result.output.splitlines() if "#board=" in line)
     assert link.startswith("https://example.github.io/qa-chgk/b/?grid=5#board=")
-    token = load_or_create_state(folder).board_token
-    assert token in link
-    assert a.call("get_board", tid=state["tid"], token=token)["ok"]  # the backend accepts the new token
-    # Running it again keeps the same link.
-    assert link in runner.invoke(app, ["board", str(folder)]).output
-    assert len(sent(a, "set_board_token")) == 1
+    state = load_or_create_state(folder)
+    assert state.board_token in link
+    assert a.call("get_board", tid=state.tid, token=state.board_token)["ok"]
+    calls = len(a.calls)
+    runner.invoke(app, ["board", str(folder)])
+    assert len(a.calls) == calls  # no backend call: the link is local
 
 
 def test_new_tournament_is_view_only_shared(folder, backends):

@@ -254,9 +254,6 @@ export function validateRequest(body) {
     case 'get_results':
     case 'get_board':
       return body;
-    case 'set_board_token':
-      validateToken(body.board_token, 'board_token');
-      return body;
     case 'upload_photo':
       validatePhoto(body);
       return body;

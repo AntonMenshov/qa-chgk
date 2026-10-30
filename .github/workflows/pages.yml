@@ -3,7 +3,7 @@ name: pages
 on:
   push:
     branches: [main]
-    paths: ["web/**", ".github/workflows/pages.yml"]
+    paths: ["web/**", "apps_script/logic.js", ".github/workflows/pages.yml"]  # web/shared/logic.js links to it
   workflow_dispatch:
 
 permissions:

@@ -626,10 +626,6 @@ test("get_board: the board token reads teams and marks but can't write; unused r
   // Read-only: the board token is refused everywhere else.
   assert.match(b.post({action: 'record_events', tid: TID, token: BOARD, events: [ev()]}).error, /forbidden/);
   assert.match(b.post({action: 'get_state', tid: TID, token: BOARD}).error, /forbidden/);
-  assert.match(
-    b.post({action: 'set_board_token', tid: TID, token: BOARD, board_token: 'x'.repeat(20)}).error,
-    /forbidden/,
-  );
 });
 
 test('the Sheet is view-only for anyone with the link from its creation', () => {
@@ -654,11 +650,9 @@ test('only «Итоги», the round tabs and «Статистика» are visib
   assert.ok(ss.getSheetByName('Log').getLastRow() > 1);
 });
 
-test('set_board_token gives an older tournament a board link (admin only); a weak token is refused', () => {
+test('the board token is set only at creation: set_board_token is gone (older tournaments are re-created)', () => {
   const {b, admin} = world();
   const NEW = 'new-board-token-abcdefgh';
+  assert.match(b.post({action: 'set_board_token', tid: TID, token: admin, board_token: NEW}).error, /unknown action/);
   assert.match(b.post({action: 'get_board', tid: TID, token: NEW}).error, /forbidden/);
-  assert.match(b.post({action: 'set_board_token', tid: TID, token: admin, board_token: 'short'}).error, /16/);
-  assert.equal(b.post({action: 'set_board_token', tid: TID, token: admin, board_token: NEW}).ok, true);
-  assert.equal(b.post({action: 'get_board', tid: TID, token: NEW}).ok, true);
 });

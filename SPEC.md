@@ -521,7 +521,7 @@ uv run chgk logos tournaments/<slug>        # logo report, Claude-drawn drafts, 
 uv run chgk cards tournaments/<slug> [--mode team-pages|cut-stack|scissors] [--teams A01,A07] [--out file.pdf]
 uv run chgk test-page tournaments/<slug> [--out file.pdf]
 uv run chgk jury-sheet tournaments/<slug> [--out file.pdf]  # jury printout (also written by `cards`)
-uv run chgk board tournaments/<slug>        # projector board link (creates its token for older tournaments)
+uv run chgk board tournaments/<slug>        # projector board link
 uv run chgk view tournaments/<slug>         # view-only Sheet link
 uv run chgk version
 ```

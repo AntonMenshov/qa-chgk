@@ -56,7 +56,7 @@ uv run chgk new tournaments/<slug>         # Sheet + Drive folder on the active 
 uv run chgk teams tournaments/<slug>       # after editing the Teams tab (hidden: «Все листы» at the bottom left)
 uv run chgk cards tournaments/<slug>       # cards + jury sheet with the secret access QR
 uv run chgk jury-sheet tournaments/<slug>  # the jury sheet alone
-uv run chgk board tournaments/<slug>       # projector board link (adds its token to older tournaments)
+uv run chgk board tournaments/<slug>       # projector board link
 uv run chgk view tournaments/<slug>        # view-only Sheet link
 ```
 
