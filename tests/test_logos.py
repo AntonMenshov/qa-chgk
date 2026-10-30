@@ -1,7 +1,8 @@
 import pytest
 from PIL import Image, ImageDraw
 
-from chgk.logos import load_pale_logo, pale
+from chgk.config import CardFields, LogoMode
+from chgk.logos import FALLBACK_KEY, TOURNAMENT_KEY, first_logo, logo_chain, open_logo, pale
 
 
 def sample_logo(mode="RGB", size=(120, 80)) -> Image.Image:
@@ -56,10 +57,10 @@ def test_invalid_grey(grey):
 
 def test_load_png_and_reject_svg(tmp_path):
     sample_logo().save(tmp_path / "logo.png")
-    assert load_pale_logo(tmp_path / "logo.png", 0.03).mode == "L"
+    assert pale(open_logo(tmp_path / "logo.png"), 0.03).mode == "L"
     (tmp_path / "logo.svg").write_text("<svg/>")
     with pytest.raises(ValueError, match="SVG"):
-        load_pale_logo(tmp_path / "logo.svg", 0.03)
+        open_logo(tmp_path / "logo.svg")
 
 
 def test_resolve_prefers_tournament_folder_then_library(tmp_path, monkeypatch):
@@ -80,10 +81,26 @@ def test_resolve_prefers_tournament_folder_then_library(tmp_path, monkeypatch):
 
 def test_large_logos_are_downscaled(tmp_path):
     sample_logo(size=(2000, 1000)).save(tmp_path / "big.png")
-    assert load_pale_logo(tmp_path / "big.png", 0.03).size == (600, 300)
+    assert open_logo(tmp_path / "big.png").size == (600, 300)
 
 
 def test_fallback_owl_ships_with_the_repo():
     from chgk.logos import LOGO_LIBRARY
 
     assert (LOGO_LIBRARY / "nologo.png").is_file()
+
+
+@pytest.mark.parametrize(
+    "mode,chain",
+    [
+        (LogoMode.NONE, []),
+        (LogoMode.TEAM, ["A01", FALLBACK_KEY]),
+        (LogoMode.TOURNAMENT, [TOURNAMENT_KEY, FALLBACK_KEY]),
+        (LogoMode.TEAM_ELSE_TOURNAMENT, ["A01", TOURNAMENT_KEY, FALLBACK_KEY]),
+    ],
+)
+def test_logo_chain_per_mode(mode, chain):
+    fields = CardFields(logo=mode, tournament_logo="t.png")
+    assert logo_chain(fields, "A01") == chain
+    loaded = {FALLBACK_KEY: None, TOURNAMENT_KEY: None}  # A01's own logo missing
+    assert first_logo(fields, "A01", loaded) == next((k for k in chain if k in loaded), None)

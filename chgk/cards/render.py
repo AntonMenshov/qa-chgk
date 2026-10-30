@@ -26,9 +26,9 @@ from chgk.cards.geometry import (
 )
 from chgk.cards.impose import Mode, Page
 from chgk.cards.model import Card
-from chgk.config import CardFields, LogoMode, Tournament
+from chgk.config import CardFields, Tournament
 from chgk.ids import encode_payload
-from chgk.logos import FALLBACK_KEY, TOURNAMENT_KEY
+from chgk.logos import first_logo
 
 FONT, FONT_BOLD = "PTSans", "PTSans-Bold"
 GUIDE_GREY = 0.65  # solid cut lines (team-pages, cut-stack): 0 = black, 1 = white
@@ -77,15 +77,7 @@ def fit_text(text: str, font: str, size: float, max_width: float, min_size: floa
 
 def logo_key(card: Card, fields: CardFields, logos: dict[str, Image.Image]) -> str | None:
     """Which loaded logo a card shows: its team's, the tournament's, the fallback, or none."""
-    if fields.logo is LogoMode.NONE:
-        return None
-    chain = []
-    if fields.logo in (LogoMode.TEAM, LogoMode.TEAM_ELSE_TOURNAMENT):
-        chain.append(card.team.team_id)
-    if fields.logo in (LogoMode.TOURNAMENT, LogoMode.TEAM_ELSE_TOURNAMENT):
-        chain.append(TOURNAMENT_KEY)
-    chain.append(FALLBACK_KEY)
-    return next((key for key in chain if key in logos), None)
+    return first_logo(fields, card.team.team_id, logos)
 
 
 def draw_qr(c: Canvas, payload: str, rect: Rect) -> None:

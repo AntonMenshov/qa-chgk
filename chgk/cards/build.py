@@ -3,15 +3,13 @@
 from dataclasses import dataclass
 from pathlib import Path
 
-from PIL import Image
-
 from chgk.cards.impose import Mode, impose
 from chgk.cards.model import team_deck
 from chgk.cards.render import render_cards
 from chgk.cards.testpage import render_test_page
-from chgk.config import LogoMode, Tournament, load_config
+from chgk.config import Tournament, load_config
 from chgk.jury import render_jury_sheet
-from chgk.logos import FALLBACK_KEY, LOGO_LIBRARY, MAX_SIDE, TOURNAMENT_KEY, load_pale_logo, resolve_logo
+from chgk.logos import first_logo, load_logos, pale
 from chgk.state import load_or_create_state
 from chgk.teams import TEAMS_FILE, Team, read_teams, reserve_teams
 
@@ -27,39 +25,6 @@ INSTRUCTIONS = {
 }
 
 
-def _load_logos(folder: Path, tournament: Tournament, teams: list[Team]) -> tuple[dict[str, Path], list[str]]:
-    """Logo files to use, keyed by team_id / TOURNAMENT_KEY / FALLBACK_KEY.
-
-    A file that can't be found is a warning, not an error: the card falls back to the next logo.
-    """
-    fields = tournament.card
-    found: dict[str, Path] = {}
-    warnings: list[str] = []
-    if fields.logo is LogoMode.NONE:
-        return found, warnings
-
-    def find(name: str, key: str, what: str) -> None:
-        path = resolve_logo(name, folder)
-        if path is None:
-            warnings.append(f"{what}: logo {name!r} not found in {folder} or {LOGO_LIBRARY}; using the next fallback")
-        else:
-            found[key] = path
-
-    if fields.logo in (LogoMode.TEAM, LogoMode.TEAM_ELSE_TOURNAMENT):
-        for t in teams:
-            if t.logo_file:
-                find(t.logo_file, t.team_id, f"team {t.team_id}")
-    if fields.logo in (LogoMode.TOURNAMENT, LogoMode.TEAM_ELSE_TOURNAMENT) and fields.tournament_logo:
-        find(fields.tournament_logo, TOURNAMENT_KEY, "tournament")
-    if fields.fallback_logo:
-        find(fields.fallback_logo, FALLBACK_KEY, "fallback")
-    return found, warnings
-
-
-def _pale_logos(files: dict[str, Path], grey: float) -> dict[str, Image.Image]:
-    return {key: load_pale_logo(path, grey) for key, path in files.items()}
-
-
 @dataclass(frozen=True)
 class BuildResult:
     path: Path
@@ -69,6 +34,10 @@ class BuildResult:
     cards: int
     pages: int
     warnings: list[str]
+
+
+def _pale(sources: dict, grey: float) -> dict:
+    return {key: pale(image, grey) for key, image in sources.items()}
 
 
 def load_teams(folder: Path, tournament: Tournament) -> list[Team]:
@@ -88,7 +57,7 @@ def build_cards(folder: Path, mode: Mode, out: Path | None = None, team_ids: lis
             raise ValueError(f"unknown team_id(s): {', '.join(sorted(unknown))}")
         teams = [t for t in teams if t.team_id in team_ids]
     state = load_or_create_state(folder)
-    logo_files, logo_warnings = _load_logos(folder, tournament, teams)
+    sources, logo_warnings = load_logos(folder, tournament.card, teams)
     decks = [team_deck(tournament, state.tid, team) for team in teams]
     pages = impose(mode, decks, tournament.layout.per_page, state.tid)
     if out:
@@ -97,7 +66,7 @@ def build_cards(folder: Path, mode: Mode, out: Path | None = None, team_ids: lis
     else:
         out = Path("out") / tournament.slug / f"cards-{mode.value}.pdf"
         jury_out = out.with_name("jury.pdf")
-    logos = _pale_logos(logo_files, tournament.card.logo_grey)
+    logos = _pale(sources, tournament.card.logo_grey)
     warnings = logo_warnings + render_cards(pages, tournament, mode, out, logos)
     warnings += render_jury_sheet(tournament, state, all_teams, jury_out)
     n_cards = sum(1 for page in pages for card in page if card is not None)
@@ -121,15 +90,9 @@ def build_test_page(folder: Path, out: Path | None = None) -> Path:
     tournament = load_config(folder)
     teams = read_teams(folder / TEAMS_FILE)  # a registered team: the page shows a real one
     state = load_or_create_state(folder)
-    logo_files, _ = _load_logos(folder, tournament, teams)
-    team = next((t for t in teams if t.team_id in logo_files), teams[0])
-    source_path = next((logo_files[k] for k in (team.team_id, TOURNAMENT_KEY, FALLBACK_KEY) if k in logo_files), None)
-    source = None
-    if source_path is not None:
-        with Image.open(source_path) as image:
-            image.thumbnail((MAX_SIDE, MAX_SIDE))
-            source = image.copy()
-
+    sources, _ = load_logos(folder, tournament.card, teams)
+    team = next((t for t in teams if t.team_id in sources), teams[0])
+    key = first_logo(tournament.card, team.team_id, sources)
     out = Path(out) if out else Path("out") / tournament.slug / "test-page.pdf"
-    render_test_page(tournament, state.tid, team, out, source, _pale_logos(logo_files, tournament.card.logo_grey))
+    render_test_page(tournament, state.tid, team, out, sources.get(key), _pale(sources, tournament.card.logo_grey))
     return out

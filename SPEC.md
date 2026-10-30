@@ -404,7 +404,7 @@ as `chgk jury-sheet <folder>`.
 - **Fallback chain** per card: team logo → tournament logo (if the mode uses it) →
   `fallback_logo` (default `nologo.png`) → none. `LogoMode.NONE` disables logos
   entirely.
-- A logo file that can't be found prints a warning and the card uses the next
+- A logo file that can't be found or read (a broken image, or an SVG until Phase 6) prints a warning and the card uses the next
   fallback. A fresh clone without the private logos still prints, with owls.
 - Logos are downscaled to 600 px before embedding, which keeps PDFs small.
 - **Size:** `CardFields.logo_size` (inches). `None` (the default) fits the logo into

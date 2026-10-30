@@ -51,7 +51,7 @@ chgk/                 Python package (at repo root, no src/ — user's preferenc
   ids.py              TID, team IDs, QR payload, jury and board links
   teams.py            teams.py loader/writer (keeps given team_ids, assigns + writes back missing ones)
   state.py            tournaments/<slug>/state.json (TID, backend URL/profile, sheet ID, jury and board tokens)
-  logos.py            image → pale greyscale watermark
+  logos.py            which logo a card uses (logo_chain), loading (warnings, not crashes), pale watermark
   jury.py             jury printout (platypus): QR pages, links, how-to, team forms, backup grid
   cards/
     model.py          a team's deck: numbered cards, then spares
@@ -105,7 +105,7 @@ README.md             organiser guide (end to end) and contributor commands
 ```
 
 ### How to run
-- Tests: `uv run pytest` (403, incl. 3 browser tests that need Google Chrome + Node) and
+- Tests: `uv run pytest` (409, incl. 3 browser tests that need Google Chrome + Node) and
   `npm test` (201, then 69 backend tests again with the Sheets API off).
 - Lint and format: `uv run ruff format . && uv run ruff check .`, `npm run format && npm run lint`.
 - Backend: `uv run chgk backend add|use|list|check|remove|bundle` (docs/google-account.md).

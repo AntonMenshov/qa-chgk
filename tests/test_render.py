@@ -10,7 +10,7 @@ from pypdf import PdfReader
 from reportlab.pdfbase import pdfmetrics
 from typer.testing import CliRunner
 
-from chgk.cards.build import build_cards
+from chgk.cards.build import build_cards, build_test_page
 from chgk.cards.geometry import PAGE_H, card_parts, card_rects
 from chgk.cards.impose import Mode
 from chgk.cards.model import Card
@@ -279,6 +279,17 @@ def test_missing_team_logo_warns_and_falls_back(folder, tmp_path):
     write_teams_file(folder, [TEAM_ROWS[0], ("A02", LONG_NAME, "", "gone.png"), TEAM_ROWS[2]])
     result = build_cards(folder, Mode.CUT_STACK, tmp_path / "out.pdf")
     assert any("team A02" in w and "gone.png" in w for w in result.warnings)
+
+
+@pytest.mark.parametrize(
+    "name,content,why", [("broken.png", b"not a png", "not a readable image"), ("a.svg", b"<svg/>", "SVG")]
+)
+def test_unusable_team_logo_warns_and_falls_back(folder, tmp_path, name, content, why):
+    (folder / name).write_bytes(content)
+    write_teams_file(folder, [(TEAM_ROWS[0][0], TEAM_ROWS[0][1], "", name), *TEAM_ROWS[1:]])
+    result = build_cards(folder, Mode.TEAM_PAGES, tmp_path / "out.pdf")  # no crash
+    assert any("team A01" in w and name in w and why in w for w in result.warnings)
+    assert build_test_page(folder, tmp_path / "test.pdf").is_file()  # the test page copes too
 
 
 def test_team_name_can_be_left_off_the_cards(folder, tmp_path):
