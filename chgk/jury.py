@@ -94,6 +94,12 @@ def _styles() -> dict[str, ParagraphStyle]:
     }
 
 
+def _link(url: str) -> str:
+    """Paragraph markup for a clickable URL. Long URLs wrap over lines; without a real
+    link annotation a PDF viewer would only link the first line (a cut-off address)."""
+    return f'<a href="{escape(url, {chr(34): "&quot;"})}" color="#1a4fa0">{escape(url)}</a>'
+
+
 def _qr_panels(t: Tournament, state: State) -> list[tuple[str, str, str | None, bool]]:
     """(title, hint, payload or None, secret) for every QR code the jury needs."""
     access = state.jury_access
@@ -153,8 +159,10 @@ class QrGrid(Flowable):
             qr_x = x + (cw - self.QR_SIZE) / 2
             if payload:
                 draw_qr(c, payload, Rect(qr_x, y - self.QR_SIZE, self.QR_SIZE, self.QR_SIZE))
+                # The QR code itself is clickable too (full URL).
+                c.linkURL(payload, (qr_x, y - self.QR_SIZE, qr_x + self.QR_SIZE, y), relative=1)
                 y -= self.QR_SIZE + 8
-                self._para(escape(payload), self.s["url"], left, y, inner)
+                self._para(_link(payload), self.s["url"], left, y, inner)
             else:
                 c.setStrokeGray(0.6)
                 c.setLineWidth(0.8)
@@ -178,9 +186,9 @@ def _links_table(t: Tournament, state: State, s) -> Table:
         label = " · ".join(x for x in (state.backend_profile, state.backend_account) if x)
         backend = f"{escape(label)}<br/>{escape(state.backend_url)}" if label else escape(state.backend_url)
     rows = [
-        ("Сканер жюри", escape(t.scanner_url)),
-        ("Таблица результатов", escape(state.spreadsheet_url) if state.spreadsheet_url else NOT_YET),
-        ("Табло для проектора", escape(state.board_url) if state.board_url else NOT_YET),
+        ("Сканер жюри", _link(t.scanner_url)),
+        ("Таблица результатов", _link(state.spreadsheet_url) if state.spreadsheet_url else NOT_YET),
+        ("Табло для проектора", _link(state.board_url) if state.board_url else NOT_YET),
         ("Бэкенд (Google-аккаунт)", backend),
     ]
     data = [[Paragraph(name, s["cell"]), Paragraph(value, s["small"])] for name, value in rows]

@@ -168,6 +168,10 @@ checks that the decks come out in order.
 
 ## Lessons learned
 
+- PDF links: a long URL wrapped over lines is only auto-linked on its first line by
+  viewers (user clicked a cut-off Sheet link). Every URL in jury.pdf is a real link
+  annotation (`_link()` markup, plus `linkURL` over each QR); tested.
+
 - Reserve decks (SPEC §8.7): R1, R2 are on the Teams tab from the start but join the
   other tabs only on first scan or when named, so they never distort places. Names typed
   on any tab are propagated by team ID (`propagateNames_`), like marks.

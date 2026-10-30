@@ -155,3 +155,23 @@ def test_cli_jury_sheet(folder, tmp_path):
     result = runner.invoke(app, ["jury-sheet", str(folder), "--out", str(out)])
     assert result.exit_code == 0, result.output
     assert out.read_bytes().startswith(b"%PDF")
+
+
+def link_targets(pdf, page):
+    annots = PdfReader(pdf).pages[page].get("/Annots") or []
+    return [a.get_object()["/A"]["/URI"] for a in annots if "/A" in a.get_object()]
+
+
+def test_links_are_clickable_with_the_full_address(folder, tmp_path):
+    """Long URLs wrap over lines; each must be a real link to the whole URL (user report)."""
+    state = with_backend(folder)
+    out, _ = build_jury_sheet(folder, out=tmp_path / "jury.pdf")
+    setup = next(q for q in qr_texts(out) if "#setup=" in q)
+    sheet = "https://docs.google.com/spreadsheets/d/SHEET123/edit"
+    scanner = "https://example.github.io/qa-chgk/s/"
+    page1 = link_targets(out, 0)
+    for url in (setup, sheet, scanner):
+        assert page1.count(url) >= 2, url  # the QR code and the text under it
+    assert set(page1) == {setup, sheet, scanner}
+    assert decode_jury_link(setup).jury_token == state["jury_token"]
+    assert {sheet, scanner} <= set(link_targets(out, 1))  # page 2 links table
