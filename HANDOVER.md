@@ -23,11 +23,11 @@ Full design: [SPEC.md](SPEC.md). Build order: [PLAN.md](PLAN.md).
 | 1 — Config, identity, card PDF | ✅ done; cards + jury sheet work offline from `teams.py` |
 | 2 — Apps Script backend + Sheet | ✅ deployed under the user's Gmail and checked live (sums, places, order, reserve teams, IDs, view-only link); two Sheet-trigger checks still to be confirmed by the user |
 | 3 — Scanner web app | 🔶 built and tested (unit + integration + headless-Chrome end-to-end with a fake camera), checked live on Pages against the real backend; waiting for the user's iPhone check |
-| 4 — Card photos | ✅ built and tested (phone queue, backend `upload_photo`, headless-Chrome check that each photo shows its card); live check after the deploy |
+| 4 — Card photos | ✅ built, tested (phone queue, backend `upload_photo`, headless-Chrome check that each photo shows its card) and checked live (API upload to Drive); the iPhone check is in the user's list |
 | 5 — Projector board + stats | ✅ built, tested and checked live |
 | 6 — Logos | partly done: PNG/JPG → pale greyscale, shared private library, fallback owl. Left: SVG, Claude-drawn SVG, image-API generation |
 
-- **Deployed backend:** version **6719354da92c** under the user's Gmail (local profile
+- **Deployed backend:** version **5bee727e1620** under the user's Gmail (local profile
   `personal`), with the «Google Sheets API» service on. `uv run chgk backend check`
   compares it with the local code.
 - **Example tournament:** `tournaments/example/` (the user's four teams 645 «42», 58746
@@ -312,4 +312,6 @@ speed and the one-call sort (10 rounds of order-changing marks, «Итоги» e
 reference); Latin Drive names (version 6719354da92c: the example renamed by `chgk view`;
 a new tournament «Проверка имён «Звёзды» №1» created as `2026-10-30 Proverka imen Zvezdy
 No1 (UDHBH)`, marks, reserve team and standings correct, view-only links open).
-Throwaway tournaments: the user deletes them from Drive.
+photos (5bee727e1620, throwaway RG3HC: a 66 KB JPEG saved to Drive in ~2 s, a repeat
+upload recognised, a non-JPEG refused) and the board's QR codes on Pages against the real
+backend (decoded = the jury sheet's links). Throwaway tournaments: the user deletes them.
