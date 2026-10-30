@@ -19,7 +19,7 @@ Full design: [SPEC.md](SPEC.md). Build order: [PLAN.md](PLAN.md).
 | Phase | Status |
 |---|---|
 | Spec and plan | ✅ done, agreed with the user |
-| 0 — Skeleton and spikes | ⏳ next |
+| 0 — Skeleton and spikes | 🔶 skeleton done; spikes prepared, waiting on the user to run them |
 | 1 — Config, identity, card PDF | not started |
 | 2 — Apps Script backend + Sheet | not started |
 | 3 — Scanner web app | not started |
@@ -27,7 +27,26 @@ Full design: [SPEC.md](SPEC.md). Build order: [PLAN.md](PLAN.md).
 | 5 — Projector board + stats | not started |
 | 6 — Logos | not started |
 
-No code exists yet.
+### Repository layout
+```
+chgk/                 Python package (at repo root, no src/ — user's preference)
+  cli.py              typer app; `uv run chgk version` only so far
+  assets/fonts/       PT Sans Regular/Bold (OFL) — Cyrillic
+tests/                pytest (test_*.py) + JS tests in tests/js/*.test.mjs
+tests/vectors/        shared JSON test vectors checked by both Python and JS
+spikes/               throwaway Phase 0 experiments (no tests)
+docs/spikes.md        how to run the spikes + results table to fill in
+.github/workflows/    CI: pytest + node --test (no remote yet, so not running)
+package.json          only for `npm test` (no npm dependencies)
+```
+
+### How to run
+- Python tests: `uv run pytest`
+- JS tests: `npm test` (= `node --test "tests/js/**/*.test.mjs"`)
+- Print test page: `uv run python spikes/print_test/make_sheet.py` → `out/print_test.pdf`
+
+Both suites pass (5 Python, 1 JS). `tests/test_toolchain.py` proves the PDF test
+approach: Cyrillic text and QR codes are read back from a rendered PDF.
 
 ## Working conventions (agreed with the user)
 
@@ -73,17 +92,21 @@ No code exists yet.
 
 ## Next steps
 
-Phase 0 in PLAN.md:
-1. uv project skeleton, `.gitignore`, test layout, CI workflow.
-2. Spike: POST from GitHub Pages to Apps Script (CORS, ~200 KB photo).
-3. Spike: QR library scan speed on iPhone Safari.
-4. Spike: one printed test card.
+1. User runs the spikes (instructions and results tables in `docs/spikes.md`):
+   - Spike 1 (Apps Script POST): laptop only, needs their Google account.
+   - Spike 2 (iPhone QR scan): needs the repo on GitHub Pages first.
+   - Spike 3 (print): print `out/print_test.pdf`.
+2. Record the findings in `docs/spikes.md`; choose the QR library and the logo grey
+   shade.
+3. Phase 1 can start in parallel. It doesn't depend on the spike results except the
+   minimum QR size (assume 0.75 in until spike 2 says otherwise).
 
-Spikes 2–4 need the user (Google deploy, iPhone, printer); prepare the materials and
-ask.
+Lessons so far: PT Sans lacks `″` and `→`. Phase 1 must test that every drawn
+character exists in the font.
 
 ## Things that need the user
 
-- A GitHub account/repo for Pages hosting. Not created yet.
+- A GitHub account/repo for Pages hosting. Not created yet; `gh` CLI is not
+  installed on this machine.
 - Deploying the Apps Script under their Gmail.
 - iPhone and printer tests.

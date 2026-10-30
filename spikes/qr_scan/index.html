@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spike: QR scan speed</title>
+<style>
+  body { font: 16px system-ui, sans-serif; margin: 0; padding: 12px; }
+  video { width: 100%; max-height: 50vh; background: #000; object-fit: contain; }
+  #hit { font-size: 22px; font-weight: 600; padding: 10px; margin: 8px 0; border-radius: 8px; background: #eee; }
+  #hit.flash { background: #b6f0b6; }
+  select, button { font: inherit; padding: 6px 10px; margin: 4px 4px 0 0; }
+  pre { background: #f3f3f3; padding: 8px; white-space: pre-wrap; font-size: 13px; }
+  img { max-width: 100%; margin-top: 8px; }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/zxing-wasm@3.1.4/dist/iife/reader/index.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qr-scanner@1.4.2/qr-scanner.umd.min.js"></script>
+</head>
+<body>
+<h1>Spike 2: QR scan</h1>
+<div>
+  <select id="lib">
+    <option value="zxing">zxing-wasm 3.1.4</option>
+    <option value="qrscanner">qr-scanner 1.4.2</option>
+    <option value="native">BarcodeDetector (native)</option>
+  </select>
+  <button id="start">Start camera</button>
+  <button id="reset">Reset stats</button>
+</div>
+<video id="video" playsinline muted></video>
+<div id="hit">—</div>
+<pre id="stats"></pre>
+<p>Last captured photo (full camera resolution, JPEG q=0.6):</p>
+<img id="photo" alt="">
+<script>
+const $ = (id) => document.getElementById(id);
+const video = $("video");
+const frame = document.createElement("canvas");
+const fctx = frame.getContext("2d", { willReadFrequently: true });
+let stats, lastText = null, running = false, nativeDetector = null;
+
+function resetStats() { stats = { frames: 0, decodeMsTotal: 0, decodeMsMax: 0, hits: 0, distinct: new Set() }; }
+resetStats();
+
+async function decode() {
+  const lib = $("lib").value;
+  if (lib === "zxing") {
+    const img = fctx.getImageData(0, 0, frame.width, frame.height);
+    const res = await ZXingWASM.readBarcodes(img, { formats: ["QRCode"], maxNumberOfSymbols: 1, tryHarder: false });
+    return res.find((r) => r.isValid)?.text ?? null;
+  }
+  if (lib === "qrscanner") {
+    try { return (await QrScanner.scanImage(frame, { returnDetailedScanResult: true })).data; }
+    catch { return null; }
+  }
+  if (!("BarcodeDetector" in window)) throw new Error("BarcodeDetector not available in this browser");
+  nativeDetector ??= new BarcodeDetector({ formats: ["qr_code"] });
+  return (await nativeDetector.detect(frame))[0]?.rawValue ?? null;
+}
+
+function capturePhoto() {
+  frame.toBlob((blob) => {
+    $("photo").src = URL.createObjectURL(blob);
+    stats.lastPhotoKB = Math.round(blob.size / 1024);
+  }, "image/jpeg", 0.6);
+}
+
+async function loop() {
+  if (!running) return;
+  if (video.readyState >= 2) {
+    frame.width = video.videoWidth; frame.height = video.videoHeight;
+    fctx.drawImage(video, 0, 0);
+    const t = performance.now();
+    let text = null;
+    try { text = await decode(); } catch (err) { $("stats").textContent = String(err); running = false; return; }
+    const ms = performance.now() - t;
+    stats.frames++; stats.decodeMsTotal += ms; stats.decodeMsMax = Math.max(stats.decodeMsMax, ms);
+    if (text) {
+      stats.hits++;
+      if (text !== lastText) {
+        stats.distinct.add(text); lastText = text;
+        $("hit").textContent = text;
+        $("hit").classList.add("flash"); setTimeout(() => $("hit").classList.remove("flash"), 300);
+        capturePhoto();
+      }
+    }
+    $("stats").textContent =
+      `camera: ${video.videoWidth}×${video.videoHeight}\n` +
+      `frames decoded: ${stats.frames}\n` +
+      `avg decode: ${(stats.decodeMsTotal / stats.frames).toFixed(1)} ms, max ${stats.decodeMsMax.toFixed(0)} ms\n` +
+      `frames with a QR: ${stats.hits}\n` +
+      `distinct cards seen: ${stats.distinct.size}\n` +
+      `last photo: ${stats.lastPhotoKB ?? "—"} KB`;
+  }
+  requestAnimationFrame(loop);
+}
+
+$("start").addEventListener("click", async () => {
+  const stream = await navigator.mediaDevices.getUserMedia({
+    video: { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } },
+    audio: false,
+  });
+  video.srcObject = stream;
+  await video.play();
+  running = true;
+  loop();
+});
+$("reset").addEventListener("click", () => { resetStats(); lastText = null; });
+</script>
+</body>
+</html>

@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spike: Apps Script POST</title>
+<style>
+  body { font: 16px system-ui, sans-serif; margin: 16px; max-width: 720px; }
+  input[type=url] { width: 100%; font: inherit; padding: 6px; box-sizing: border-box; }
+  button { font: inherit; padding: 8px 12px; margin: 8px 8px 0 0; }
+  pre { background: #f3f3f3; padding: 8px; white-space: pre-wrap; word-break: break-all; }
+</style>
+</head>
+<body>
+<h1>Spike 1: Apps Script POST</h1>
+<p>Paste the web app <code>/exec</code> URL, then run each test. Each result shows the
+round-trip time and the server's reply.</p>
+<input id="url" type="url" placeholder="https://script.google.com/macros/s/…/exec">
+<label><input id="drive" type="checkbox"> also save the photo to Drive</label>
+<div>
+  <button data-test="get">GET</button>
+  <button data-test="small">POST small JSON</button>
+  <button data-test="photo">POST ~200 KB photo</button>
+  <button data-test="burst">10 small POSTs in a row</button>
+</div>
+<pre id="log"></pre>
+<script>
+const $ = (id) => document.getElementById(id);
+$("url").value = localStorage.getItem("spikeUrl") || "";
+$("url").addEventListener("change", () => localStorage.setItem("spikeUrl", $("url").value));
+
+function log(line) { $("log").textContent = line + "\n" + $("log").textContent; }
+
+// A noisy image compresses badly, so ~200 KB JPEG is a realistic worst case for a card photo.
+function noisyJpegBase64() {
+  const c = document.createElement("canvas");
+  c.width = 1280; c.height = 960;
+  const ctx = c.getContext("2d");
+  const img = ctx.createImageData(c.width, c.height);
+  for (let i = 0; i < img.data.length; i += 4) {
+    const v = 200 + Math.random() * 55;
+    img.data[i] = img.data[i + 1] = img.data[i + 2] = v; img.data[i + 3] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
+  return c.toDataURL("image/jpeg", 0.6).split(",")[1];
+}
+
+async function post(body) {
+  // text/plain avoids the CORS preflight, which Apps Script does not answer.
+  const res = await fetch($("url").value, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify(body),
+  });
+  return res.json();
+}
+
+const tests = {
+  async get() { return (await fetch($("url").value + "?ping=1")).json(); },
+  async small() { return post({ msg: "привет", at: Date.now() }); },
+  async photo() {
+    const photo = noisyJpegBase64();
+    log(`photo base64 length: ${photo.length} chars (~${Math.round(photo.length * 0.75 / 1024)} KB)`);
+    return post({ msg: "photo", photo, saveToDrive: $("drive").checked });
+  },
+  async burst() {
+    const times = [];
+    for (let i = 0; i < 10; i++) {
+      const t = performance.now();
+      await post({ msg: "burst " + i });
+      times.push(Math.round(performance.now() - t));
+    }
+    return { roundTripsMs: times };
+  },
+};
+
+document.querySelectorAll("button").forEach((b) => b.addEventListener("click", async () => {
+  const name = b.dataset.test;
+  const t = performance.now();
+  try {
+    const reply = await tests[name]();
+    log(`${name}: OK in ${Math.round(performance.now() - t)} ms\n${JSON.stringify(reply, null, 1)}`);
+  } catch (err) {
+    log(`${name}: FAILED after ${Math.round(performance.now() - t)} ms — ${err}`);
+  }
+}));
+</script>
+</body>
+</html>
