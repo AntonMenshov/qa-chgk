@@ -55,8 +55,10 @@ chgk/                 Python package (at repo root, no src/ — user's preferenc
     build.py          folder → PDF (cards and test page)
     testpage.py       calibration page
   assets/fonts/       PT Sans Regular/Bold (OFL) — Cyrillic
-apps_script/          backend: logic.js (pure, Node-tested) + Code.js (Sheets/Drive/Sheets API);
-                      package.json makes them CommonJS
+apps_script/          backend, one global scope, joined in the order of bundle.json into one Code.gs:
+                      Code.js (constants, setup, requests, access), logic.js (pure, Node-tested),
+                      sheet_io.js (batched read/write), marks.js, sort.js, teams.js, drive.js,
+                      disputed.js, photos.js, trigger.js; package.json makes them CommonJS
 logos/                shared logo library (team logos git-ignored; nologo.png public)
 tournaments/example/  working example: config.py, teams.py (the user's real teams)
 tests/                pytest (tests/test_*.py) and node:test (tests/js/*.test.mjs), e.g.:
@@ -68,7 +70,9 @@ tests/                pytest (tests/test_*.py) and node:test (tests/js/*.test.mj
   js/sheet_formulas.mjs    evaluator for the Sheets formulas the backend writes
   js/calculations.test.mjs sums, places («2-3»), «Статистика» vs the logic.js reference; random tournaments
   js/sort_api.test.mjs     the one-call API sort against the slow sort and logic.js
-  js/backend.test.mjs, logic.test.mjs, scanner.test.mjs, photos.test.mjs, board.test.mjs, vectors.test.mjs
+  js/backend*.test.mjs     the backend by topic (core, photos, «Спорные», Sheets API I/O) on
+                           the fake; shared helpers in js/backend_world.mjs
+  js/logic.test.mjs, scanner.test.mjs, photos.test.mjs, board.test.mjs, vectors.test.mjs
   js/fake_backend_server.mjs  the fake backend over HTTP (for the browser tests)
   vectors/            shared JSON test vectors (qr_payloads, jury_links, board_links, merge_cases)
 docs/google-account.md  deploying the backend under any Gmail account; switching; updating
