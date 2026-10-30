@@ -40,7 +40,6 @@ def with_backend(folder):
         spreadsheet_id="SHEET123",
         jury_token="secretTOKEN_0123456789ab",
         board_token="boardTOKEN_0123456789ab",
-        view_shared=True,
     )
     (folder / "state.json").write_text(json.dumps(state))
     return state
@@ -110,15 +109,6 @@ def test_every_page_has_the_date(folder, tmp_path):
     assert "Осенний кубок, 15.11.2026 — табло и результаты" in texts[1]
     for i, text in enumerate(texts):
         assert "Осенний кубок · 15.11.2026 · лист жюри" in text, f"page {i + 1}"
-
-
-def test_view_only_qr_waits_for_sharing(folder, tmp_path):
-    state = with_backend(folder)
-    state["view_shared"] = False
-    (folder / "state.json").write_text(json.dumps(state))
-    out, _ = build_jury_sheet(folder, out=tmp_path / "jury.pdf")
-    assert VIEW not in qr_texts(out, 1) and len(qr_texts(out, 1)) == 1
-    assert NOT_YET in page_texts(out)[1]
 
 
 def test_only_the_qr_page_is_marked_secret(folder, tmp_path):

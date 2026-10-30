@@ -8,8 +8,6 @@ that records marks, and delete its Drive folder afterwards (`docs/google-account
 
 - [ ] `uv run chgk backend check` is clean: the expected version, no missing permission,
       no "Google Sheets API service is off" warning.
-- [ ] For tournaments created before the change: `uv run chgk view <folder>` (and
-      `uv run chgk board <folder>` if it has no board link yet).
 
 ## The Sheet's edit trigger (needs a person typing in Google Sheets)
 

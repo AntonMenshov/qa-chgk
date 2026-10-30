@@ -256,8 +256,6 @@ function validateRequest(body) {
     case 'set_board_token':
       validateToken(body.board_token, 'board_token');
       return body;
-    case 'share_view':
-      return body;
     case 'upload_photo':
       validatePhoto(body);
       return body;

@@ -19,7 +19,8 @@ from chgk.cards.build import INSTRUCTIONS, build_cards, build_jury_sheet, build_
 from chgk.cards.impose import Mode
 from chgk.config import load_config
 from chgk.ids import encode_board_link
-from chgk.remote import ensure_board, ensure_view, new_tournament, sync_teams
+from chgk.remote import ensure_board, new_tournament, sync_teams
+from chgk.state import load_or_create_state
 
 app = typer.Typer(help="ЧГК answer cards and jury scanning.", no_args_is_help=True)
 backend_app = typer.Typer(help="Google backends: one named profile per Google account.", no_args_is_help=True)
@@ -265,19 +266,10 @@ def board_cmd(folder: Path = typer.Argument(..., help="Tournament folder")) -> N
 
 @app.command("view")
 def view_cmd(folder: Path = typer.Argument(..., help="Tournament folder")) -> None:
-    """Print the Sheet's view-only link; brings an older tournament up to date (sharing, tabs, Latin Drive names)."""
-    try:
-        state, drive = ensure_view(folder, Profiles())
-    except (ValueError, BackendError) as err:
-        raise _fail(err) from err
-    if drive:
-        missing = [part for part in ("folder", "photos", "spreadsheet") if not drive.get(part)]
-        typer.echo(
-            f"Drive: {drive.get('root')}/{drive.get('folder')} (Sheet «{drive.get('spreadsheet')}», "
-            f"photos in {drive.get('photos')}/)"
-        )
-        if missing:
-            typer.secho(f"Not found in Drive (deleted?): {', '.join(missing)}", fg="yellow")
+    """Print the Sheet's view-only link (shared "anyone with the link can view" when created)."""
+    state = load_or_create_state(folder)
+    if not state.view_url:
+        raise _fail(ValueError("this tournament has no Sheet yet: run `chgk new` first"))
     typer.echo("Results, view-only for anyone with the link (marks appear as the jury enters them):")
     typer.echo(state.view_url)
-    typer.echo("Its QR code is on page 2 of the jury sheet: run `chgk jury-sheet` (or `chgk cards`) to refresh it.")
+    typer.echo("Its QR code is on page 2 of the jury sheet and on the projector board.")

@@ -94,7 +94,7 @@ README.md             organiser guide (end to end) and contributor commands
 - Backend: `uv run chgk backend add|use|list|check|remove|bundle` (docs/google-account.md).
 - A tournament: `uv run chgk new <folder>` (Sheet + Drive folder), `uv run chgk teams <folder>`
   (pull the Teams tab), `uv run chgk board <folder>` / `uv run chgk view <folder>` (board and
-  view-only links; they also upgrade tournaments created before those existed).
+  view-only links).
 - Cards: `uv run chgk cards tournaments/example [--mode team-pages|cut-stack|scissors] [--teams A01,A02]`
   → `out/<slug>/cards-<mode>.pdf` + `out/<slug>/jury.pdf`. Without `--mode` it asks.
 - Jury sheet alone: `uv run chgk jury-sheet <folder>`; calibration page: `uv run chgk test-page <folder>`.
@@ -153,8 +153,7 @@ checks that the decks come out in order.
   - Live, 30 teams × 36 questions: board/phone refresh ~1.1 s, one mark ~1.6 s, a mark
     that re-sorts ~1.7–2.2 s, 15 marks ~1.4 s (before: 2.6 / 2.8 / 4.3 / 5.0 / 5.9 s);
     ~0.7–1 s of each is Google outside the script.
-- **Sheet tabs:** «Итоги», «Тур 1…N» (sorted), «Статистика» (was «Stats»; older Sheets
-  renamed automatically), hidden «Спорные» (every undecided «?» with its card photo's
+- **Sheet tabs:** «Итоги», «Тур 1…N» (sorted), «Статистика», hidden «Спорные» (every undecided «?» with its card photo's
   link, in A–D; counts overall, per round and per team in G–H, two empty columns away;
   rewritten only when the set of «?» changes or a «?» card's photo arrives), hidden
   Teams, Log, Settings, Meta. Only the visible ones appear on the view-only link.
@@ -166,10 +165,13 @@ checks that the decks come out in order.
   codes of the view-only table and of the board itself (the jury sheet's links, decoded
   from screenshots in the browser test); Q toggles them.
 - **Drive names are Latin** (user rule, SPEC §3.3): `CHGK/<date> <name> (<TID>)` with
-  the Sheet and `Photos` inside; names transliterated by `latinName` (logic.js). `chgk view`
-  renames older tournaments' items and prints what Drive reports back.
-- **View-only link:** the Sheet is shared "anyone with the link can view" at creation (or
-  by `chgk view`); the QR opens `…/htmlview`.
+  the Sheet and `Photos` inside; names transliterated by `latinName` (logic.js).
+- **View-only link:** the Sheet is shared "anyone with the link can view" at creation;
+  the QR opens `…/htmlview`; `chgk view` prints it.
+- **No upgrade code for older Sheets** (user decision, 2026-10-30): the migrations
+  (ЧГК→CHGK, Stats→Статистика, old Meta format, old Results layout, old «Спорные» layout,
+  Latin renaming, `share_view`) were removed after the example (QHZJ8) had been upgraded.
+  A tournament made by an older version must be created again.
 - **QR:** a URL, `…/s/#<TID>.<TEAM>.<Q>`; spare cards use `S1…Sn`. Printed at
   **0.65 in** including the quiet zone, error correction M, vector.
 - **Team IDs** are the organiser's (e.g. rating numbers such as 58746) or assigned

@@ -22,7 +22,6 @@ class State:
     spreadsheet_id: str | None = None
     jury_token: str | None = None
     board_token: str | None = None  # read-only token for the projector board
-    view_shared: bool = False  # the Sheet is view-only for anyone with the link
 
     @property
     def spreadsheet_url(self) -> str | None:
@@ -31,7 +30,7 @@ class State:
     @property
     def view_url(self) -> str | None:
         """Read-only page of the Sheet for anyone with the link (Google's HTML view)."""
-        if self.spreadsheet_id and self.view_shared:
+        if self.spreadsheet_id:  # shared "anyone with the link can view" when created
             return f"https://docs.google.com/spreadsheets/d/{self.spreadsheet_id}/htmlview"
         return None
 

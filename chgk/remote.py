@@ -58,7 +58,6 @@ def new_tournament(folder: Path, profile: Profile, client: BackendClient | None 
         backend_profile=profile.name,
         backend_account=account,
         spreadsheet_id=reply["spreadsheet_id"],
-        view_shared=True,  # create_tournament shares it view-only
     )
     save_state(folder, state)
     return NewResult(state, created=not reply.get("existed", False))
@@ -108,18 +107,3 @@ def ensure_board(folder: Path, profiles: Profiles, client: BackendClient | None 
     client.set_board_token(state.tid, state.board_token)
     save_state(folder, state)
     return state
-
-
-def ensure_view(folder: Path, profiles: Profiles, client: BackendClient | None = None) -> tuple[State, dict]:
-    """Bring an older tournament up to date; returns its state and its Drive names.
-
-    Shares the Sheet view-only with anyone who has the link, hides the service tabs, adds
-    «Спорные», and gives the Drive folder, photos folder and Sheet their Latin names. New
-    tournaments get all of it at creation. Safe to repeat.
-    """
-    folder = Path(folder)
-    state, default_client = tournament_client(folder, profiles)
-    reply = (client or default_client).share_view(state.tid)
-    state = replace(state, view_shared=True)
-    save_state(folder, state)
-    return state, reply.get("drive") or {}

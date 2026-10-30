@@ -246,12 +246,6 @@ test("rows are found by team ID: sorting a round tab doesn't misplace marks", ()
   assert.deepEqual(b.post({action: 'get_state', tid: TID, token: JURY}).marks.A02, ['', '', '', 1, '', '']);
 });
 
-test('a Sheet with the old single Results tab gets a clear error', () => {
-  const {b, ss} = world();
-  ss.getSheetByName('Итоги').setName('Results');
-  assert.match(b.post({action: 'get_state', tid: TID, token: JURY}).error, /older layout/);
-});
-
 test('record_events needs the jury (or admin) token', () => {
   const {b, admin} = world();
   assert.match(b.post({action: 'record_events', tid: TID, token: 'nope', events: [ev()]}).error, /forbidden/);
@@ -434,22 +428,6 @@ test('a mark pasted over several cells is picked up for every team', () => {
     ],
   );
   assert.equal(tab('Log').getLastRow(), 4);
-});
-
-test('a Meta tab from before the known-value columns is upgraded without logging fake edits', () => {
-  const {b, tab} = world();
-  b.post({action: 'record_events', tid: TID, token: JURY, events: [ev({question: 1})]});
-  const meta = tab('Meta');
-  for (let c = 8; c <= 13; c++) {
-    for (let r = 1; r <= 3; r++) {
-      meta.set(r, c, '');
-    }
-  } // drop v1…v6
-  const logRows = tab('Log').getLastRow();
-  b.post({action: 'record_events', tid: TID, token: JURY, events: [ev({team_id: 'A02', question: 2})]});
-  assert.equal(tab('Log').getLastRow(), logRows + 1); // only the new app event
-  assert.equal(meta.get(1, 8), 'v1');
-  assert.equal(meta.get(meta.rowOf('A01'), 8), 1);
 });
 
 // ---------- reserve teams (turned up unregistered) and names typed in the Sheet ----------
@@ -802,58 +780,6 @@ test('Drive gets Latin names only: CHGK / <date> <name> (<TID>) with Photos and 
   assert.ok(tab('Итоги') && tab('Тур 1') && tab('Статистика'));
 });
 
-test('an old «ЧГК» root folder is renamed CHGK and reused, with what is in it', () => {
-  const {b, admin} = world();
-  const root = b.$.root.children[0];
-  root.name = 'ЧГК'; // made by an older version
-  const res = b.post({
-    action: 'create_tournament',
-    token: admin,
-    tid: 'Z2345',
-    name: 'Осенний кубок',
-    date: '2026-11-16',
-    round_sizes: [3],
-    jury_token: JURY,
-    teams: TEAMS,
-  });
-  assert.equal(res.ok, true);
-  assert.equal(b.$.root.children.length, 1);
-  assert.equal(root.name, 'CHGK');
-  assert.deepEqual(
-    root.children.map((f) => f.name),
-    ['2026-11-15 Kubok (K7M2Q)', '2026-11-16 Osenniy kubok (Z2345)'],
-  );
-});
-
-test('share_view (chgk view) gives an older tournament Latin Drive names and reports what Drive has', () => {
-  const {b, admin, ss} = world();
-  const root = b.$.root.children[0];
-  const folder = root.children[0];
-  // As an older version made them.
-  root.name = 'ЧГК';
-  folder.name = '2026-11-15 Кубок (K7M2Q)';
-  folder.children[0].name = 'Фото';
-  ss.name = 'Кубок 2026-11-15 (K7M2Q)';
-  const res = b.post({action: 'share_view', tid: TID, token: admin});
-  assert.equal(res.ok, true, JSON.stringify(res));
-  assert.deepEqual(Object.assign({}, res.drive), {
-    root: 'CHGK',
-    folder: '2026-11-15 Kubok (K7M2Q)',
-    photos: 'Photos',
-    spreadsheet: 'Kubok 2026-11-15 (K7M2Q)',
-  });
-  assert.deepEqual([root.name, folder.name, folder.children[0].name, ss.name].map(ascii), [true, true, true, true]);
-  // Safe to repeat; an item deleted by hand is reported as missing, not an error.
-  b.$.spreadsheets.delete(ss.id);
-  const again = b.post({action: 'share_view', tid: TID, token: admin});
-  assert.equal(again.ok, false); // the Sheet itself is gone: nothing to share
-  b.$.spreadsheets.set(ss.id, ss);
-  folder.children[0].registry.delete(folder.children[0].id);
-  const third = b.post({action: 'share_view', tid: TID, token: admin});
-  assert.equal(third.ok, true);
-  assert.equal(third.drive.photos, null);
-});
-
 // ---------- projector board: read-only token ----------
 
 test("get_board: the board token reads teams and marks but can't write; unused reserves are left out", () => {
@@ -902,15 +828,11 @@ test("get_board: the board token reads teams and marks but can't write; unused r
   );
 });
 
-test('the Sheet is view-only for anyone with the link: at creation, and share_view for older tournaments (admin only)', () => {
-  const {b, admin} = world();
+test('the Sheet is view-only for anyone with the link from its creation', () => {
+  const {b} = world();
   const id = JSON.parse(b.$.props.get(`t:${TID}`)).spreadsheet_id;
   assert.equal(b.$.sharing.get(id), 'ANYONE_WITH_LINK:VIEW');
-  b.$.sharing.clear();
-  assert.match(b.post({action: 'share_view', tid: TID, token: JURY}).error, /forbidden/);
-  assert.equal(b.$.sharing.size, 0);
-  assert.equal(b.post({action: 'share_view', tid: TID, token: admin}).ok, true);
-  assert.equal(b.$.sharing.get(id), 'ANYONE_WITH_LINK:VIEW');
+  assert.match(b.post({action: 'share_view', tid: TID, token: JURY}).error, /unknown action/); // gone with the migrations
 });
 
 test('only «Итоги», the round tabs and «Статистика» are visible (the view-only link shows visible tabs only)', () => {
@@ -922,12 +844,7 @@ test('only «Итоги», the round tabs and «Статистика» are visib
       .filter((s) => !s.isSheetHidden())
       .map((s) => s.getName());
   assert.deepEqual(visible(), ['Итоги', 'Тур 1', 'Тур 2', 'Статистика']);
-  // A tournament created before: share_view hides them too; the backend still works with hidden tabs.
-  for (const s of ss.getSheets()) {
-    s.hidden = false;
-  }
-  assert.equal(b.post({action: 'share_view', tid: TID, token: admin}).ok, true);
-  assert.deepEqual(visible(), ['Итоги', 'Тур 1', 'Тур 2', 'Статистика']);
+  // The backend works with the hidden tabs.
   assert.equal(b.post({action: 'record_events', tid: TID, token: JURY, events: [ev({question: 1})]}).ok, true);
   assert.equal(b.post({action: 'set_teams', tid: TID, token: admin, teams: TEAMS}).ok, true);
   assert.ok(ss.getSheetByName('Log').getLastRow() > 1);
@@ -1003,13 +920,9 @@ test('«Спорные» keeps its counts clear of the photo links: two empty co
   });
   assert.deepEqual(d.row(2, 8), [2, 5, 'Фиаско', '', '', '', '', '']); // E-F stay empty
   assert.deepEqual(d.row(3, 8).slice(4), ['', '', 'Тур', '«?»']);
-  // An older layout (counts in F-G) is cleared and redone on the next full rewrite (chgk view).
-  d.set(1, 6, 'Всего «?»');
-  d.set(1, 7, 1);
-  d.widths.clear();
-  b.post({action: 'share_view', tid: TID, token: admin});
+  // A full rewrite (a name changed) keeps the layout.
+  b.post({action: 'set_teams', tid: TID, token: admin, teams: TEAMS});
   assert.deepEqual(d.row(1, 8), ['Тур', 'Вопрос', 'Команда', 'Фото', '', '', 'Всего «?»', 1]);
-  assert.equal(d.widths.get(4), 360);
 });
 
 test('a request that changes no «?» leaves «Спорные» untouched', () => {
@@ -1024,19 +937,6 @@ test('a request that changes no «?» leaves «Спорные» untouched', () =
   d.set(30, 1, 'marker'); // would be cleared by a rewrite
   b.post({action: 'record_events', tid: TID, token: JURY, events: [ev({question: 1, status: 'correct'})]});
   assert.equal(d.get(30, 1), 'marker');
-});
-
-test('an older Sheet: share_view renames «Stats» to «Статистика» and adds «Спорные»', () => {
-  const {b, admin, ss, tab} = world();
-  b.post({action: 'record_events', tid: TID, token: JURY, events: [ev({question: 4, status: 'disputed'})]});
-  tab('Статистика').setName('Stats');
-  ss.sheets.splice(ss.sheets.indexOf(tab('Спорные')), 1);
-  assert.match(b.post({action: 'get_results', tid: TID, token: JURY}).ok ? 'ok' : '', /ok/); // still readable
-  assert.equal(b.post({action: 'share_view', tid: TID, token: admin}).ok, true);
-  assert.equal(tab('Stats'), null);
-  assert.ok(tab('Статистика'));
-  assert.deepEqual(tab('Спорные').row(2, 3), [2, 4, '42']);
-  assert.equal(tab('Спорные').hidden, true);
 });
 
 // ---- one read and one write per request (Sheets API advanced service) ----

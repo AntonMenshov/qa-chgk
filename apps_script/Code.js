@@ -3,7 +3,6 @@
 // which shares this file's global scope (the bundle puts both into one Code.gs).
 
 const VERSION = 'dev'; // replaced by `chgk backend bundle`
-const OLD_ROOT_FOLDER = 'ЧГК'; // before Drive names went Latin (2026-10-30); renamed when found
 // Plus one tab per round, «Тур 1» … «Тур N», right after «Итоги» (see logic.js).
 const TABS = {
   summary: 'Итоги',
@@ -14,7 +13,6 @@ const TABS = {
   settings: 'Settings',
   meta: 'Meta',
 };
-const OLD_STATS = 'Stats'; // the name before 2026-10-30, renamed on the next share_view / set_teams / get_results
 // Hidden, so the view-only link (`…/htmlview`) shows only «Итоги», the round tabs and «Статистика».
 // Google hides a tab for everyone: editors open these from the list of sheets (☰).
 const HIDDEN_TABS = [TABS.disputed, TABS.teams, TABS.log, TABS.settings, TABS.meta];
@@ -162,16 +160,6 @@ function handle_(req) {
     case 'upload_photo':
       requireJury_(props, reg, req);
       return uploadPhoto_(open_(reg), reg, req);
-    case 'share_view':
-      requireAdmin_(props, req);
-      shareView_(reg.spreadsheet_id);
-      return withLock_(() => {
-        const ss = open_(reg);
-        statsTab_(ss); // older Sheets: «Stats» → «Статистика»
-        refreshDisputed_(ss, reg.round_sizes);
-        hideServiceTabs_(ss);
-        return {ok: true, drive: latinDriveNames_(reg)};
-      });
   }
   fail('unhandled action');
 }
@@ -274,51 +262,17 @@ function json_(obj) {
 
 // ---- tournament creation ----
 
-/** The «CHGK» folder in My Drive; an old «ЧГК» one is renamed. Trashed ones are skipped (still found by name). */
+/** The «CHGK» folder in My Drive. A trashed one is skipped: Drive still finds it by name. */
 function rootFolder_() {
   const root = driveNames('', '', '').root;
-  const find = (name) => {
-    const it = DriveApp.getRootFolder().getFoldersByName(name);
-    while (it.hasNext()) {
-      const folder = it.next();
-      if (!folder.isTrashed()) {
-        return folder;
-      }
+  const it = DriveApp.getRootFolder().getFoldersByName(root);
+  while (it.hasNext()) {
+    const folder = it.next();
+    if (!folder.isTrashed()) {
+      return folder;
     }
-    return null;
-  };
-  const current = find(root);
-  if (current) {
-    return current;
   }
-  const old = find(OLD_ROOT_FOLDER);
-  return old ? old.setName(root) : DriveApp.getRootFolder().createFolder(root);
-}
-
-/**
- * Give an existing tournament's Drive items their Latin names (older tournaments had
- * Cyrillic ones); returns the names Drive reports afterwards. An item that is gone
- * (deleted by hand) is reported as null instead of failing.
- */
-function latinDriveNames_(reg) {
-  const names = driveNames(reg.tid, reg.name, reg.date);
-  const rename = (get, name) => {
-    try {
-      const item = get();
-      if (item.getName() !== name) {
-        item.setName(name);
-      }
-      return item.getName();
-    } catch {
-      return null;
-    }
-  };
-  return {
-    root: rename(() => rootFolder_(), names.root),
-    folder: rename(() => DriveApp.getFolderById(reg.folder_id), names.folder),
-    photos: rename(() => DriveApp.getFolderById(reg.photos_folder_id), names.photos),
-    spreadsheet: rename(() => DriveApp.getFileById(reg.spreadsheet_id), names.spreadsheet),
-  };
+  return DriveApp.getRootFolder().createFolder(root);
 }
 
 function createTournament_(props, req) {
@@ -602,7 +556,7 @@ function teamRowsOf_(sheet) {
 function summaryOf_(ss) {
   const summary = ss.getSheetByName(TABS.summary);
   if (!summary) {
-    fail("this tournament's Sheet uses an older layout (one Results tab): create the tournament again");
+    fail(`the Sheet has no «${TABS.summary}» tab`);
   }
   return summary;
 }
@@ -687,7 +641,7 @@ function sortTabs_(ss, sizes, rounds, m, reg) {
       rows,
     });
   });
-  // Also upgrades «Итоги» formulas written by older versions (e.g. Место as a plain RANK).
+  // Without `m` (set_teams, new rows) «Итоги» is always re-sorted, which also rewrites any formula that differs.
   const sl = summaryLayout(sizes);
   const summaryTab = {
     name: TABS.summary,
@@ -831,8 +785,7 @@ function refreshFormulas_(sheet, firstCol, want) {
 }
 
 function setTeams_(ss, reg, teams) {
-  formatSheets_(ss, reg.round_sizes); // also brings Sheets made by older versions up to date
-  statsTab_(ss);
+  formatSheets_(ss, reg.round_sizes); // safe to re-run
   writeTeams_(ss, teams);
   const counts = syncTeamRows_(ss, reg.round_sizes, teams);
   refreshDisputed_(ss, reg.round_sizes); // names may have changed
@@ -942,7 +895,7 @@ function writer_(ss) {
 
 function writeSlowly_(ss, batch) {
   batch.forEach((d) => {
-    const sheet = ss.getSheetByName(d.name) || (d.name === TABS.disputed ? newDisputedTab_(ss) : null);
+    const sheet = ss.getSheetByName(d.name);
     if (!sheet) {
       fail(`the Sheet has no «${d.name}» tab`);
     }
@@ -1043,11 +996,6 @@ function readMarks_(ss, reg, with_) {
   const metaBlock = blocks[1];
   const known = {};
   const rows = new Map();
-  // Sheets from before the known-value columns: start from what is on the tabs now.
-  const upgrade = (metaBlock[0] || [])[ml.knownCol(1) - 1] !== 'v1';
-  if (upgrade) {
-    w.set(TABS.meta, 1, 1, [ml.header]);
-  }
   metaBlock.slice(1).forEach((r, j) => {
     const id = String(r[0]).trim();
     if (!id) {
@@ -1060,12 +1008,7 @@ function readMarks_(ss, reg, with_) {
         continue;
       }
       cells[key].ts = Number(r[ml.tsCol(q) - 1]) || 0;
-      known[key] = upgrade ? cells[key].value : r[ml.knownCol(q) - 1];
-    }
-    if (upgrade) {
-      w.set(TABS.meta, j + 2, ml.knownCol(1), [
-        Array.from({length: n}, (_, k) => (cells[`${id}:${k + 1}`] || {value: ''}).value),
-      ]);
+      known[key] = r[ml.knownCol(q) - 1];
     }
   });
   const meta = {ml, rows, next: Math.max(metaBlock.length, 1) + 1};
@@ -1261,7 +1204,7 @@ function newDisputedTab_(ss) {
   return sheet;
 }
 
-/** Column widths and formats of «Спорные»; safe to re-run (older layouts get it on a full rewrite). */
+/** Column widths and formats of «Спорные». */
 function formatDisputedTab_(sheet) {
   ensureSize_(sheet, 1, DISPUTED_WIDTH);
   DISPUTED_WIDTHS.forEach((width, i) => sheet.setColumnWidth(i + 1, width));
@@ -1284,17 +1227,13 @@ function disputedBlock_(m, values, photos, minRows) {
   return Array.from({length: n}, (_, i) => (list[i] || ['', '', '', '']).concat(['', ''], summary[i] || ['', '']));
 }
 
-/** Rewrite «Спорные» completely (created, hidden, if missing). Needs `m` read with the Log. */
+/** Rewrite «Спорные» completely. Needs `m` read with the Log. */
 function writeDisputed_(ss, m) {
-  const existing = ss.getSheetByName(TABS.disputed);
-  const sheet = existing || newDisputedTab_(ss);
-  if (existing) {
-    formatDisputedTab_(sheet); // an older layout (counts in F-G) gets this one's widths and formats
-  }
+  const sheet = ss.getSheetByName(TABS.disputed);
   const block = disputedBlock_(m, markValues_(m), m.log.photos, 0);
   const last = sheet.getLastRow();
   if (last > 0) {
-    sheet.getRange(1, 1, last, Math.max(DISPUTED_WIDTH, sheet.getLastColumn())).clearContent();
+    sheet.getRange(1, 1, last, DISPUTED_WIDTH).clearContent();
   }
   ensureSize_(sheet, block.length, DISPUTED_WIDTH);
   sheet.getRange(1, 1, block.length, DISPUTED_WIDTH).setValues(block);
@@ -1319,23 +1258,10 @@ function updateDisputed_(m, before) {
   m.w.set(TABS.disputed, 1, 1, disputedBlock_(m, markValues_(m), m.log.photos, before.rows));
 }
 
-/** Full rewrite after SpreadsheetApp writes (names, teams, an older Sheet). */
+/** Full rewrite after SpreadsheetApp writes (names, teams). */
 function refreshDisputed_(ss, sizes) {
   SpreadsheetApp.flush(); // the batched read must see them
   writeDisputed_(ss, readMarks_(ss, {round_sizes: sizes}, {log: true}));
-}
-
-/** «Статистика»; a Sheet made before the rename still has «Stats», renamed here. */
-function statsTab_(ss) {
-  const sheet = ss.getSheetByName(TABS.stats);
-  if (sheet) {
-    return sheet;
-  }
-  const old = ss.getSheetByName(OLD_STATS);
-  if (!old) {
-    fail(`the Sheet has no «${TABS.stats}» tab`);
-  }
-  return old.setName(TABS.stats);
 }
 
 function readState_(ss, reg) {
@@ -1410,7 +1336,8 @@ function readResults_(ss, reg) {
             place: r[sl.placeCol - 1],
           }));
   const n = totalQuestions(sizes);
-  const stats = statsTab_(ss)
+  const stats = ss
+    .getSheetByName(TABS.stats)
     .getRange(2, 1, n, 4)
     .getValues()
     .map((r) => ({question: r[0], round: r[1], took: r[2], share: r[3]}));

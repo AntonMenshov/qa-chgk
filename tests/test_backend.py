@@ -77,15 +77,6 @@ class FakeBackend:
         if action == "set_board_token":
             self.tournaments[req["tid"]]["board_token"] = req["board_token"]
             return httpx.Response(200, json={"ok": True})
-        if action == "share_view":
-            self.tournaments[req["tid"]]["view_shared"] = True
-            drive = {
-                "root": "CHGK",
-                "folder": f"2026-11-15 Osenniy kubok ({req['tid']})",
-                "photos": "Photos",
-                "spreadsheet": f"Osenniy kubok 2026-11-15 ({req['tid']})",
-            }
-            return httpx.Response(200, json={"ok": True, "drive": drive})
         return httpx.Response(200, json={"ok": False, "error": "unknown action"})
 
 
@@ -389,22 +380,17 @@ def test_new_tournament_is_view_only_shared(folder, backends):
     assert state.view_url == f"https://docs.google.com/spreadsheets/d/{state.spreadsheet_id}/htmlview"
 
 
-def test_cli_view_shares_an_older_tournament(folder, backends):
+def test_cli_view_prints_the_link_without_calling_the_backend(folder, backends):
     a, _ = backends
     runner.invoke(app, ["backend", "add", "personal", "--url", URL_A, "--token", "tokA"])
+    assert runner.invoke(app, ["view", str(folder)]).exit_code == 1  # no Sheet yet
     runner.invoke(app, ["new", str(folder)])
-    state = json.loads((folder / "state.json").read_text())
-    state.pop("view_shared")  # created before the backend shared new Sheets
-    (folder / "state.json").write_text(json.dumps(state))
-    assert load_or_create_state(folder).view_url is None
+    calls = len(a.calls)
     result = runner.invoke(app, ["view", str(folder)])
     assert result.exit_code == 0, result.output
-    assert f"https://docs.google.com/spreadsheets/d/{state['spreadsheet_id']}/htmlview" in result.output
-    assert f"Drive: CHGK/2026-11-15 Osenniy kubok ({state['tid']})" in result.output  # names Drive reports back
-    assert a.tournaments[state["tid"]]["view_shared"] is True
-    # Safe to repeat.
-    assert runner.invoke(app, ["view", str(folder)]).exit_code == 0
-    assert load_or_create_state(folder).view_shared
+    state = load_or_create_state(folder)
+    assert f"https://docs.google.com/spreadsheets/d/{state.spreadsheet_id}/htmlview" in result.output
+    assert len(a.calls) == calls
 
 
 def test_cli_board_needs_a_backend(folder):
