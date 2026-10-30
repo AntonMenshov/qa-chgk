@@ -170,6 +170,7 @@ def test_new_tournament_records_its_backend(folder, backends):
     assert req["name"] == "Осенний кубок" and req["date"] == "2026-11-15" and req["round_sizes"] == [3, 3]
     assert [t["team_id"] for t in req["teams"]] == ["A01", "A02", "A03"]
     assert req["jury_token"] == s.jury_token and len(s.jury_token) >= 16
+    assert req["reserve"] == ["R1", "R2"]  # reserve decks, config default
     assert load_or_create_state(folder) == s
 
 
@@ -223,6 +224,22 @@ def test_sync_teams_assigns_ids_and_writes_back(folder, backends):
     assert [t.team_id for t in teams] == ["A01", "A02", "A03", "A04"]
     assert "A04,Новые,Бостон" in (folder / "teams.csv").read_text(encoding="utf-8")
     assert a.tournaments[state.tid]["teams"][-1]["team_id"] == "A04"  # written back
+
+
+def test_sync_teams_leaves_reserve_teams_on_the_backend(folder, backends):
+    a, _ = backends
+    profiles = Profiles()
+    profiles.add(Profile("personal", URL_A, "tokA"))
+    profiles.save()
+    state = new_tournament(folder, profiles.active()).state
+    # The jury named reserve team R1 in the Sheet; R2 is still unused.
+    a.tournaments[state.tid]["teams"] += [{"team_id": "R1", "name": "Новенькие", "reserve": True},
+                                          {"team_id": "R2", "name": "", "reserve": True}]
+    teams = sync_teams(folder, Profiles())
+    assert [t.team_id for t in teams] == ["A01", "A02", "A03"]
+    assert "R1" not in (folder / "teams.csv").read_text(encoding="utf-8")
+    sent = [c for c in a.calls if c["action"] == "set_teams"][-1]["teams"]
+    assert [t["team_id"] for t in sent] == ["A01", "A02", "A03"]
 
 
 def test_sync_teams_needs_a_backend(folder):

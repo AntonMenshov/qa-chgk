@@ -53,6 +53,29 @@ function validateTeams(teams) {
   }
 }
 
+/** Reserve teams (decks for teams that turn up unregistered): IDs only, none clashing with a team. */
+function validateReserve(reserve, teams) {
+  if (!Array.isArray(reserve)) fail("reserve must be a list of team IDs");
+  const taken = new Set(teams.map((t) => t.team_id));
+  for (const id of reserve) {
+    if (!TEAM_ID_RE.test(id)) fail(`invalid reserve team_id ${JSON.stringify(id)}`);
+    if (taken.has(id)) fail(`reserve team_id ${id} is already used`);
+    taken.add(id);
+  }
+}
+
+/** Name shown for a reserve team from its first scan until the jury types the real one. */
+function reservePlaceholder(teamId) {
+  return `${teamId} · впишите название`;
+}
+
+/** Names typed on a tab ({id: name}) that differ from the Teams tab; blanks are ignored. */
+function nameEdits(source, truth) {
+  return Object.keys(source)
+    .filter((id) => String(source[id]).trim() !== "" && String(source[id]).trim() !== String(truth[id] || ""))
+    .map((id) => ({ team_id: id, name: String(source[id]).trim() }));
+}
+
 /** Check the shape of a request body; returns it, or throws RequestError. */
 function validateRequest(body) {
   if (!body || typeof body !== "object") fail("request must be a JSON object");
@@ -66,6 +89,7 @@ function validateRequest(body) {
       validateRoundSizes(body.round_sizes);
       if (typeof body.jury_token !== "string" || body.jury_token.length < 16) fail("jury_token must be at least 16 characters");
       validateTeams(body.teams || []);
+      validateReserve(body.reserve || [], body.teams || []);
       return body;
     case "get_teams":
     case "get_state":
@@ -319,6 +343,6 @@ if (typeof module !== "undefined") {
     STATUSES, STATUS_VALUE, RequestError, tokensEqual, colLetter, totalQuestions, validateRequest,
     eventError, mergeCell, applyEvents, normalizeCellInput, roundSheetName, roundLayout, roundRow, questionCell,
     questionAt, summaryLayout, summaryRow, placeFormula, placeLabels, standings, compareStandings, summarySortSpec,
-    roundSortSpec, metaLayout, sheetEdits, statsRows, planTeamRows,
+    roundSortSpec, metaLayout, sheetEdits, statsRows, planTeamRows, validateReserve, reservePlaceholder, nameEdits,
   };
 }

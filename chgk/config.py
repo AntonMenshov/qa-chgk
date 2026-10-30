@@ -74,6 +74,8 @@ class Tournament:
     questions_per_round: int | list[int]
     scanner_url: str  # e.g. "https://<user>.github.io/qa-chgk/s/"
     spares_per_team: int = 3
+    # Full decks R1, R2, … (no name, generic logo) for teams that turn up unregistered.
+    reserve_teams: int = 2
     card: CardFields = field(default_factory=CardFields)
     layout: Layout = field(default_factory=Layout)
 
@@ -91,6 +93,8 @@ class Tournament:
             raise ConfigError(f"every round needs ≥ 1 question, got {per_round}")
         if self.spares_per_team < 0:
             raise ConfigError(f"spares_per_team must be ≥ 0, got {self.spares_per_team}")
+        if not 0 <= self.reserve_teams <= 9:
+            raise ConfigError(f"reserve_teams must be 0–9, got {self.reserve_teams}")
         if not self.scanner_url.startswith("https://") or not self.scanner_url.endswith("/"):
             raise ConfigError(f"scanner_url must start with https:// and end with /, got {self.scanner_url!r}")
 

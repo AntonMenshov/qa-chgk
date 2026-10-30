@@ -302,3 +302,121 @@ test("a Meta tab from before the known-value columns is upgraded without logging
   assert.equal(meta.get(1, 8), "v1");
   assert.equal(meta.get(meta.rowOf("A01"), 8), 1);
 });
+
+// ---------- reserve teams (turned up unregistered) and names typed in the Sheet ----------
+
+function reserveWorld() {
+  const b = loadBackend();
+  b.setup();
+  const admin = b.$.props.get("ADMIN_TOKEN");
+  const created = b.post({ action: "create_tournament", token: admin, tid: TID, name: "Кубок", date: "2026-11-15",
+    round_sizes: [3, 3], jury_token: JURY, teams: TEAMS, reserve: ["R1", "R2"] });
+  assert.equal(created.ok, true, JSON.stringify(created));
+  const ss = b.$.spreadsheets.get(created.spreadsheet_id);
+  return { b, admin, ss, tab: (name) => ss.getSheetByName(name) };
+}
+
+test("reserve teams wait on the Teams tab: not on «Итоги», round tabs or Meta, not in the places", () => {
+  const { b, tab } = reserveWorld();
+  assert.deepEqual(tab("Teams").row(4, 5), ["R1", "", "", "", "да"]);
+  assert.deepEqual(tab("Teams").row(5, 5), ["R2", "", "", "", "да"]);
+  for (const name of ["Итоги", "Тур 1", "Тур 2", "Meta"]) assert.deepEqual(tab(name).ids(), ["A01", "A02"], name);
+  const state = b.post({ action: "get_state", tid: TID, token: JURY });
+  assert.deepEqual(state.teams.map((t) => [t.team_id, t.name, t.reserve]), [
+    ["A01", "42", false], ["A02", "Фиаско", false], ["R1", "R1 · впишите название", true], ["R2", "R2 · впишите название", true]]);
+  assert.deepEqual(state.marks.R1, ["", "", "", "", "", ""]);
+  b.post({ action: "record_events", tid: TID, token: JURY, events: [ev({ question: 1 })] });
+  assert.deepEqual(b.post({ action: "get_results", tid: TID, token: JURY }).standings.map((r) => [r.team_id, r.place]),
+    [["A01", 1], ["A02", 2]]); // an unused reserve does not share last place
+});
+
+test("a reserve team's first scan puts it on every tab with a placeholder name", () => {
+  const { b, tab } = reserveWorld();
+  const res = b.post({ action: "record_events", tid: TID, token: JURY, events: [
+    ev({ team_id: "R1", question: 2 }), ev({ team_id: "R2", question: 99 })] }); // R2's event is invalid
+  assert.deepEqual(res.results.map((r) => r.applied), [true, false]);
+  for (const name of ["Итоги", "Тур 1", "Тур 2", "Meta"]) assert.ok(tab(name).ids().includes("R1"), name);
+  for (const name of ["Итоги", "Тур 1"]) assert.ok(!tab(name).ids().includes("R2"), name);
+  const t1 = tab("Тур 1");
+  assert.deepEqual(t1.row(t1.rowOf("R1"), 4), ["R1", "R1 · впишите название", "", 1]);
+  assert.equal(tab("Teams").get(4, 2), "R1 · впишите название");
+  assert.deepEqual(b.post({ action: "get_results", tid: TID, token: JURY }).standings.map((r) => [r.team_id, r.total, r.place]),
+    [["R1", 1, 1], ["A01", 0, "2-3"], ["A02", 0, "2-3"]]);
+});
+
+test("the jury types the real name over the placeholder on «Итоги»: every tab and Teams follow", () => {
+  const { b, tab } = reserveWorld();
+  b.post({ action: "record_events", tid: TID, token: JURY, events: [ev({ team_id: "R1", question: 2 })] });
+  const sum = tab("Итоги");
+  const row = sum.rowOf("R1");
+  sum.write(row, 2, "Новенькие");
+  b.onSheetEdit({ range: sum.getRange(row, 2) });
+  for (const name of ["Итоги", "Тур 1", "Тур 2"]) assert.equal(tab(name).get(tab(name).rowOf("R1"), 2), "Новенькие", name);
+  assert.deepEqual(tab("Teams").row(4, 5), ["R1", "Новенькие", "", "", "да"]);
+  assert.equal(b.post({ action: "get_state", tid: TID, token: JURY }).teams.find((t) => t.team_id === "R1").name, "Новенькие");
+});
+
+test("a name typed on a round tab is matched by ID even if the tab was re-sorted before the trigger ran", () => {
+  const { b, tab } = reserveWorld();
+  b.post({ action: "record_events", tid: TID, token: JURY, events: [ev({ team_id: "R1", question: 4 })] });
+  const t1 = tab("Тур 1");
+  const row = t1.rowOf("R1"); // R1 is last on «Тур 1» (0 points there)
+  t1.write(row, 2, "Новенькие");
+  // A batch moves A02 to the top of «Тур 1» before the trigger runs.
+  b.post({ action: "record_events", tid: TID, token: JURY, events: [ev({ team_id: "A02", question: 1 })] });
+  b.onSheetEdit({ range: t1.getRange(row, 2) });
+  for (const name of ["Итоги", "Тур 1", "Тур 2", "Teams"]) {
+    const t = tab(name);
+    assert.equal(t.get(t.rowOf("R1"), 2), "Новенькие", name);
+    assert.equal(t.get(t.rowOf("A02"), 2), "Фиаско", name);
+  }
+});
+
+test("a reserve team named on the Teams tab before its first scan joins the tabs with that name", () => {
+  const { b, tab } = reserveWorld();
+  tab("Teams").write(5, 2, "Опоздавшие"); // R2
+  b.onSheetEdit({ range: tab("Teams").getRange(5, 2) });
+  for (const name of ["Итоги", "Тур 1", "Тур 2"]) assert.equal(tab(name).get(tab(name).rowOf("R2"), 2), "Опоздавшие", name);
+  assert.ok(!tab("Итоги").ids().includes("R1"));
+});
+
+test("renaming a registered team anywhere renames it everywhere; a cleared name is put back", () => {
+  const { b, tab } = reserveWorld();
+  const t2 = tab("Тур 2");
+  t2.write(t2.rowOf("A02"), 2, "Фиаско-2");
+  b.onSheetEdit({ range: t2.getRange(t2.rowOf("A02"), 2) });
+  for (const name of ["Итоги", "Тур 1", "Тур 2", "Teams"]) assert.equal(tab(name).get(tab(name).rowOf("A02"), 2), "Фиаско-2", name);
+  const sum = tab("Итоги");
+  sum.write(sum.rowOf("A01"), 2, "");
+  b.onSheetEdit({ range: sum.getRange(sum.rowOf("A01"), 2) });
+  assert.equal(sum.get(sum.rowOf("A01"), 2), "42");
+  // «42» typed as a name stays text.
+  sum.write(sum.rowOf("A02"), 2, "42");
+  b.onSheetEdit({ range: sum.getRange(sum.rowOf("A02"), 2) });
+  assert.equal(tab("Тур 1").get(tab("Тур 1").rowOf("A02"), 2), "42");
+});
+
+test("set_teams keeps reserve rows and the names the jury gave them", () => {
+  const { b, admin, tab } = reserveWorld();
+  b.post({ action: "record_events", tid: TID, token: JURY, events: [ev({ team_id: "R1", question: 2 })] });
+  const sum = tab("Итоги");
+  sum.write(sum.rowOf("R1"), 2, "Новенькие");
+  b.onSheetEdit({ range: sum.getRange(sum.rowOf("R1"), 2) });
+  b.post({ action: "set_teams", tid: TID, token: admin, teams: [...TEAMS, { team_id: "A03", name: "Совхоз Победа" }] });
+  assert.deepEqual(tab("Teams").ids(), ["A01", "A02", "A03", "R1", "R2"]);
+  assert.deepEqual(tab("Teams").row(tab("Teams").rowOf("R1"), 5), ["R1", "Новенькие", "", "", "да"]);
+  const teams = b.post({ action: "get_teams", tid: TID, token: admin }).teams;
+  assert.deepEqual(teams.filter((t) => t.reserve).map((t) => t.team_id), ["R1", "R2"]);
+});
+
+test("reserve IDs are checked", () => {
+  const b = loadBackend();
+  b.setup();
+  const admin = b.$.props.get("ADMIN_TOKEN");
+  const create = (reserve) => b.post({ action: "create_tournament", token: admin, tid: TID, name: "Кубок", date: "2026-11-15",
+    round_sizes: [3], jury_token: JURY, teams: TEAMS, reserve });
+  assert.match(create(["A01"]).error, /already used/);
+  assert.match(create(["R1", "R1"]).error, /already used/);
+  assert.match(create(["r1"]).error, /invalid reserve/);
+  assert.match(create("R1").error, /list/);
+});

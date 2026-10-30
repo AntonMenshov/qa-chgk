@@ -16,6 +16,17 @@ class Team:
     name: str
     city: str = ""
     logo_file: str = ""  # path relative to the tournament folder
+    reserve: bool = False  # a deck for a team that turns up unregistered; the jury names it later
+
+
+def reserve_teams(count: int, teams: list[Team]) -> list[Team]:
+    """Reserve teams R1, R2, …: no name, no logo of their own. Their IDs must be free."""
+    reserve = [Team(f"R{i}", "", reserve=True) for i in range(1, count + 1)]
+    clash = sorted({t.team_id for t in teams} & {t.team_id for t in reserve})
+    if clash:
+        raise ValueError(f"team_id {', '.join(clash)} is kept for reserve teams: give that team another ID "
+                         "or lower reserve_teams in config.py")
+    return reserve
 
 
 def load_teams_csv(path: Path) -> list[Team]:

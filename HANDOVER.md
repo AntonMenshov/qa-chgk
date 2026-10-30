@@ -38,7 +38,7 @@ chgk/                 Python package (at repo root, no src/ — user's preferenc
   teams.py            teams.csv loader (keeps given team_ids, assigns + writes back missing ones)
   state.py            tournaments/<slug>/state.json (TID, backend URL/profile, sheet ID, jury token)
   logos.py            image → pale greyscale watermark
-  jury.py             jury printout (platypus): access QR, links, how-to, roster, backup grid
+  jury.py             jury printout (platypus): QR page, links, how-to, team forms, backup grid
   cards/
     model.py          a team's deck: numbered cards, then spares
     impose.py         team-pages / cut-stack / scissors slot assignment
@@ -167,6 +167,13 @@ checks that the decks come out in order.
    offline queue, batches of marks).
 
 ## Lessons learned
+
+- Reserve decks (SPEC §8.7): R1, R2 are on the Teams tab from the start but join the
+  other tabs only on first scan or when named, so they never distort places. Names typed
+  on any tab are propagated by team ID (`propagateNames_`), like marks.
+- Jury sheet (user requests): page 1 holds every QR code, one per quarter (tested ≥ 3″
+  apart, none on other pages); the roster became per-team player forms (ID + name +
+  8 lines), no town or card counts.
 
 - Team IDs are the organiser's (user request: rating numbers such as 58746) or assigned
   A01…; format 1-8 of `[0-9A-Z]`, which keeps the QR at version 4-M. Column A on every

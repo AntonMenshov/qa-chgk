@@ -79,7 +79,8 @@ def cards(
         raise typer.Exit(1) from err
     for warning in result.warnings:
         typer.secho(f"Warning: {warning}", fg="yellow", err=True)
-    typer.echo(f"{result.path}: {result.teams} teams, {result.cards} cards, {result.pages} pages ({mode.value}).")
+    reserve = f" + {result.reserve} reserve decks" if result.reserve else ""
+    typer.echo(f"{result.path}: {result.teams} teams{reserve}, {result.cards} cards, {result.pages} pages ({mode.value}).")
     typer.echo(f"{result.jury_path}: jury sheet (contains the secret jury access QR once `chgk new` has run).")
     typer.echo("Print on Letter at 100% / Actual size.")
     typer.echo(INSTRUCTIONS[mode])
@@ -102,12 +103,11 @@ def test_page(
 @app.command("jury-sheet")
 def jury_sheet(
     folder: Path = typer.Argument(..., help="Tournament folder with config.py and teams.csv"),
-    mode: Mode | None = typer.Option(None, help="Count the extra spares this imposition prints"),
     out: Path | None = typer.Option(None, help="Output PDF (default: out/<slug>/jury.pdf)"),
 ) -> None:
-    """Print the jury sheet: access QR, links, how-to, team roster, paper backup grid."""
+    """Print the jury sheet: QR codes, links, how-to, team and player forms, paper backup grid."""
     try:
-        path, warnings = build_jury_sheet(folder, mode, out)
+        path, warnings = build_jury_sheet(folder, out)
     except ValueError as err:
         typer.secho(f"Error: {err}", fg="red", err=True)
         raise typer.Exit(1) from err

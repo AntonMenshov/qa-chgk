@@ -36,6 +36,7 @@ SCISSORS_GREY = 0.35  # darker, dashed cut lines that are easy to follow with sc
 ELLIPSIS = "…"
 SPARE_BOX_W = 0.9 * 72  # pt: room for a handwritten two- or three-digit number
 SPARE_BOX_GREY = 0.35
+RESERVE_NAME_LABEL = "Команда:"
 
 
 @lru_cache(maxsize=None)
@@ -167,7 +168,14 @@ def _draw_card(c: Canvas, card: Card, parts: CardParts, tournament: Tournament, 
         c.drawString(nr.x, nr.y + 1, f"Тур {card.round}")
 
     fr = parts.footer
-    if fields.team_name:
+    if fields.team_name and card.team.reserve:
+        # A reserve deck: the team writes its name here.
+        c.setFont(FONT, TEAM_SIZE - 1)
+        c.drawString(fr.x, parts.team_baseline, RESERVE_NAME_LABEL)
+        start = fr.x + pdfmetrics.stringWidth(RESERVE_NAME_LABEL, FONT, TEAM_SIZE - 1) + 3
+        c.setLineWidth(0.5)
+        c.line(start, parts.team_baseline - 1, fr.right, parts.team_baseline - 1)
+    elif fields.team_name:
         text, size = fit_text(printable(card.team.name, warnings), FONT_BOLD, TEAM_SIZE, fr.w, 5.5)
         c.setFont(FONT_BOLD, size)
         c.drawString(fr.x, parts.team_baseline, text)

@@ -8,7 +8,7 @@ from chgk.cards.build import TEAMS_FILE
 from chgk.config import load_config
 from chgk.ids import assign_team_ids, generate_jury_token
 from chgk.state import State, load_or_create_state, save_state
-from chgk.teams import Team, load_teams_csv, write_teams_csv
+from chgk.teams import Team, load_teams_csv, reserve_teams, write_teams_csv
 
 
 @dataclass(frozen=True)
@@ -36,6 +36,7 @@ def new_tournament(folder: Path, profile: Profile, client: BackendClient | None 
     account = profile.account or client.ping().get("account", "")
     teams_csv = folder / TEAMS_FILE
     teams = load_teams_csv(teams_csv) if teams_csv.is_file() else []
+    reserve = reserve_teams(tournament.reserve_teams, teams)
     jury_token = state.jury_token or generate_jury_token()
     # Save the token first, so a retry after a timeout reuses it and the backend recognises the retry.
     state = replace(state, jury_token=jury_token)
@@ -44,6 +45,7 @@ def new_tournament(folder: Path, profile: Profile, client: BackendClient | None 
     reply = client.create_tournament(
         tid=state.tid, name=tournament.name, date=tournament.date.isoformat(),
         round_sizes=tournament.round_sizes, jury_token=jury_token, teams=_team_dicts(teams),
+        reserve=[t.team_id for t in reserve],
     )
     state = replace(
         state, backend_url=profile.url, backend_profile=profile.name, backend_account=account,
@@ -66,11 +68,12 @@ def sync_teams(folder: Path, profiles: Profiles, client: BackendClient | None = 
     """The Sheet's Teams tab is the source of truth: pull it into teams.csv.
 
     Teams added in the Sheet without a team_id get one, and the IDs are written back.
+    Reserve teams (R1, R2, …) stay on the backend: the jury names them in the Sheet.
     """
     folder = Path(folder)
     state, default_client = tournament_client(folder, profiles)
     client = client or default_client
-    rows = client.get_teams(state.tid)
+    rows = [r for r in client.get_teams(state.tid) if not r.get("reserve")]
     if not rows:
         raise ValueError("the Teams tab in the Sheet is empty")
     ids = assign_team_ids([(r.get("team_id") or "").strip() or None for r in rows])

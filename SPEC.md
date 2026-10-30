@@ -271,22 +271,37 @@ Each team gets **one stack for the whole game** (numbered cards + spares).
 
 Every `chgk cards` run also writes the jury sheet, `out/<slug>/jury.pdf`, as a
 separate file so the secret never ends up on team cards. It's also available alone
-as `chgk jury-sheet <folder> [--mode]`.
+as `chgk jury-sheet <folder>`.
 
-- **Page 1:**
-  - tournament name, date, rounds × questions, number of teams, TID;
-  - the **secret jury access QR** and link (§7.4), boxed and marked secret. Until
-    `chgk new` has created the backend, the box says how to create it instead;
-  - links with small QRs: scanner, results Sheet, projector board, backend profile
-    and Google-account label;
-  - juror how-to;
-  - «?» and appeals how-to.
-- **Page 2, team roster:** ID, name, city, numbered cards, spares (as actually
-  printed in the chosen mode), and a "handed out" checkbox.
+- **Page 1, every QR code and nothing else** (user request): the secret jury access
+  (§7.4, framed, marked secret), scanner, results Sheet, projector board. One per
+  quarter of the page, at least 3″ apart, so the wrong one is hard to scan. A link that
+  doesn't exist yet gets a dashed empty box. Only this page's footer says «секретно».
+- **Page 2:** tournament name, date, rounds × questions, teams (+ reserve decks), TID;
+  the links as text (no QR codes) with the backend profile and Google-account label;
+  juror how-to; «?» and appeals how-to; how to handle a team that turns up
+  unregistered (when reserve decks exist).
+- **Team forms** (user request; replaces the old roster): one per team with only the
+  ID and name, then 8 numbered lines for the players' names. Blank forms for the
+  reserve decks (R1, R2, …) with a «Название команды:» field. Handed to the teams.
 - **Then a paper backup grid,** for when phones or internet fail: one block per round
   (teams × questions + a «Сумма» column), then an «Итого» block (teams × rounds +
-  total).
-- Every page has a footer: tournament · лист жюри · секретно.
+  total). Reserve decks get rows with a blank name.
+
+### 8.7 Teams that turn up unregistered (reserve decks)
+
+- `reserve_teams` in config.py (default 2, 0–9): full card decks R1, R2, … printed
+  with every `chgk cards` run. No team name (with team names on cards, a «Команда:»
+  line to write it on), no logo of their own (tournament logo, else `nologo.png`).
+  A registered team may not use these IDs.
+- The backend knows them from the start (Teams tab, `reserve` column) but keeps them off
+  «Итоги», the round tabs and Meta, so an unused reserve never shares last place.
+- The first valid scan of a reserve card adds the team to every tab as
+  «R1 · впишите название». The jury types the real name over it on «Итоги», a round
+  tab or Teams, and the name is copied to every tab (matched by team ID). Naming a
+  reserve team on Teams before its first scan adds it too.
+- Any team can be renamed this way; a cleared name cell is put back. `chgk teams`
+  leaves reserve teams on the backend (they are not written to teams.csv).
 - Jury link format: `<scanner_url>#setup=<TID>.<JURY_TOKEN>.<DEPLOYMENT_ID>`. It's
   encoded in Python, will be decoded by the JS scanner, and has shared test vectors in
   `tests/vectors/jury_links.json`.
@@ -376,7 +391,7 @@ uv run chgk teams tournaments/<slug>        # pull Teams tab, assign team_ids, v
 uv run chgk logos tournaments/<slug>        # process/generate logos → pale PNGs
 uv run chgk cards tournaments/<slug> [--mode team-pages|cut-stack|scissors] [--teams A01,A07]
 uv run chgk test-page tournaments/<slug>
-uv run chgk jury-sheet tournaments/<slug> [--mode …]   # jury printout (also written by `cards`)
+uv run chgk jury-sheet tournaments/<slug>   # jury printout (also written by `cards`)
 uv run chgk board-link tournaments/<slug>   # projector URL
 ```
 

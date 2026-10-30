@@ -6,7 +6,8 @@ const VERSION = "dev"; // replaced by `chgk backend bundle`
 const ROOT_FOLDER = "ЧГК";
 // Plus one tab per round, «Тур 1» … «Тур N», right after «Итоги» (see logic.js).
 const TABS = { summary: "Итоги", stats: "Stats", teams: "Teams", log: "Log", settings: "Settings", meta: "Meta" };
-const TEAMS_HEADER = ["team_id", "name", "city", "logo_file"];
+const TEAMS_HEADER = ["team_id", "name", "city", "logo_file", "reserve"];
+const RESERVE_MARK = "да"; // Teams tab, column «reserve»: a deck for a team that turns up unregistered
 const LOG_HEADER = ["server_time", "client_time", "scan_id", "source", "juror", "device", "team_id", "question",
   "spare", "status", "value", "applied", "photo"];
 const COLORS = { 1: "#d9ead3", 0: "#f4cccc", "?": "#fff2cc", R: "#eeeeee" };
@@ -208,8 +209,8 @@ function buildTabs_(ss, req) {
   meta.hideSheet();
 
   formatSheets_(ss, sizes); // first: names must land in plain-text cells
-  writeTeams_(ss, req.teams || []);
-  syncTeamRows_(ss, sizes, req.teams || []);
+  writeTeams_(ss, req.teams || [], req.reserve || []);
+  syncTeamRows_(ss, sizes, req.teams || []); // reserve teams get rows only once used
   ss.setActiveSheet(summary);
 }
 
@@ -220,19 +221,74 @@ function readTeams_(ss) {
   const n = sheet.getLastRow() - 1;
   if (n < 1) return [];
   return sheet.getRange(2, 1, n, TEAMS_HEADER.length).getValues()
-    .filter((r) => r.some((v) => String(v).trim() !== ""))
-    .map((r) => ({ team_id: String(r[0]).trim(), name: String(r[1]).trim(), city: String(r[2]).trim(), logo_file: String(r[3]).trim() }));
+    .map((r, i) => ({
+      team_id: String(r[0]).trim(), name: String(r[1]).trim(), city: String(r[2]).trim(),
+      logo_file: String(r[3]).trim(), reserve: String(r[4]).trim() !== "", row: i + 2,
+    }))
+    .filter((t) => t.team_id !== "" || t.name !== "");
 }
 
-function writeTeams_(ss, teams) {
+/**
+ * The organiser's teams, then the reserve teams. Reserve rows already on the tab are kept
+ * (with any name the jury gave them), unless a registered team now has that ID.
+ */
+function writeTeams_(ss, teams, newReserve) {
   const sheet = ss.getSheetByName(TABS.teams);
   // Plain text, or Sheets turns a team called «42» into a number.
   sheet.getRange(1, 1, sheet.getMaxRows(), TEAMS_HEADER.length).setNumberFormat("@");
+  const registered = new Set(teams.map((t) => t.team_id));
+  const reserve = readTeams_(ss).filter((t) => t.reserve && !registered.has(t.team_id))
+    .concat((newReserve || []).map((id) => ({ team_id: id, name: "" })));
+  const rows = teams.map((t) => [t.team_id, t.name, t.city || "", t.logo_file || "", ""])
+    .concat(reserve.map((t) => [t.team_id, t.name, "", "", RESERVE_MARK]));
   if (sheet.getLastRow() > 1) sheet.getRange(2, 1, sheet.getLastRow() - 1, TEAMS_HEADER.length).clearContent();
-  if (teams.length) {
-    sheet.getRange(2, 1, teams.length, TEAMS_HEADER.length)
-      .setValues(teams.map((t) => [t.team_id, t.name, t.city || "", t.logo_file || ""]));
+  if (rows.length) {
+    ensureSize_(sheet, rows.length + 1, TEAMS_HEADER.length);
+    sheet.getRange(2, 1, rows.length, TEAMS_HEADER.length).setValues(rows);
   }
+}
+
+// ---- reserve teams and names ----
+
+/**
+ * Put reserve teams on «Итоги», the round tabs and Meta (their first scan, or the jury
+ * naming them on the Teams tab). Until then they stay off, so an unused reserve does not
+ * share last place with anyone.
+ */
+function activateReserve_(ss, sizes, ids) {
+  const reserve = new Map(readTeams_(ss).filter((t) => t.reserve).map((t) => [t.team_id, t]));
+  const present = new Set(teamRowsOf_(summaryOf_(ss)).map((t) => t.team_id));
+  const add = [...new Set(ids)].filter((id) => reserve.has(id) && !present.has(id))
+    .map((id) => ({ team_id: id, name: reserve.get(id).name || reservePlaceholder(id) }));
+  if (!add.length) return;
+  const teamsTab = ss.getSheetByName(TABS.teams);
+  add.forEach((t) => { if (!reserve.get(t.team_id).name) teamsTab.getRange(reserve.get(t.team_id).row, 2).setValue(t.name); });
+  syncTeamRows_(ss, sizes, add);
+}
+
+/**
+ * A name typed in column B of «Итоги», a round tab or Teams goes to every tab. Matched by
+ * team ID (rows may have been re-sorted since the edit); a cleared name is put back.
+ */
+function propagateNames_(ss, sizes, sourceName) {
+  const teams = readTeams_(ss);
+  const truth = {};
+  teams.forEach((t) => { truth[t.team_id] = t.name; });
+  if (sourceName !== TABS.teams) {
+    const typed = {};
+    teamRowsOf_(ss.getSheetByName(sourceName)).forEach((t) => { typed[t.team_id] = t.name; });
+    nameEdits(typed, truth).forEach((e) => { truth[e.team_id] = e.name; });
+  }
+  const teamsTab = ss.getSheetByName(TABS.teams);
+  teams.forEach((t) => { if (truth[t.team_id] && t.name !== truth[t.team_id]) teamsTab.getRange(t.row, 2).setValue(truth[t.team_id]); });
+  // A reserve team named on the Teams tab before its first scan joins the tabs now.
+  activateReserve_(ss, sizes, teams.filter((t) => t.reserve && truth[t.team_id]).map((t) => t.team_id));
+  [summaryOf_(ss)].concat(sizes.map((_, i) => ss.getSheetByName(roundSheetName(i + 1)))).forEach((sheet) => {
+    teamRowsOf_(sheet).forEach((t) => {
+      const want = truth[t.team_id];
+      if (want && String(t.rawName) !== want) sheet.getRange(t.row, 2).setValue(want);
+    });
+  });
 }
 
 /** Widths, round tints, borders and mark colours on «Итоги» and the round tabs. Safe to re-run. */
@@ -472,8 +528,15 @@ function applySheetEdits_(ss, m, user) {
 
 function readState_(ss, reg) {
   const m = readMarks_(ss, reg);
+  const reserve = readTeams_(ss).filter((t) => t.reserve);
+  const reserveIds = new Set(reserve.map((t) => t.team_id));
+  const present = new Set(m.teams.map((t) => t.team_id));
+  // Phones need reserve IDs too, to accept those cards before their first scan.
+  const teams = m.teams.map((t) => ({ team_id: t.team_id, name: t.name, reserve: reserveIds.has(t.team_id) }))
+    .concat(reserve.filter((t) => !present.has(t.team_id))
+      .map((t) => ({ team_id: t.team_id, name: t.name || reservePlaceholder(t.team_id), reserve: true })));
   const marks = {};
-  m.teams.forEach((t) => {
+  teams.forEach((t) => {
     marks[t.team_id] = Array.from({ length: m.n }, (_, k) => {
       const cell = m.cells[`${t.team_id}:${k + 1}`];
       return cell ? cell.value : "";
@@ -482,7 +545,7 @@ function readState_(ss, reg) {
   return {
     ok: true,
     tournament: { name: reg.name, date: reg.date, round_sizes: reg.round_sizes },
-    teams: m.teams,
+    teams: teams,
     marks: marks,
   };
 }
@@ -506,6 +569,12 @@ function readResults_(ss, reg) {
 }
 
 function recordEvents_(ss, reg, req) {
+  // A reserve team's first valid scan puts it on the tabs.
+  const reserveIds = new Set(readTeams_(ss).filter((t) => t.reserve).map((t) => t.team_id));
+  const nowMs = Date.now();
+  activateReserve_(ss, reg.round_sizes, req.events
+    .filter((ev) => ev && reserveIds.has(ev.team_id) && !eventError(ev, new Set([ev.team_id]), reg.round_sizes, nowMs))
+    .map((ev) => ev.team_id));
   const m = readMarks_(ss, reg);
   // Jury edits first, so they get their time before app marks are compared with them.
   const rounds = applySheetEdits_(ss, m, "");
@@ -540,28 +609,35 @@ function recordEvents_(ss, reg, req) {
 }
 
 /**
- * Installable onEdit trigger: a jury edit of a mark on a round tab. The edit is found by
- * comparing every mark with the last known value (not by e.range, whose row may hold
- * another team by now if the tab was re-sorted), then the tabs are re-sorted.
+ * Installable onEdit trigger. Marks on a round tab: found by comparing every mark with the
+ * last known value (not by e.range, whose row may hold another team by now if the tab was
+ * re-sorted), then the tabs are re-sorted. Names in column B of «Итоги», a round tab or
+ * Teams: copied to every tab by team ID.
  */
 function onSheetEdit(e) {
   const sheet = e.range.getSheet();
   const name = sheet.getName();
-  if (!/^Тур \d+$/.test(name)) return;
+  const isRound = /^Тур \d+$/.test(name);
+  if (!isRound && name !== TABS.summary && name !== TABS.teams) return;
+  if (e.range.getRow() + e.range.getNumRows() - 1 < 2) return; // header only
   const ss = sheet.getParent();
   const settings = ss.getSheetByName(TABS.settings).getRange(1, 1, 6, 2).getValues();
   const sizes = JSON.parse(settings.find((r) => r[0] === "round_sizes")[1]);
-  // Columns never move, so the column still tells whether a mark was touched.
+  // Columns never move, so the columns still tell what was touched.
+  const first = e.range.getColumn();
+  const last = first + e.range.getNumColumns() - 1;
+  const touchesNames = first <= 2 && last >= 2;
   let touchesMarks = false;
-  for (let c = 0; c < e.range.getNumColumns(); c++) {
-    if (questionAt(sizes, name, 2, e.range.getColumn() + c) !== null) touchesMarks = true;
-  }
-  if (!touchesMarks || e.range.getRow() + e.range.getNumRows() - 1 < 2) return;
+  for (let c = first; c <= last && isRound; c++) if (questionAt(sizes, name, 2, c) !== null) touchesMarks = true;
+  if (!touchesNames && !touchesMarks) return;
   const user = e.user && e.user.getEmail ? e.user.getEmail() : "";
 
   withLock_(() => {
-    const m = readMarks_(ss, { round_sizes: sizes });
-    const rounds = applySheetEdits_(ss, m, user);
-    if (rounds.size) sortTabs_(ss, sizes, [...rounds]);
+    if (touchesNames) propagateNames_(ss, sizes, name);
+    if (touchesMarks) {
+      const m = readMarks_(ss, { round_sizes: sizes });
+      const rounds = applySheetEdits_(ss, m, user);
+      if (rounds.size) sortTabs_(ss, sizes, [...rounds]);
+    }
   });
 }

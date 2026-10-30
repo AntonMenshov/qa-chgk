@@ -48,6 +48,7 @@ def test_round_of_out_of_range(q):
 def test_defaults_match_user_choices():
     t = make()
     assert t.spares_per_team == 3
+    assert t.reserve_teams == 2  # decks for teams that turn up unregistered
     assert (t.layout.cols, t.layout.rows, t.layout.per_page) == (3, 5, 15)
     assert t.layout.qr_size == 0.65
     assert t.card.logo_grey == 0.12
@@ -63,6 +64,8 @@ def test_defaults_match_user_choices():
         dict(questions_per_round=[12, 12]),
         dict(questions_per_round=[12, 0, 12]),
         dict(spares_per_team=-1),
+        dict(reserve_teams=-1),
+        dict(reserve_teams=10),
         dict(scanner_url="http://example.com/s/"),
         dict(scanner_url="https://example.com/s"),
     ],

@@ -62,12 +62,14 @@ def test_every_qr_decodes_from_the_pdf_and_sits_in_its_slot(folder, mode, tmp_pa
     assert len(seen) == result.cards
     assert all(card.tid == tid for card in seen)
 
-    expected_numbered = {CardId(tid, team, question=q) for team in ("A01", "A02", "A03") for q in range(1, 7)}
+    # Three teams plus the two reserve decks R1, R2 (config default).
+    expected_numbered = {CardId(tid, team, question=q) for team in ("A01", "A02", "A03", "R1", "R2") for q in range(1, 7)}
     assert expected_numbered <= set(seen)
+    assert (result.teams, result.reserve) == (3, 2)
     if mode is Mode.CUT_STACK:
-        assert result.cards == 3 * (6 + 2) and result.pages == 2
+        assert result.cards == 5 * (6 + 2) and result.pages == 3
     else:
-        assert result.cards == 3 * 15 and result.pages == 3  # free slots became extra spares
+        assert result.cards == 5 * 15 and result.pages == 5  # free slots became extra spares
 
 
 def test_cut_stack_pdf_order_matches_the_guillotine_workflow(folder, tmp_path):
@@ -77,7 +79,7 @@ def test_cut_stack_pdf_order_matches_the_guillotine_workflow(folder, tmp_path):
     piles = [[page[s] for page in pages if s in page] for s in range(15)]
     stacked = [decode_payload(p) for pile in piles for p in pile]
     deck = [(q, None) for q in range(1, 7)] + [(None, 1), (None, 2)]
-    expected = [(team, q, s) for team in ("A01", "A02", "A03") for q, s in deck]
+    expected = [(team, q, s) for team in ("A01", "A02", "A03", "R1", "R2") for q, s in deck]
     assert [(c.team_id, c.question, c.spare) for c in stacked] == expected
 
 
@@ -156,7 +158,7 @@ def test_cli_cards_with_mode(folder, tmp_path):
     out = tmp_path / "cli.pdf"
     result = runner.invoke(app, ["cards", str(folder), "--mode", "cut-stack", "--out", str(out)])
     assert result.exit_code == 0, result.output
-    assert "3 teams, 24 cards, 2 pages (cut-stack)" in result.output
+    assert "3 teams + 2 reserve decks, 40 cards, 3 pages (cut-stack)" in result.output
     assert out.read_bytes().startswith(b"%PDF")
 
 
@@ -236,3 +238,42 @@ def test_spare_cards_have_an_empty_number_box_and_no_words(folder, tmp_path):
     mid_x, mid_y = box.x + box.w / 2, box.y + box.h / 2
     assert max(px(box.x, mid_y), px(box.right, mid_y), px(mid_x, box.y), px(mid_x, box.top)) < 160  # the outline
     assert min(px(mid_x, mid_y), px(box.x + 8, box.top - 8)) > 200  # empty inside
+
+
+# ---- reserve decks (teams that turn up unregistered) ----
+
+
+def test_reserve_cards_have_a_name_line_and_the_generic_logo(folder, tmp_path):
+    result = build_cards(folder, Mode.TEAM_PAGES, tmp_path / "out.pdf")
+    pages = [page.extract_text() for page in PdfReader(result.path).pages]
+    # Pages 4 and 5 are R1 and R2: no team name, a «Команда:» line to write it on.
+    for text in pages[3:]:
+        assert text.count("Команда:") == 15
+        assert "Синие зайцы" not in text
+    assert all("Команда:" not in text for text in pages[:3])
+    # A reserve team has no logo of its own: tournament logo first, then the fallback.
+    card = Card(Team("R1", "", reserve=True), CardId("K7M2Q", "R1", question=1), 1)
+    loaded = {key: Image.new("L", (1, 1)) for key in ("A01", "tournament", "fallback")}
+    assert logo_key(card, CardFields(logo=LogoMode.TEAM_ELSE_TOURNAMENT, tournament_logo="t.png"), loaded) == "tournament"
+
+
+def test_reserve_cards_without_team_names_on_cards(folder, tmp_path):
+    config = folder / "config.py"
+    config.write_text(config.read_text(encoding="utf-8").replace("card=CardFields(", "card=CardFields(team_name=False, "),
+                      encoding="utf-8")
+    result = build_cards(folder, Mode.TEAM_PAGES, tmp_path / "out.pdf")
+    assert "Команда:" not in "\n".join(page.extract_text() for page in PdfReader(result.path).pages)
+
+
+def test_reserve_decks_can_be_printed_alone(folder, tmp_path):
+    result = build_cards(folder, Mode.TEAM_PAGES, tmp_path / "out.pdf", ["R2"])
+    assert (result.teams, result.reserve, result.pages) == (0, 1, 1)
+
+
+def test_a_team_id_that_clashes_with_a_reserve_id_is_an_error(folder, tmp_path):
+    csv = folder / "teams.csv"
+    csv.write_text(csv.read_text(encoding="utf-8").replace("A03,", "R2,"), encoding="utf-8")
+    with pytest.raises(ValueError, match="R2 is kept for reserve teams"):
+        build_cards(folder, Mode.TEAM_PAGES, tmp_path / "out.pdf")
+    result = runner.invoke(app, ["cards", str(folder), "--mode", "team-pages", "--out", str(tmp_path / "x.pdf")])
+    assert result.exit_code == 1 and "reserve" in result.output
