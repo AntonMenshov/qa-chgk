@@ -30,7 +30,7 @@ Full design: [SPEC.md](SPEC.md). Build order: [PLAN.md](PLAN.md).
 | 8 — External test at a tournament | not started: the same loop with real teams |
 | 9 — Next version | the deferred list in PLAN.md |
 
-- **Deployed backend:** version **d02647fb3bc0** (2026-10-30) under the user's Gmail (local
+- **Deployed backend:** version **d8a68a3a5e22** (2026-10-30) under the user's Gmail (local
   profile `personal`), with the «Google Sheets API» service on. `uv run chgk backend check`
   compares it with the local code, and says when `out/apps_script/Code.gs` is an old bundle.
 - **Example tournament:** `tournaments/example/` (the user's four teams 645 «42», 58746
@@ -315,9 +315,9 @@ duplicates, stale scans, bad teams and tokens, sums, «2-3» places and tie-brea
 the logic.js reference, reserve decks, the one-call sort, Latin Drive names, card photos in
 Drive, the board and its QR codes, the view-only link signed out, and each token reaching
 exactly its level. Latest:
-- **2026-10-30, d02647fb3bc0:** both examples' get_state / get_board; throwaway UAHQT: a re-scan
+- **2026-10-30, d8a68a3a5e22:** both examples' get_state / get_board; throwaway UAHQT: a re-scan
   keeps the judgement, question 99 and an unknown team refused alone with the batch in, a jury
-  token with `.`/`+` refused. The cleared-cell and deleted-row cases need a Sheet edit
+  token with `.`/`+` refused, a tournament without a board token refused. The cleared-cell and deleted-row cases need a Sheet edit
   (docs/manual-checks.md).
 
 Throwaway tournaments: the user deletes them.
