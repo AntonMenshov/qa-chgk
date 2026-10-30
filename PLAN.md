@@ -99,8 +99,8 @@ Tests are written alongside the code, not after it.
   below): `chgk logos <folder> --draw` calls the Claude API with the existing logos as
   references; without an API key it writes a brief (`out/<slug>/logo-brief.md`) for
   drawing them in a Claude Code session instead.
-- The API key is never in the repo: `chgk key set anthropic` stores it in
-  `~/.config/chgk/` (owner-only), `ANTHROPIC_API_KEY` overrides it, `chgk key status`.
+- The API key comes only from `ANTHROPIC_API_KEY` (user, 2026-10-30): chgk never stores,
+  prints or logs it; `chgk logos` says whether it is set.
 - Preview, then accept: drafts in `logos/drafts/<slug>/`, a preview PDF on real cards at
   the tournament's shade, `chgk logos <folder> --accept all|A01,A02` records them in
   teams.py; `--draw --team A01` redraws one.

@@ -439,8 +439,9 @@ The Claude API does not output raster images, but it can write SVG.
   hourglass, flat light grey, the name in bold capitals below; the existing logos go to
   the Claude API as references. Without an API key, a brief (`out/<slug>/logo-brief.md`)
   for drawing them in a Claude Code session instead.
-- **API key, never in the repo:** `chgk key set anthropic` stores it in `~/.config/chgk/`
-  (owner-only); `ANTHROPIC_API_KEY` overrides it; `chgk key status` shows which is used.
+- **API key only from the environment** (user, 2026-10-30): `ANTHROPIC_API_KEY`, e.g.
+  set in the shell profile. chgk never stores, prints or logs it; `chgk logos` says
+  whether it is set. Without it, `--draw` writes the brief instead.
 - **Preview, then accept:** drafts in `logos/drafts/<slug>/`, a preview PDF on real
   cards at the tournament's shade, `--accept all|A01,A02` records them in teams.py.
 
@@ -536,7 +537,6 @@ uv run chgk backend add|use|list|check|remove|bundle  # named Google-account bac
 uv run chgk new tournaments/<slug> [--backend <profile>]  # Sheet + Drive folder; state.json + jury sheet
 uv run chgk teams tournaments/<slug>        # pull the Teams tab into teams.py, assign team_ids
 uv run chgk logos tournaments/<slug> [--draw [--team A01]] [--accept all|A01,…]  # logos (Phase 6, planned, §9.1)
-uv run chgk key set anthropic | status   # the Claude API key, outside the repo (Phase 6, planned)
 uv run chgk cards tournaments/<slug> [--mode team-pages|cut-stack|scissors] [--teams A01,A07] [--out file.pdf]
 uv run chgk test-page tournaments/<slug> [--out file.pdf]
 uv run chgk jury-sheet tournaments/<slug> [--out file.pdf]  # jury printout (also written by `cards`)

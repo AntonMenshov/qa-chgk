@@ -25,7 +25,7 @@ Full design: [SPEC.md](SPEC.md). Build order: [PLAN.md](PLAN.md).
 | 3 — Scanner web app | 🔶 built and tested (unit + integration + headless-Chrome end-to-end with a fake camera), checked live on Pages against the real backend; the iPhone check is in Phase 7 |
 | 4 — Card photos | ✅ built, tested (phone queue, backend `upload_photo`, headless-Chrome check that each photo shows its card) and checked live (API upload to Drive); the iPhone check is in Phase 7 |
 | 5 — Projector board + stats | ✅ built, tested and checked live |
-| 6 — Logos | planned (PLAN.md), not started: SVG input, `chgk logos`, Claude-drawn drafts, `chgk key`, preview then accept. Done earlier: PNG/JPG → pale greyscale, shared private library, fallback owl. Image-API logos: Phase 9. Started only when the user says |
+| 6 — Logos | planned (PLAN.md), not started: SVG input, `chgk logos`, Claude-drawn drafts (API key from `ANTHROPIC_API_KEY` only), preview then accept. Done earlier: PNG/JPG → pale greyscale, shared private library, fallback owl. Image-API logos: Phase 9. Started only when the user says |
 | 7 — Internal test at home (printouts) | not started: the manual checks (docs/manual-checks.md), a mock game, feedback, bug analysis and fixes, then a docs/comments check |
 | 8 — External test at a tournament | not started: the same loop with real teams |
 | 9 — Next version | the deferred list in PLAN.md |
