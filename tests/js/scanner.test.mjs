@@ -570,3 +570,27 @@ test('the phone reads standard QR codes only: a phantom Micro QR next to a card 
   assert.deepEqual([...READER_OPTIONS.formats], ['QRCodeModel2']);
   assert.equal(READER_OPTIONS.maxNumberOfSymbols, 1);
 });
+
+test('offline: every module the scanner loads is in the service worker cache', () => {
+  const root = new URL('../../web/s/', import.meta.url);
+  const sw = readFileSync(new URL('sw.js', root), 'utf8');
+  const cached = new Set([...sw.matchAll(/'([^']+\.(?:js|html|css|wasm|png|webmanifest))'/g)].map((m) => m[1]));
+  const seen = new Set();
+  const walk = (file) => {
+    const url = new URL(file, root);
+    const rel = url.pathname.slice(root.pathname.length) || url.pathname;
+    const key = url.pathname.startsWith(root.pathname) ? rel : `../${url.pathname.split('/web/')[1]}`;
+    if (seen.has(key)) {
+      return;
+    }
+    seen.add(key);
+    const source = readFileSync(url, 'utf8');
+    for (const m of source.matchAll(/^import [^'"]*['"]([^'"]+)['"]/gm)) {
+      walk(new URL(m[1], url).href);
+    }
+  };
+  walk(new URL('app.js', root).href);
+  const missing = [...seen].filter((f) => !cached.has(f));
+  assert.deepEqual(missing, []);
+  assert.ok(seen.size >= 15, `found only ${seen.size} modules`); // app.js, ui/, lib/, shared/logic.js
+});

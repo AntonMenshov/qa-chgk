@@ -80,7 +80,9 @@ docs/google-account.md  deploying the backend under any Gmail account; switching
 docs/manual-checks.md   what the tests can't cover: iPhone, printing, the Sheet's edit trigger
 docs/spikes.md        Phase 0 spike results (their code was removed; it is in the git history)
 web/                  GitHub Pages site
-web/s/                scanner app (no build step): index.html, app.css, app.js (wiring only), sw.js (offline),
+web/s/                scanner app (no build step): index.html, app.css, app.js (wiring + start), sw.js (offline),
+                      ui/ = screens (state: the shared `app` object; dom, setup, tournament, scan,
+                      whose «Чья карточка?», sync),
                       manifest + icons; lib/ = payload, marks, session, lookup («Чья карточка?»), queue, api,
                       storage, camera, photos + photostore (card photos, IndexedDB); vendor/zxing-wasm-3.1.4 (QR reader, vendored: no CDN at the venue)
 web/shared/logic.js   link to apps_script/logic.js: the scanner (merge rule) and the board (places,

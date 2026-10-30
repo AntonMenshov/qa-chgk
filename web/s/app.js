@@ -1,514 +1,56 @@
-// Scanner web app: screens, camera, setup from the jury link, background sending.
-// The logic lives in lib/ (tested in Node); this file only wires it to the page.
+// Scanner web app: wires the page's buttons to the screens in ui/ and starts it.
+// The logic lives in lib/ (tested in Node); ui/ shows it on the page.
 
-import {decodeCard, decodeSetup} from './lib/payload.js';
-import {identify} from './lib/lookup.js';
-import {STATUS_LABEL} from './lib/marks.js';
-import {Session} from './lib/session.js';
-import {Queue} from './lib/queue.js';
-import {backend} from './lib/api.js';
-import {storage} from './lib/storage.js';
-import {Camera} from './lib/camera.js';
-import {PhotoQueue, blobToBase64} from './lib/photos.js';
-import {photoStore} from './lib/photostore.js';
+import {$, sheet, toast, unlockAudio} from './ui/dom.js';
+import {answerSpare, handleCode, verdict} from './ui/scan.js';
+import {adoptSetup, readHash, startSetupScreen} from './ui/setup.js';
+import {app, K, store} from './ui/state.js';
+import {flush, refresh, render, renderMissing, renderSync} from './ui/sync.js';
+import {startTournament} from './ui/tournament.js';
+import {openLookup} from './ui/whose.js';
 
 const FLUSH_EVERY_MS = 1000;
+
 const REFRESH_EVERY_MS = 20000;
-const REFRESH_AFTER_SEND_MS = 1500;
-
-const $ = (id) => document.getElementById(id);
-const store = storage();
-const K = {
-  setup: 'chgk.setup',
-  device: 'chgk.device',
-  juror: 'chgk.juror',
-  state: (tid) => `chgk.state.${tid}`,
-  current: (tid) => `chgk.current.${tid}`,
-  queue: (tid) => `chgk.queue.${tid}`,
-  photographed: (tid) => `chgk.photographed.${tid}`,
-};
-
-let setup = store.get(K.setup); // {tid, juryToken, backendUrl}
-let call = null; // backend(...) for the current tournament
-let session = null;
-let queue = null;
-let photos = null; // card photos waiting to upload
-let camera = null;
-let openCardResult = null; // the card on screen, waiting for a verdict
-let spareResult = null; // the spare card on screen, waiting for its question
-let spareDigits = '';
-let lookingUp = false; // «Чья карточка?»: scans are only shown, never recorded
-let refreshTimer = null;
-let setupCamera = null;
-
-function deviceId() {
-  let id = store.get(K.device);
-  if (!id) {
-    id = crypto.randomUUID();
-    store.set(K.device, id);
-  }
-  return id;
-}
-
-function show(id) {
-  for (const s of document.querySelectorAll('.screen')) {
-    s.hidden = s.id !== id;
-  }
-}
-
-function sheet(id) {
-  for (const s of document.querySelectorAll('.sheet')) {
-    s.hidden = s.id !== id;
-  }
-  lookingUp = id === 'lookup'; // any other sheet ends «Чья карточка?»
-  if (camera) {
-    id && id !== 'lookup' ? camera.pause() : camera.resume();
-  }
-}
-
-// ---------- sound (iOS has no vibration for web pages) ----------
-
-let audio = null;
-function unlockAudio() {
-  try {
-    audio ??= new (window.AudioContext || window.webkitAudioContext)();
-    if (audio.state === 'suspended') {
-      audio.resume();
-    }
-  } catch {
-    audio = null;
-  }
-}
-function beep(kind) {
-  if (!audio) {
-    return;
-  }
-  const tones =
-    kind === 'warn'
-      ? [
-          [440, 0],
-          [440, 0.18],
-        ]
-      : kind === 'bad'
-        ? [
-            [220, 0],
-            [220, 0.2],
-            [220, 0.4],
-          ]
-        : [[1046, 0]];
-  for (const [freq, at] of tones) {
-    const osc = audio.createOscillator();
-    const gain = audio.createGain();
-    osc.frequency.value = freq;
-    gain.gain.value = 0.15;
-    osc.connect(gain).connect(audio.destination);
-    osc.start(audio.currentTime + at);
-    osc.stop(audio.currentTime + at + 0.12);
-  }
-}
-
-let toastTimer = null;
-function toast(text, bad = false) {
-  const el = $('toast');
-  el.textContent = text;
-  el.classList.toggle('bad', bad);
-  el.hidden = false;
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => {
-    el.hidden = true;
-  }, 3500);
-}
-
-// ---------- setup: from the jury link (#setup=…) or by scanning its QR here ----------
-
-function adoptSetup(s) {
-  const changing = setup && setup.tid !== s.tid;
-  if (changing && queue && queue.status.pending > 0) {
-    if (
-      !confirm(
-        `На телефоне есть неотправленные отметки турнира ${setup.tid} (${queue.status.pending}). ` +
-          `Они сохранятся и отправятся, когда вы вернётесь к нему. Переключиться на турнир ${s.tid}?`,
-      )
-    ) {
-      return false;
-    }
-  }
-  setup = s;
-  store.set(K.setup, s);
-  return true;
-}
-
-function startSetupScreen(message = '') {
-  show('setup');
-  $('setup-msg').textContent = message;
-  const video = $('setup-video');
-  const cam = (setupCamera = new Camera(video, (text) => {
-    const s = decodeSetup(text);
-    if (!s) {
-      const card = decodeCard(text) && identify(text);
-      $('setup-msg').textContent = card
-        ? `Это карточка: ${[card.title, ...card.details].join(' · ')}. Чтобы отмечать, нужен QR «Доступ жюри» с листа жюри.`
-        : 'Это не QR-код доступа жюри.';
-      return;
-    }
-    cam.stop();
-    adoptSetup(s);
-    startTournament();
-  }));
-  $('setup-start').onclick = async () => {
-    unlockAudio();
-    try {
-      await cam.start();
-      $('setup-start').hidden = true;
-    } catch (err) {
-      $('setup-msg').textContent = `Камера недоступна: ${err.message}. Разрешите доступ к камере в настройках Safari.`;
-    }
-  };
-}
-
-// ---------- loading the tournament ----------
-
-async function startTournament(cardText = null) {
-  show('loading');
-  $('loading-title').textContent = 'Загрузка турнира…';
-  $('loading-msg').textContent = '';
-  $('loading-retry').hidden = true;
-  $('loading-reset').hidden = true;
-  call = backend(setup.backendUrl, setup.juryToken);
-  const tid = setup.tid;
-  let state;
-  const started = Date.now();
-  try {
-    state = await call('get_state', {tid});
-    store.set(K.state(tid), state);
-  } catch (err) {
-    state = store.get(K.state(tid)); // offline: last known data
-    if (!state) {
-      $('loading-title').textContent = 'Не удалось загрузить турнир';
-      $('loading-msg').textContent = err.message;
-      $('loading-retry').hidden = false;
-      $('loading-reset').hidden = false;
-      $('loading-retry').onclick = () => startTournament(cardText);
-      return;
-    }
-    toast('Нет связи: показаны последние сохранённые данные', true);
-  }
-  queue = new Queue({storage: store, key: K.queue(tid), send: (events) => call('record_events', {tid, events})});
-  session = new Session({
-    tid,
-    state,
-    current: store.get(K.current(tid)),
-    juror: store.get(K.juror) || '',
-    device: deviceId(),
-  });
-  session.restorePending(queue.pending);
-  session.snapshotAt = started;
-  photos = new PhotoQueue({
-    store: photoStore(tid),
-    send: async (rec) => {
-      const {blob, ...meta} = rec;
-      return call('upload_photo', {...meta, image: await blobToBase64(blob)});
-    },
-  });
-  show('main');
-  render();
-  camera ??= new Camera($('video'), handleCode);
-  $('start').hidden = false;
-  if (cardText) {
-    handleCode(cardText);
-  } // opened from the iPhone Camera with a card URL
-}
-
-// ---------- scanning ----------
-
-function handleCode(text) {
-  if (lookingUp) {
-    return showLookup(text);
-  }
-  if (!session || openCardResult || spareResult) {
-    return;
-  }
-  const r = session.scan(text);
-  switch (r.kind) {
-    case 'setup':
-      if (r.setup.tid === setup.tid) {
-        return toast('Это QR доступа жюри: телефон уже настроен на этот турнир');
-      }
-      if (adoptSetup(r.setup)) {
-        startTournament();
-      }
-      return;
-    case 'other':
-      beep('bad');
-      return toast('Это не карточка ЧГК', true);
-    case 'foreign':
-      beep('bad');
-      return toast(`Карточка другого турнира (${r.tid}) — не засчитана`, true);
-    case 'unknown_team':
-      beep('bad');
-      toast(`Команда ${r.teamId} не найдена — обновляю список команд…`, true);
-      refresh();
-      return;
-    case 'spare':
-    case 'card':
-      // The frame the card was read from: its photo, kept once the question is known.
-      r.shot = camera ? camera.captureJpeg() : Promise.resolve(null);
-      return r.kind === 'spare' ? openSpare(r) : openCard(r);
-  }
-}
-
-/** One photo per card per phone (a card scanned again is not photographed again). */
-function keepPhoto(r, shot) {
-  const key = `${r.team.team_id}:${r.question}`;
-  const done = new Set(store.get(K.photographed(setup.tid)) || []);
-  if (!shot || done.has(key)) {
-    return;
-  }
-  done.add(key);
-  store.set(K.photographed(setup.tid), [...done]);
-  const photoQueue = photos;
-  shot.then((blob) => {
-    if (!blob) {
-      return;
-    }
-    const rec = {
-      photo_id: crypto.randomUUID(),
-      tid: setup.tid,
-      team_id: r.team.team_id,
-      question: r.question,
-      client_ts: Date.now(),
-      juror: session.juror,
-      device: session.device,
-      blob,
-    };
-    if (r.spare !== null && r.spare !== undefined) {
-      rec.spare = r.spare;
-    }
-    photoQueue.add(rec).then(render);
-    render();
-  });
-}
-
-function openCard(r) {
-  openCardResult = r;
-  queue.add(session.record(r.team.team_id, r.question, r.spare, 'received'));
-  keepPhoto(r, r.shot);
-  store.set(K.current(setup.tid), session.current);
-  const round = session.roundOf(r.question);
-  $('c-team').textContent = r.team.name;
-  $('c-meta').textContent =
-    `Вопрос ${r.question} · тур ${round}` + (r.spare ? ` · запасная карточка` : '') + ` · ID ${r.team.team_id}`;
-  const warn = $('c-warn');
-  warn.replaceChildren(...r.warnings.map((w) => Object.assign(document.createElement('li'), {textContent: w.text})));
-  $('card').classList.toggle('warn', r.warnings.length > 0);
-  beep(r.warnings.length ? 'warn' : 'ok');
-  sheet('card');
-  render();
-}
-
-function verdict(status) {
-  const r = openCardResult;
-  if (!r) {
-    return;
-  }
-  if (status) {
-    queue.add(session.record(r.team.team_id, r.question, r.spare, status));
-  }
-  openCardResult = null;
-  sheet(null);
-  render();
-  flushSoon();
-}
-
-function openSpare(r) {
-  spareResult = r;
-  spareDigits = '';
-  $('sp-team').textContent = r.team.name;
-  $('sp-current').textContent = `Вопрос ${session.current} — текущий`;
-  $('sp-display').textContent = '';
-  beep('warn');
-  sheet('spare');
-}
-
-function answerSpare(question) {
-  const r = spareResult;
-  if (!(question >= 1 && question <= session.total)) {
-    $('sp-display').textContent = `1–${session.total}?`;
-    spareDigits = '';
-    return;
-  }
-  spareResult = null;
-  openCard(Object.assign(session.card(r.team.team_id, question, r.spare), {shot: r.shot}));
-}
-
-// ---------- «Чья карточка?» ----------
-
-async function openLookup() {
-  unlockAudio();
-  $('lookup').className = 'sheet lookup';
-  $('lk-title').textContent = 'Наведите камеру на карточку';
-  $('lk-details').replaceChildren();
-  sheet('lookup');
-  camera.last = {text: null, seenAt: 0}; // the card already in front of the camera counts too
-  try {
-    await camera.start();
-    $('start').hidden = true;
-  } catch (err) {
-    $('lk-title').textContent = `Камера недоступна: ${err.message}`;
-  }
-}
-
-function showLookup(text) {
-  const r = identify(text, session);
-  $('lookup').className = `sheet lookup ${r.tone}`;
-  $('lk-title').textContent = r.title;
-  $('lk-details').replaceChildren(
-    ...r.details.map((d) => Object.assign(document.createElement('li'), {textContent: d})),
-  );
-  beep(r.tone === 'ok' ? 'ok' : 'bad');
-}
-
-// ---------- sending and refreshing ----------
-
-async function flush() {
-  if (!queue || !queue.due()) {
-    return;
-  }
-  const res = await queue.flush();
-  if (res) {
-    session.acked(res.acked);
-    session.rejected(res.rejected);
-    if (res.rejected.length) {
-      toast(`Отклонено сервером: ${res.rejected.length}. Нажмите на статус отправки.`, true);
-    }
-    clearTimeout(refreshTimer);
-    refreshTimer = setTimeout(refresh, REFRESH_AFTER_SEND_MS);
-  }
-  render();
-}
-
-function flushSoon() {
-  setTimeout(flush, 50);
-}
-
-async function refresh() {
-  if (!call || !session) {
-    return;
-  }
-  const started = Date.now();
-  try {
-    const state = await call('get_state', {tid: setup.tid});
-    store.set(K.state(setup.tid), state);
-    session.setSnapshot(state, started);
-    render();
-  } catch {
-    // offline: keep showing what we have; the sync pill says so
-  }
-}
-
-// ---------- rendering ----------
-
-function render() {
-  if (!session) {
-    return;
-  }
-  $('t-name').textContent = session.name;
-  $('q-num').textContent = session.current;
-  $('q-round').textContent = `тур ${session.roundOf(session.current)}`;
-  const missing = session.missing();
-  const m = $('missing-open');
-  m.textContent = missing.length ? `Нет карточек: ${missing.length} ›` : 'Все карточки этого вопроса получены';
-  m.classList.toggle('none', missing.length === 0);
-  const st = queue.status;
-  const pill = $('sync');
-  pill.className = 'pill ' + (st.failing || st.rejected ? 'error' : st.pending ? 'pending' : 'ok');
-  pill.textContent = st.rejected
-    ? `⚠ отклонено: ${st.rejected}`
-    : st.failing
-      ? `⚠ нет связи · ${st.pending}`
-      : st.pending
-        ? `⏳ ${st.pending}`
-        : '✓ отправлено';
-  const ph = photos ? photos.status : {pending: 0};
-  if (ph.pending) {
-    pill.textContent += ` · фото ${ph.pending}`;
-  }
-}
-
-function renderMissing() {
-  const list = session.missing();
-  $('m-title').textContent = `Вопрос ${session.current}: нет карточек — ${list.length}`;
-  $('m-list').replaceChildren(
-    ...list.map((t) => {
-      const li = document.createElement('li');
-      li.textContent = t.name;
-      li.append(Object.assign(document.createElement('small'), {textContent: `ID ${t.team_id}`}));
-      return li;
-    }),
-  );
-}
-
-function renderSync() {
-  const st = queue.status;
-  $('s-summary').textContent = st.pending ? `Ждут отправки: ${st.pending}.` : 'Все отметки отправлены.';
-  $('s-error').textContent = st.lastError ? `Последняя ошибка: ${st.lastError}. Повтор — автоматически.` : '';
-  $('s-rejected').replaceChildren(
-    ...queue.rejected.map(({event, error}) => {
-      const li = document.createElement('li');
-      const team = session.byId.get(event.team_id);
-      li.textContent = `${team ? team.name : event.team_id} · вопрос ${event.question} · ${STATUS_LABEL[event.status] || event.status}`;
-      li.append(Object.assign(document.createElement('small'), {textContent: `Отклонено: ${error}`}));
-      return li;
-    }),
-  );
-  $('s-clear').hidden = queue.rejected.length === 0;
-  const ph = photos.status;
-  $('s-photos').textContent =
-    `Фото карточек: отправлено ${ph.sent}` +
-    (ph.pending ? `, ждут отправки ${ph.pending}` : '') +
-    (ph.dropped ? `, отклонено ${ph.dropped}` : '') +
-    (ph.pending && ph.lastError ? `. Последняя ошибка: ${ph.lastError}` : '.');
-}
-
-// ---------- wiring ----------
 
 function wire() {
   $('start').onclick = async () => {
     unlockAudio();
     try {
-      await camera.start();
+      await app.camera.start();
       $('start').hidden = true;
     } catch (err) {
       toast(`Камера недоступна: ${err.message}`, true);
     }
   };
   $('q-prev').onclick = () => {
-    session.setQuestion(session.current - 1);
-    store.set(K.current(setup.tid), session.current);
+    app.session.setQuestion(app.session.current - 1);
+    store.set(K.current(app.setup.tid), app.session.current);
     render();
   };
   $('q-next').onclick = () => {
-    session.setQuestion(session.current + 1);
-    store.set(K.current(setup.tid), session.current);
+    app.session.setQuestion(app.session.current + 1);
+    store.set(K.current(app.setup.tid), app.session.current);
     render();
   };
   $('v-correct').onclick = () => verdict('correct');
   $('v-incorrect').onclick = () => verdict('incorrect');
   $('v-disputed').onclick = () => verdict('disputed');
   $('v-later').onclick = () => verdict(null);
-  $('sp-current').onclick = () => answerSpare(session.current);
+  $('sp-current').onclick = () => answerSpare(app.session.current);
   $('sp-cancel').onclick = () => {
-    spareResult = null;
+    app.spareResult = null;
     sheet(null);
   };
   for (const b of document.querySelectorAll('.keypad button')) {
     b.onclick = () => {
       const k = b.dataset.k;
       if (k === 'ok') {
-        return answerSpare(Number(spareDigits));
+        return answerSpare(Number(app.spareDigits));
       }
-      spareDigits = k === 'back' ? spareDigits.slice(0, -1) : (spareDigits + k).replace(/^0+/, '').slice(0, 3);
-      $('sp-display').textContent = spareDigits;
+      app.spareDigits =
+        k === 'back' ? app.spareDigits.slice(0, -1) : (app.spareDigits + k).replace(/^0+/, '').slice(0, 3);
+      $('sp-display').textContent = app.spareDigits;
     };
   }
   $('missing-open').onclick = () => {
@@ -523,13 +65,13 @@ function wire() {
     sheet('syncinfo');
   };
   $('s-now').onclick = async () => {
-    queue.nextAttemptAt = 0;
-    await Promise.all([flush(), photos.retryNow()]);
+    app.queue.nextAttemptAt = 0;
+    await Promise.all([flush(), app.photos.retryNow()]);
     renderSync();
     render();
   };
   $('s-clear').onclick = () => {
-    queue.clearRejected();
+    app.queue.clearRejected();
     renderSync();
     render();
   };
@@ -537,12 +79,12 @@ function wire() {
   $('settings-open').onclick = () => {
     $('juror').value = store.get(K.juror) || '';
     $('about').textContent =
-      `Турнир ${setup.tid} · ${session.name}. Сервер: ${setup.backendUrl.replace(/^https:\/\//, '').slice(0, 48)}…`;
+      `Турнир ${app.setup.tid} · ${app.session.name}. Сервер: ${app.setup.backendUrl.replace(/^https:\/\//, '').slice(0, 48)}…`;
     sheet('settings');
   };
   $('juror').onchange = () => {
     store.set(K.juror, $('juror').value.trim());
-    session.juror = $('juror').value.trim();
+    app.session.juror = $('juror').value.trim();
   };
   $('refresh').onclick = async () => {
     await refresh();
@@ -550,7 +92,7 @@ function wire() {
   };
   $('settings-close').onclick = () => sheet(null);
   $('forget').onclick = () => {
-    const pending = queue.status.pending + photos.status.pending;
+    const pending = app.queue.status.pending + app.photos.status.pending;
     if (
       !confirm(
         pending
@@ -568,23 +110,14 @@ function wire() {
     location.replace(location.pathname);
   };
   setInterval(flush, FLUSH_EVERY_MS);
-  setInterval(() => photos && photos.pump().then(render), FLUSH_EVERY_MS);
+  setInterval(() => app.photos && app.photos.pump().then(render), FLUSH_EVERY_MS);
   setInterval(refresh, REFRESH_EVERY_MS);
   addEventListener('online', () => {
-    if (queue) {
-      queue.nextAttemptAt = 0;
+    if (app.queue) {
+      app.queue.nextAttemptAt = 0;
       flush();
     }
   });
-}
-
-/** A jury link (#setup=…) or a card (opened from the iPhone Camera) in the address. */
-function readHash() {
-  const hash = location.hash;
-  if (hash) {
-    history.replaceState(null, '', location.pathname + location.search);
-  } // the token must not stay in the address bar
-  return {setup: decodeSetup(hash), card: decodeCard(hash) ? hash : null};
 }
 
 function boot() {
@@ -596,16 +129,16 @@ function boot() {
   addEventListener('hashchange', () => {
     const next = readHash();
     if (next.setup) {
-      if (session && next.setup.tid === setup.tid && next.setup.juryToken === setup.juryToken) {
+      if (app.session && next.setup.tid === app.setup.tid && next.setup.juryToken === app.setup.juryToken) {
         return;
       }
       if (adoptSetup(next.setup)) {
-        if (setupCamera) {
-          setupCamera.stop();
+        if (app.setupCamera) {
+          app.setupCamera.stop();
         }
         startTournament();
       }
-    } else if (next.card && session) {
+    } else if (next.card && app.session) {
       handleCode(next.card);
     }
   });
@@ -613,10 +146,12 @@ function boot() {
   if (from.setup) {
     adoptSetup(from.setup);
   }
-  if (!setup) {
+  if (!app.setup) {
     return startSetupScreen(from.card ? 'Сначала настройте телефон: отсканируйте QR «Доступ жюри».' : '');
   }
   startTournament(from.card);
 }
+
+boot();
 
 boot();
