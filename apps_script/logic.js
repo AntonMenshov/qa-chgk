@@ -2,7 +2,6 @@
 // board pages (served as web/shared/logic.js). `chgk backend bundle` strips the `export`
 // keywords: in Apps Script all files share one global scope.
 
-export const STATUSES = ['received', 'correct', 'incorrect', 'disputed', 'cleared'];
 export const STATUS_VALUE = {received: 'R', correct: 1, incorrect: 0, disputed: '?', cleared: ''};
 const APP_STATUSES = ['received', 'correct', 'incorrect', 'disputed']; // "cleared" only comes from the sheet
 const TID_RE = /^[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{5}$/;

@@ -5,8 +5,6 @@
 
 import {compareStandings, placeLabels} from '../../shared/logic.js';
 
-export {compareStandings, placeLabels};
-
 /** "+" taken, "−" not (a missing card counts as wrong), "?" not decided yet («?» or only received). */
 export function cellMark(value) {
   if (value === 1) {

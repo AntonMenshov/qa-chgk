@@ -347,7 +347,7 @@ function recordEvents_(ss, reg, req) {
       ev.status,
       STATUS_VALUE[ev.status],
       o.applied,
-      ev.photo || '',
+      '', // photo: card photos come through upload_photo
     ]);
   });
   appendLog_(m, logRows);

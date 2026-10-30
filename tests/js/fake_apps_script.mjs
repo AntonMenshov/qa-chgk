@@ -30,9 +30,6 @@ class FakeRange {
     values.forEach((r, i) => r.forEach((v, j) => this.sheet.write(this.row + i, this.col + j, v)));
     return this;
   }
-  getValue() {
-    return this.getValues()[0][0];
-  }
   getFormulas() {
     return Array.from({length: this.rows}, (_, r) =>
       Array.from({length: this.cols}, (_, c) => {
@@ -242,13 +239,6 @@ export class FakeSheet {
   setColumnWidth(col, w) {
     this.widths.set(col, w);
   }
-  getLastColumn() {
-    let m = 0;
-    for (const k of this.cells.keys()) {
-      m = Math.max(m, Number(k.split(',')[1]));
-    }
-    return m;
-  }
   setColumnWidths(col, n, w) {
     if (col + n - 1 > this.maxCols) {
       throw new Error('setColumnWidths out of bounds');
@@ -302,9 +292,6 @@ class FakeSpreadsheet {
   }
   getSheets() {
     return this.sheets;
-  }
-  deleteSheet(sheet) {
-    this.sheets.splice(this.sheets.indexOf(sheet), 1);
   }
   insertSheet(name, index = this.sheets.length) {
     if (this.getSheetByName(name)) {

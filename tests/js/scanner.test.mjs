@@ -3,7 +3,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {decodeCard, decodeSetup} from '../../web/s/lib/payload.js';
-import {mergeCell, overlay, statusOf} from '../../web/s/lib/marks.js';
+import {overlay, statusOf} from '../../web/s/lib/marks.js';
 import {Session, WARN} from '../../web/s/lib/session.js';
 import {identify} from '../../web/s/lib/lookup.js';
 import {Queue} from '../../web/s/lib/queue.js';
@@ -38,11 +38,7 @@ test('a card is not a jury link and a jury link is not a card', () => {
   assert.equal(decodeCard('https://e.github.io/qa-chgk/s/#setup=K7M2Q.abcDEF123_-ghiJKL456mno.AKfycbx_Example'), null);
 });
 
-// ---------- marks: the same merge rule as the backend ----------
-
-for (const c of vectors('merge_cases.json').cases) {
-  test(`merge (phone): ${c.note}`, () => assert.deepEqual(mergeCell(c.before, c.status, c.ts), c.after));
-}
+// ---------- marks ----------
 
 test('overlay: local events over the snapshot, in time order', () => {
   const marks = overlay(

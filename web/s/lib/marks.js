@@ -4,7 +4,6 @@
 
 import {mergeCell} from '../../shared/logic.js';
 
-export {mergeCell};
 export const STATUS_LABEL = {correct: 'верно', incorrect: 'неверно', disputed: 'спорно', received: 'получена'};
 const VALUE_STATUS = {R: 'received', 1: 'correct', 0: 'incorrect', '?': 'disputed'};
 

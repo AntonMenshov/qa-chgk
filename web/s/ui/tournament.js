@@ -20,7 +20,6 @@ export async function startTournament(cardText = null) {
   app.call = backend(app.setup.backendUrl, app.setup.juryToken);
   const tid = app.setup.tid;
   let state;
-  const started = Date.now();
   try {
     state = await app.call('get_state', {tid});
     store.set(K.state(tid), state);
@@ -49,7 +48,6 @@ export async function startTournament(cardText = null) {
     device: deviceId(),
   });
   app.session.restorePending(app.queue.pending);
-  app.session.snapshotAt = started;
   app.photos = new PhotoQueue({
     store: photoStore(tid),
     send: async (rec) => {

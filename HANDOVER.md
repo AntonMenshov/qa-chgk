@@ -105,8 +105,8 @@ README.md             organiser guide (end to end) and contributor commands
 ```
 
 ### How to run
-- Tests: `uv run pytest` (405, incl. 3 browser tests that need Google Chrome + Node) and
-  `npm test` (212, then 69 backend tests again with the Sheets API off).
+- Tests: `uv run pytest` (403, incl. 3 browser tests that need Google Chrome + Node) and
+  `npm test` (201, then 69 backend tests again with the Sheets API off).
 - Lint and format: `uv run ruff format . && uv run ruff check .`, `npm run format && npm run lint`.
 - Backend: `uv run chgk backend add|use|list|check|remove|bundle` (docs/google-account.md).
 - A tournament: `uv run chgk new <folder>` (Sheet + Drive folder), `uv run chgk teams <folder>`

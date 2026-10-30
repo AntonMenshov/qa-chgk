@@ -8,13 +8,10 @@ test('record_events, get_state and get_board read once; record_events writes onc
   const {b, admin, calls, tab} = apiWorld();
   const post = (events) => calls(() => b.post({action: 'record_events', tid: TID, token: JURY, events}));
   // Marks, Meta, Log and «Спорные» in one write, whatever the batch holds.
-  let c = post([
-    ev({question: 1, status: 'received'}),
-    ev({team_id: 'A02', question: 2, status: 'disputed', photo: 'p.jpg'}),
-  ]);
+  let c = post([ev({question: 1, status: 'received'}), ev({team_id: 'A02', question: 2, status: 'disputed'})]);
   assert.deepEqual([c.result.ok, c.reads, c.writes], [true, 1, 1]);
   assert.ok(b.$.api.batches.at(-1) >= 6);
-  assert.equal(tab('Спорные').get(2, 4), 'p.jpg');
+  assert.deepEqual(tab('Спорные').row(2, 3), [1, 2, 'Фиаско']);
   const third = ev({question: 3, status: 'correct'});
   c = post([third]);
   assert.deepEqual([c.reads, c.writes], [1, 1]);

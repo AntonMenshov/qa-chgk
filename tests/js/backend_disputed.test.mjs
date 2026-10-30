@@ -2,17 +2,19 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {loadBackend} from './fake_apps_script.mjs';
-import {TID, JURY, TEAMS, world, ev, withoutTiming} from './backend_world.mjs';
+import {TID, JURY, TEAMS, world, ev, photo, withoutTiming} from './backend_world.mjs';
 
 test('«Спорные» lists every «?» with its round, question, team and photo, and the counts; it follows the marks', () => {
   const {b, tab} = world();
   const post = (events) => assert.equal(b.post({action: 'record_events', tid: TID, token: JURY, events}).ok, true);
   post([
-    ev({team_id: 'A02', question: 5, status: 'disputed', photo: 'https://drive.example/card-a02-5.jpg'}),
+    ev({team_id: 'A02', question: 5, status: 'disputed'}),
     ev({team_id: 'A01', question: 2, status: 'disputed'}),
     ev({team_id: 'A01', question: 5, status: 'disputed'}),
     ev({team_id: 'A02', question: 1, status: 'correct'}),
   ]);
+  const link = b.post({action: 'upload_photo', tid: TID, token: JURY, ...photo({team_id: 'A02', question: 5})}).url;
+  assert.ok(link);
   const d = tab('Спорные');
   assert.equal(d.hidden, true); // not on the view-only link
   const list = () => Array.from({length: d.getLastRow()}, (_, i) => d.row(i + 1, 4)).filter((r) => r[0] !== '');
@@ -20,7 +22,7 @@ test('«Спорные» lists every «?» with its round, question, team and ph
     ['Тур', 'Вопрос', 'Команда', 'Фото'],
     [1, 2, '42', ''],
     [2, 5, '42', ''],
-    [2, 5, 'Фиаско', 'https://drive.example/card-a02-5.jpg'],
+    [2, 5, 'Фиаско', link],
   ]);
   const summary = () =>
     Array.from({length: d.getLastRow()}, (_, i) => [d.get(i + 1, 7), d.get(i + 1, 8)]).filter((r) => r[0] !== '');
@@ -40,12 +42,12 @@ test('«Спорные» lists every «?» with its round, question, team and ph
   b.onSheetEdit({range: r2.getRange(r2.rowOf('A01'), 4)});
   assert.deepEqual(list().slice(1), [
     [1, 2, '42', ''],
-    [2, 5, 'Фиаско', 'https://drive.example/card-a02-5.jpg'],
+    [2, 5, 'Фиаско', link],
   ]);
   assert.deepEqual(summary()[0], ['Всего «?»', 2]);
   // ... and from the phone: the last one in round 1 goes, no stale rows stay behind.
   post([ev({team_id: 'A01', question: 2, status: 'incorrect'})]);
-  assert.deepEqual(list().slice(1), [[2, 5, 'Фиаско', 'https://drive.example/card-a02-5.jpg']]);
+  assert.deepEqual(list().slice(1), [[2, 5, 'Фиаско', link]]);
   assert.deepEqual(summary(), [
     ['Всего «?»', 1],
     ['Тур', '«?»'],
