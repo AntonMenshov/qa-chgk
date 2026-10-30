@@ -73,15 +73,14 @@ tests/                pytest (tests/test_*.py) and node:test (tests/js/*.test.mj
   vectors/            shared JSON test vectors (qr_payloads, jury_links, board_links, merge_cases)
 docs/google-account.md  deploying the backend under any Gmail account; switching; updating
 docs/manual-checks.md   what the tests can't cover: iPhone, printing, the Sheet's edit trigger
-docs/spikes.md        spike instructions and results
-spikes/               throwaway Phase 0 experiments (no tests)
+docs/spikes.md        Phase 0 spike results (their code was removed; it is in the git history)
 web/                  GitHub Pages site
 web/s/                scanner app (no build step): index.html, app.css, app.js (wiring only), sw.js (offline),
                       manifest + icons; lib/ = payload, marks, session, lookup («Чья карточка?»), queue, api,
                       storage, camera; vendor/zxing-wasm-3.1.4 (QR reader, vendored: no CDN at the venue)
 web/b/                projector board: index.html, board.css, board.js; lib/board.js = what to show
                       (rounds revealed by hand, places from revealed rounds only, grid vs compact)
-.github/workflows/    tests.yml (ruff + pytest; ESLint + Prettier + npm test), pages.yml (deploys web/ + spike pages)
+.github/workflows/    tests.yml (ruff + pytest; ESLint + Prettier + npm test), pages.yml (deploys web/)
 package.json          `npm test`, `npm run lint|format|format:check` (devDependencies: ESLint + Prettier only)
 eslint.config.js, .prettierrc.json, pyproject.toml ([tool.ruff])  lint and format settings
 README.md             organiser guide (end to end) and contributor commands
@@ -219,8 +218,7 @@ Kept in one place: [SPEC.md §14](SPEC.md) (defaults used unless the user says o
    карточка?») and the Sheet-trigger checks ([docs/manual-checks.md](docs/manual-checks.md)).
 2. **Phase 4 — card photos** (PLAN.md).
 3. **Phase 6 — logos:** SVG input, Claude-drawn SVG, image-API generation.
-4. **Housekeeping:** remove the spike pages from Pages/`spikes/`.
-5. **Later** (PLAN.md): cache for board/phone reads (#2), rating.chgk.info export,
+4. **Later** (PLAN.md): cache for board/phone reads (#2), rating.chgk.info export,
    multi-juror UI, Google sign-in, token rotation, moving a tournament to another account.
 
 ## Lessons learned
@@ -285,7 +283,7 @@ Kept in one place: [SPEC.md §14](SPEC.md) (defaults used unless the user says o
 - Repo: <https://github.com/AntonMenshov/qa-chgk> (public). `gh` is logged in as
   AntonMenshov.
 - Pages: <https://antonmenshov.github.io/qa-chgk/>, deployed by `.github/workflows/pages.yml`
-  on pushes touching `web/` or `spikes/`. The scanner URL printed in QR codes is
+  on pushes touching `web/`. The scanner URL printed in QR codes is
   `https://antonmenshov.github.io/qa-chgk/s/`.
 - Push after each commit: `git push`.
 

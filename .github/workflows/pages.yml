@@ -3,7 +3,7 @@ name: pages
 on:
   push:
     branches: [main]
-    paths: ["web/**", "spikes/**", ".github/workflows/pages.yml"]
+    paths: ["web/**", ".github/workflows/pages.yml"]
   workflow_dispatch:
 
 permissions:
@@ -27,8 +27,6 @@ jobs:
         run: |
           mkdir _site
           cp -r web/. _site/
-          mkdir _site/spikes
-          cp -r spikes/qr_scan spikes/apps_script_post _site/spikes/
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

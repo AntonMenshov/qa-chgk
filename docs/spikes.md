@@ -1,12 +1,15 @@
 # Phase 0 spikes
 
-Throwaway experiments that settle open technical questions before the real build.
-Code lives in `spikes/` and has no unit tests; only the findings below matter.
+Throwaway experiments that settled open technical questions before the real build.
+Their code (`spikes/`) and pages were removed on 2026-10-30; it is in the git history
+up to commit f68651c. Only the findings below matter.
 
 ## Spike 1: POST from a static page to Apps Script
 
 **Question:** can the scanner page send marks and a ~200 KB photo to an Apps Script
 web app, and read the reply, despite CORS?
+
+How it was run (the files are in the git history):
 
 1. Go to script.google.com → New project → paste `spikes/apps_script_post/Code.gs`.
 2. Deploy → New deployment → type **Web app**; Execute as **Me**; Who has access
@@ -47,9 +50,8 @@ against the user's deployment. The deployment URL is kept out of the repo.
 **Question:** which QR library scans printed cards fastest and most reliably, and
 what resolution do the card photos come out at?
 
-Needs HTTPS, so the page must be served from GitHub Pages
-(<https://antonmenshov.github.io/qa-chgk/spikes/qr_scan/>). Open `…/spikes/qr_scan/` on the iPhone, print
-`out/print_test.pdf`, then for each library:
+Needs HTTPS, so the page was served from GitHub Pages (`…/spikes/qr_scan/`). It was
+opened on the iPhone with `out/print_test.pdf` printed, then for each library:
 - scan the five QR sizes;
 - scan the three sample cards quickly one after another.
 
@@ -75,8 +77,7 @@ The spike 1 page now accepts `#url=<exec URL>` for this reason.
 Superseded by `uv run chgk test-page <tournament folder>` (Phase 1), which uses the
 tournament's real settings, QR codes and logo.
 
-`uv run python spikes/print_test/make_sheet.py` → `out/print_test.pdf`. Print at
-**100% / Actual size** on each printer you expect to use.
+The spike's script printed `out/print_test.pdf`, to be printed at **100% / Actual size**.
 
 | Check | Printer | Result |
 |---|---|---|
