@@ -19,7 +19,7 @@ Full design: [SPEC.md](SPEC.md). Build order: [PLAN.md](PLAN.md).
 | Phase | Status |
 |---|---|
 | Spec and plan | ✅ done, agreed with the user |
-| 0 — Skeleton and spikes | ✅ spike 1 (laptop) ✅, spike 2 ✅ (all QR sizes scan well; zxing-wasm chosen), spike 3 ✅ (0.65 in QR, 3% grey). Open: spike 1 from iPhone Safari |
+| 0 — Skeleton and spikes | ✅ spike 1 (laptop + iPhone Safari), spike 2 (all QR sizes scan well; zxing-wasm chosen), spike 3 (0.65 in QR, 3% grey) |
 | 1 — Config, identity, card PDF | ✅ done; cards + jury sheet work offline from `teams.csv` |
 | 2 — Apps Script backend + Sheet | next |
 | 3 — Scanner web app | not started |
@@ -135,9 +135,7 @@ checks that the decks come out in order.
 
 ## Next steps
 
-1. Spike 1 from iPhone Safari: the user scans a QR (made locally, not committed) that
-   opens the spike page with `#url=<exec URL>`. Record the result in `docs/spikes.md`.
-2. **Phase 2:** Apps Script backend + Sheet, including switchable Google-account
+1. **Phase 2 (in progress):** Apps Script backend + Sheet, including switchable Google-account
    backends (SPEC §3.1, PLAN Phase 2). The user already deployed the spike 1 script,
    so they know the deploy flow.
 

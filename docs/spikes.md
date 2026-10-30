@@ -39,6 +39,8 @@ against the user's deployment. The deployment URL is kept out of the repo.
   Upload them in the background with **2–3 in parallel**, separate from marks
   (already in the spec).
 - The test left one file, `spike.jpg`, in the root of the user's Drive.
+- **Confirmed from iPhone Safari** (user, 2026-10-29) via the GitHub Pages copy of the
+  page, opened from a QR code that carried the URL in `#url=`.
 
 ## Spike 2: QR scanning on iPhone Safari
 
