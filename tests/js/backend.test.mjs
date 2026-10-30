@@ -815,6 +815,12 @@ test('an older Sheet: share_view renames «Stats» to «Статистика» a
 
 // ---- one read and one write per request (Sheets API advanced service) ----
 
+const withoutTiming = (reply) => {
+  const copy = Object.assign({}, reply);
+  delete copy.timing;
+  return copy;
+};
+
 function apiWorld() {
   const b = loadBackend({sheetsApi: true});
   b.setup();
@@ -908,8 +914,8 @@ test('the same marks, places and «Спорные» with the Sheets API off (the
     };
     return {
       tabs: ['Итоги', 'Тур 1', 'Тур 2', 'Спорные'].map(dump),
-      state: b.post({action: 'get_state', tid: TID, token: JURY}),
-      results: b.post({action: 'get_results', tid: TID, token: JURY}),
+      state: withoutTiming(b.post({action: 'get_state', tid: TID, token: JURY})),
+      results: withoutTiming(b.post({action: 'get_results', tid: TID, token: JURY})),
       api: b.$.api,
     };
   };
@@ -949,6 +955,30 @@ test('the Log grows past the grid: one slow write adds room, then the API writes
   b.post({action: 'record_events', tid: TID, token: JURY, events: [ev({question: 3})]});
   assert.equal(b.$.api.batches.length, before + 1); // the API write went through this time
   assert.equal(log.get(1002, 3), `s${seq}`);
+});
+
+test('every reply says how long each step took; the steps add up to the total', () => {
+  const {b} = apiWorld();
+  const res = b.post({action: 'record_events', tid: TID, token: JURY, events: [ev({question: 2, status: 'disputed'})]});
+  const t = res.timing;
+  for (const step of ['access', 'lock', 'open', 'read', 'write', 'rest', 'total']) {
+    assert.equal(typeof t[step], 'number', step);
+    assert.ok(t[step] >= 0, step);
+  }
+  const steps = Object.keys(t).filter((k) => k !== 'total');
+  assert.equal(
+    steps.reduce((sum, k) => sum + t[k], 0),
+    t.total,
+  );
+  // A read-only request: no lock, no write; the slow path shows up under its own name.
+  const board = b.post({action: 'get_board', tid: TID, token: JURY}).timing;
+  assert.deepEqual([board.lock, board.write, typeof board.read], [undefined, undefined, 'number']);
+  b.$.api.fail = true;
+  const slow = b.post({action: 'get_board', tid: TID, token: JURY}).timing;
+  assert.equal(typeof slow.read_fallback, 'number');
+  b.$.api.fail = false;
+  // Errors carry no timing.
+  assert.equal(b.post({action: 'get_board', tid: TID, token: 'wrong-token-0000000'}).timing, undefined);
 });
 
 test('ping says whether the Sheets API service is on', () => {

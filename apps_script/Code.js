@@ -69,7 +69,28 @@ function doGet() {
   return json_({ok: true, service: 'chgk', version: VERSION});
 }
 
+// ---- per-step timings ----
+// Every successful reply carries `timing`: milliseconds per step of this request, plus
+// `rest` (our own logic and small calls) and `total` (doPost start to reply). The client's
+// own clock minus `total` is Google's part: starting the script and passing the request.
+
+let timing = null;
+
+/** Run fn, adding its milliseconds to step `step` of this request's timing. */
+function timed_(step, fn) {
+  const start = Date.now();
+  try {
+    return fn();
+  } finally {
+    if (timing) {
+      timing[step] = (timing[step] || 0) + Date.now() - start;
+    }
+  }
+}
+
 function doPost(e) {
+  const start = Date.now();
+  timing = {};
   let body;
   try {
     body = JSON.parse(e.postData.contents);
@@ -77,7 +98,11 @@ function doPost(e) {
     return json_({ok: false, error: 'request body is not JSON'});
   }
   try {
-    return json_(handle_(body));
+    const reply = handle_(body);
+    const total = Date.now() - start;
+    const steps = Object.keys(timing).reduce((sum, step) => sum + timing[step], 0);
+    reply.timing = Object.assign({}, timing, {rest: total - steps, total});
+    return json_(reply);
   } catch (err) {
     const known = err instanceof RequestError;
     return json_({ok: false, error: known ? err.message : `server error: ${err && err.message ? err.message : err}`});
@@ -86,7 +111,7 @@ function doPost(e) {
 
 function handle_(req) {
   validateRequest(req);
-  const props = PropertiesService.getScriptProperties();
+  const props = timed_('access', () => PropertiesService.getScriptProperties());
   if (req.action === 'ping') {
     requireAdmin_(props, req);
     return {
@@ -101,7 +126,7 @@ function handle_(req) {
     requireAdmin_(props, req);
     return withLock_(() => createTournament_(props, req));
   }
-  const reg = registry_(props, req.tid);
+  const reg = timed_('access', () => registry_(props, req.tid));
   switch (req.action) {
     case 'get_teams':
       requireAdmin_(props, req);
@@ -185,12 +210,12 @@ function registry_(props, tid) {
 }
 
 function open_(reg) {
-  return SpreadsheetApp.openById(reg.spreadsheet_id);
+  return timed_('open', () => SpreadsheetApp.openById(reg.spreadsheet_id));
 }
 
 function withLock_(fn) {
   const lock = LockService.getScriptLock();
-  lock.waitLock(30000);
+  timed_('lock', () => lock.waitLock(30000));
   try {
     return fn();
   } finally {
@@ -577,11 +602,13 @@ function sortTabs_(ss, sizes, rounds, m) {
   // Formulas are made right before sorting too, since the sort keys are their results.
   const sortTab = (sheet, width, spec, firstFormulaCol, rowFor) => {
     const want = (t, row) => rowFor(t, row).slice(firstFormulaCol - 1);
-    refreshFormulas_(sheet, firstFormulaCol, want);
-    if (sheet.getLastRow() > 2) {
-      sheet.getRange(2, 1, sheet.getLastRow() - 1, width).sort(spec);
-    }
-    refreshFormulas_(sheet, firstFormulaCol, want);
+    timed_('sort_formulas', () => refreshFormulas_(sheet, firstFormulaCol, want));
+    timed_('sort_range', () => {
+      if (sheet.getLastRow() > 2) {
+        sheet.getRange(2, 1, sheet.getLastRow() - 1, width).sort(spec);
+      }
+    });
+    timed_('sort_formulas', () => refreshFormulas_(sheet, firstFormulaCol, want));
   };
   rounds.forEach((round) => {
     const lay = roundLayout(sizes, round);
@@ -663,15 +690,21 @@ function readBlocks_(ss, specs) {
   const pad = (rows, cols) => rows.map((r) => Array.from({length: cols}, (_, i) => (i < r.length ? r[i] : '')));
   if (sheetsApi_()) {
     try {
-      const res = Sheets.Spreadsheets.Values.batchGet(ss.getId(), {
-        ranges: specs.map((b) => a1_(b.name, b.row, b.col, b.rows, b.cols)),
-        valueRenderOption: 'UNFORMATTED_VALUE',
-      });
+      const res = timed_('read', () =>
+        Sheets.Spreadsheets.Values.batchGet(ss.getId(), {
+          ranges: specs.map((b) => a1_(b.name, b.row, b.col, b.rows, b.cols)),
+          valueRenderOption: 'UNFORMATTED_VALUE',
+        }),
+      );
       return specs.map((b, i) => pad(res.valueRanges[i].values || [], b.cols));
     } catch {
       // quota or a transient error: read the slow way below
     }
   }
+  return timed_('read_fallback', () => readBlocksSlowly_(ss, specs));
+}
+
+function readBlocksSlowly_(ss, specs) {
   return specs.map((b) => {
     const sheet = b.name === TABS.summary ? summaryOf_(ss) : ss.getSheetByName(b.name);
     if (!sheet) {
@@ -708,35 +741,41 @@ function writer_(ss) {
       const batch = data.splice(0, data.length);
       if (sheetsApi_()) {
         try {
-          Sheets.Spreadsheets.Values.batchUpdate(
-            {
-              valueInputOption: 'RAW',
-              data: batch.map((d) => ({
-                range: a1_(d.name, d.row, d.col, d.values.length, d.values[0].length),
-                values: d.values,
-              })),
-            },
-            ss.getId(),
+          timed_('write', () =>
+            Sheets.Spreadsheets.Values.batchUpdate(
+              {
+                valueInputOption: 'RAW',
+                data: batch.map((d) => ({
+                  range: a1_(d.name, d.row, d.col, d.values.length, d.values[0].length),
+                  values: d.values,
+                })),
+              },
+              ss.getId(),
+            ),
           );
           return;
         } catch {
           // a tab too small (Log grows all game) or missing (older Sheets): the slow way grows or creates it
         }
       }
-      batch.forEach((d) => {
-        const sheet = ss.getSheetByName(d.name) || (d.name === TABS.disputed ? newDisputedTab_(ss) : null);
-        if (!sheet) {
-          fail(`the Sheet has no «${d.name}» tab`);
-        }
-        const lastRow = d.row + d.values.length - 1;
-        if (sheet.getMaxRows() < lastRow) {
-          ensureSize_(sheet, lastRow + SHEETS_API_GROW, 1);
-        }
-        ensureSize_(sheet, 1, d.col + d.values[0].length - 1);
-        sheet.getRange(d.row, d.col, d.values.length, d.values[0].length).setValues(d.values);
-      });
+      timed_('write_fallback', () => writeSlowly_(ss, batch));
     },
   };
+}
+
+function writeSlowly_(ss, batch) {
+  batch.forEach((d) => {
+    const sheet = ss.getSheetByName(d.name) || (d.name === TABS.disputed ? newDisputedTab_(ss) : null);
+    if (!sheet) {
+      fail(`the Sheet has no «${d.name}» tab`);
+    }
+    const lastRow = d.row + d.values.length - 1;
+    if (sheet.getMaxRows() < lastRow) {
+      ensureSize_(sheet, lastRow + SHEETS_API_GROW, 1);
+    }
+    ensureSize_(sheet, 1, d.col + d.values[0].length - 1);
+    sheet.getRange(d.row, d.col, d.values.length, d.values[0].length).setValues(d.values);
+  });
 }
 
 /** Log time as text in the script's time zone (the Sheets API takes no Date objects). */
@@ -898,10 +937,10 @@ function applySheetEdits_(ss, m, user) {
     // Notes are not values: these go through SpreadsheetApp (jury edits are rare).
     const range = ss.getSheetByName(at.name).getRange(at.row, at.col);
     if (edit.status === null) {
-      range.setNote('Непонятное значение: используйте 1, 0, ? или R');
+      timed_('notes', () => range.setNote('Непонятное значение: используйте 1, 0, ? или R'));
       return;
     }
-    range.clearNote();
+    timed_('notes', () => range.clearNote());
     m.cells[edit.key] = {value: edit.value, ts: now};
     writeMark_(m, edit.key, m.cells[edit.key], edit.raw !== edit.value);
     rounds.add(at.round);
@@ -1101,8 +1140,10 @@ function recordEvents_(ss, reg, req) {
     )
     .map((ev) => ev.team_id);
   if (activate.length) {
-    activateReserve_(ss, reg.round_sizes, activate);
-    SpreadsheetApp.flush();
+    timed_('reserve', () => {
+      activateReserve_(ss, reg.round_sizes, activate);
+      SpreadsheetApp.flush();
+    });
     m = readMarks_(ss, reg, {teams: true, log: true});
   }
   const disputedBefore = disputedBefore_(m);

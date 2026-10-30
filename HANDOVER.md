@@ -208,7 +208,9 @@ checks that the decks come out in order.
   script's time zone. `npm test` runs the backend suites again with the API off.
   Measured live (0de817fbb468, same HVTXT profile, medians): get_board 2.6 → 1.6 s,
   get_state 2.8 → 1.8 s, 1 mark 4.3 → 2.0 s, 1 mark + sort 5.0 → 2.9 s, duplicate
-  3.2 → 2.0 s, 15 marks 5.9 → 4.4 s; ping ~1.0-1.2 s is the platform floor. #2 (cache) kept for later, #4 (ARRAYFORMULA) rejected, #1 (timings) next.
+  3.2 → 2.0 s, 15 marks 5.9 → 4.4 s; ping ~1.0-1.2 s is the platform floor.
+  Every successful reply now has `timing` (ms per step: access, lock, open, read/write or
+  read_fallback/write_fallback, sort_formulas, sort_range, notes, reserve, rest, total). #2 (cache) kept for later, #4 (ARRAYFORMULA) rejected, #1 (timings) next.
 
 - «Спорные» (user request): hidden tab listing every «?» (Тур, Вопрос, Команда, Фото from
   Log) with totals overall / per round / per team. Written by the backend only when the
