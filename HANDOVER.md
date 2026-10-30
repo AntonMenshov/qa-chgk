@@ -198,9 +198,9 @@ checks that the decks come out in order.
 ## Lessons learned
 
 - Backend 271296487de6 (built, not yet deployed): the spreadsheet is opened only when needed
-  ( returns a lazy wrapper); a re-sort is one Sheets API spreadsheets.batchUpdate per
+  (`open_` returns a lazy wrapper); a re-sort is one Sheets API spreadsheets.batchUpdate per
   request (per tab: updateCells formulas, sortRange, updateCells formulas; formulas depend
-  only on the row number). Tab IDs cached in the registry (); stale ID, quota,
+  only on the row number). Tab IDs cached in the registry (`sheet_ids`); stale ID, quota,
   gaps in team rows or a Sheet unknown to the registry → the old SpreadsheetApp sort.
   tests/js/sort_api.test.mjs holds it to the slow sort (random parity) and logic.js; 7
   hand mutations of sortWithApi_ were all caught.
