@@ -25,7 +25,10 @@ Full design: [SPEC.md](SPEC.md). Build order: [PLAN.md](PLAN.md).
 | 3 — Scanner web app | 🔶 built and tested (unit + integration + headless-Chrome end-to-end with a fake camera), checked live on Pages against the real backend; waiting for the user's iPhone check |
 | 4 — Card photos | ✅ built, tested (phone queue, backend `upload_photo`, headless-Chrome check that each photo shows its card) and checked live (API upload to Drive); the iPhone check is in the user's list |
 | 5 — Projector board + stats | ✅ built, tested and checked live |
-| 6 — Logos | planned (PLAN.md), not started: SVG input, `chgk logos`, Claude-drawn drafts, `chgk key`, preview then accept. Done earlier: PNG/JPG → pale greyscale, shared private library, fallback owl. Image-API logos: PLAN «Later» |
+| 6 — Logos | planned (PLAN.md), not started: SVG input, `chgk logos`, Claude-drawn drafts, `chgk key`, preview then accept. Done earlier: PNG/JPG → pale greyscale, shared private library, fallback owl. Image-API logos: Phase 9. Started only when the user says |
+| 7 — Internal test at home (printouts) | not started: tests, feedback, bug analysis and fixes, then a docs/comments check |
+| 8 — External test at a tournament | not started: the same loop with real teams |
+| 9 — Next version | the deferred list in PLAN.md |
 
 - **Deployed backend:** version **e08511993c86** under the user's Gmail (local profile
   `personal`), with the «Google Sheets API» service on. `uv run chgk backend check`
@@ -162,7 +165,7 @@ checks that the decks come out in order.
     tab IDs cached in the registry (`sheet_ids`); otherwise the slow sort;
   - every reply has `timing`; Log times are text in the script's time zone.
   - Proposal numbering used with the user: #1 timings (done), #2 cache for board/phone
-    reads (parked for a later version), #3 batched read/write and one-call sort (done),
+    reads (parked for Phase 9), #3 batched read/write and one-call sort (done),
     #4 one ARRAYFORMULA per column (rejected).
   - Live, 30 teams × 36 questions: board/phone refresh ~1.1 s, one mark ~1.6 s, a mark
     that re-sorts ~1.7–2.2 s, 15 marks ~1.4 s (before: 2.6 / 2.8 / 4.3 / 5.0 / 5.9 s);
@@ -231,7 +234,7 @@ checks that the decks come out in order.
   - paper backup grid; the date in the QR pages' titles and every footer.
 - **Jury link:** `<scanner_url>#setup=<TID>.<TOKEN>.<DEPLOYMENT_ID>`.
 - **Jurors:** one at a time for now; the data model is ready for several.
-- **Deferred:** one list, in [PLAN.md](PLAN.md) («Later»).
+- **Deferred:** one list, [PLAN.md](PLAN.md) Phase 9 (next version).
 
 ## Open items
 
@@ -241,10 +244,12 @@ Kept in one place: [SPEC.md §14](SPEC.md) (defaults used unless the user says o
 
 1. **User checks:** the scanner on an iPhone with the example cards (incl. «Чья
    карточка?» and card photos) and the Sheet-trigger checks ([docs/manual-checks.md](docs/manual-checks.md)).
-2. **Phase 6 — logos** (PLAN.md, agreed with the user 2026-10-30): SVG input and
-   `chgk logos` (report, preview, accept), then Claude-drawn SVG drafts (API, or in a
-   session without a key) in the style of the existing logos.
-3. **Later:** see PLAN.md «Later».
+2. **Phase 6 — logos** (PLAN.md, agreed with the user 2026-10-30), **only when the user
+   says**: SVG input and `chgk logos` (report, preview, accept), then Claude-drawn SVG
+   drafts (API, or in a session without a key) in the style of the existing logos.
+3. **Phase 7** internal test at home with printouts, then **Phase 8** external test at a
+   tournament: each with feedback entry, bug analysis and fixes, and a docs/comments check.
+4. **Phase 9 — next version:** the deferred list in PLAN.md.
 
 ## Lessons learned
 

@@ -88,7 +88,7 @@ Tests are written alongside the code, not after it.
   view-only table and of the board itself (the jury sheet's links).
 - **Tests:** ranking/sorting and tie display logic in a pure module (`npm test`).
 
-## Phase 6 — Logos (decisions: user, 2026-10-30)
+## Phase 6 — Logos (decisions: user, 2026-10-30; started only when the user says)
 - Done earlier: provided PNG/JPG files → pale greyscale (Pillow); shade chosen from the
   test page; shared private library `logos/` with the fallback owl.
 - SVG files wherever PNG is accepted (rasterised, then the same pale step; lettering in
@@ -108,9 +108,21 @@ Tests are written alongside the code, not after it.
   kept), SVG rendering and refusal of unsafe SVGs, the API with mocked HTTP (no real
   calls; key never logged), the no-key brief, preview and accept.
 
-## Later
+## Phase 7 — Internal test at home, with printouts
+- Print real card sets and the jury sheet; run a mock game at home with the iPhone
+  scanner, the Sheet, the board and card photos (docs/manual-checks.md and more).
+- Write down the feedback as it comes (what failed, what was slow or confusing).
+- Analyse each failure or bug, fix it, with a test that would have caught it.
+- Finish with a thorough check of the docs, comments, memory and HANDOVER.
+
+## Phase 8 — External test at a tournament with teams
+- A real tournament: registered teams, printed decks, jury phones, the projector board.
+- The same loop as Phase 7: tests on the day, feedback entry, failure and bug analysis,
+  fixes, then a thorough check of the docs, comments, etc.
+
+## Phase 9 — Next version
 The one list of deferred work (HANDOVER points here): logos from image-generation
-services (OpenAI, Google, …; next version, user decision) · rating.chgk.info export ·
-multi-juror UI · Google sign-in · cache for board/phone reads (backend speed proposal #2)
-· replacing leaked tokens · moving a tournament to another account. (A board freeze is
-not needed: the board shows a round only when revealed.)
+services (OpenAI, Google, …; user decision) · rating.chgk.info export · multi-juror UI ·
+Google sign-in · cache for board/phone reads (backend speed proposal #2) · replacing
+leaked tokens · moving a tournament to another account (`chgk export` / `chgk import`).
+(A board freeze is not needed: the board shows a round only when revealed.)

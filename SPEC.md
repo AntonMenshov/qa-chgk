@@ -82,7 +82,7 @@ is tied to one account.
 - **Printed cards don't depend on the account.** QR codes hold only the scanner URL
   and card ID (§6), so cards stay valid whichever account runs the backend.
 - Moving an *existing* tournament's Sheet and photos to another account is out of
-  scope for v1. Later: `chgk export` / `chgk import`.
+  scope for v1. Phase 9 (next version): `chgk export` / `chgk import`.
 - Step-by-step guide: `docs/google-account.md`.
 
 ### 3.2 Backend requests (speed)
@@ -285,7 +285,7 @@ only, not data-model changes.
 - Jury link format: `<scanner_url>#setup=<TID>.<JURY_TOKEN>.<DEPLOYMENT_ID>`. It's
   encoded in Python, decoded by the JS scanner, and has shared test vectors in
   `tests/vectors/jury_links.json`.
-- Later option: Google sign-in with an allow-list of emails.
+- Next version (PLAN Phase 9): Google sign-in with an allow-list of emails.
 - Caveat: on iOS a Home-Screen app and Safari keep separate storage, so after adding the
   app to the Home Screen the jury QR is scanned once more inside it (the printed how-to
   says so); a card URL opened from the built-in Camera may ask for the jury link once.
@@ -422,13 +422,13 @@ A pale greyscale watermark. The source is chosen per team and per tournament:
 | none | no logo |
 | provided file | PNG/JPG (SVG later) in the tournament folder or `logos/` → greyscale → flatten → lightened to the chosen shade |
 | Claude-drawn SVG (Phase 6, planned) | vector emblem or monogram from a text spec (drawn in a Claude Code session, or via the Claude API with the user's key) |
-| image API (later version, PLAN «Later») | prompt → OpenAI / Google image model (user's API key) → same post-processing |
+| image API (next version, PLAN Phase 9) | prompt → OpenAI / Google image model (user's API key) → same post-processing |
 
 The Claude API does not output raster images, but it can write SVG.
 
 ## 10. Outputs
 
-| Output | v1 | Later |
+| Output | v1 | Next version (Phase 9) |
 |---|---|---|
 | «Итоги» + per-round tabs (standings, round sums, place) | ✓ | |
 | «Статистика» tab (teams taking each question) | ✓ | |
