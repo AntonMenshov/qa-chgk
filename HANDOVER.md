@@ -252,6 +252,9 @@ checks that the decks come out in order.
   tabs, the unused R2 stays off and out of the places, numbers match the reference.
   Version 385920657ebf deployed: an unused reserve's invalid event reports the real error
   (checked live: R2, question 99 → «invalid question»).
+  2026-10-30: the user trashed the old folders; example re-created as QHZJ8 on version
+  097f2269b709 (fresh ЧГК folder, no test marks), cards and jury.pdf regenerated and
+  checked (270 QRs, jury QR, full-URL links).
   **Still to confirm by the user (needs the edit trigger):** typing a name over
   «R1 · впишите название», and a mark edit on a round tab (`+` → `1`, row moves, Log row).
 - Delete the old example folder `ЧГК/… (5R547)` (single Results layout) from Drive.
