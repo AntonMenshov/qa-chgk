@@ -56,6 +56,24 @@ def test_card_parts_fit_and_do_not_overlap(grid, qr_in):
         assert not parts.logo.intersects(parts.qr)
 
 
+@pytest.mark.parametrize("grid", GRIDS)
+@pytest.mark.parametrize("logo_in", [0.5, 1.4, 1.85, 5.0])
+def test_sized_logo_stays_on_the_card_and_off_the_qr(grid, logo_in):
+    for card in card_rects(Layout(cols=grid[0], rows=grid[1])):
+        parts = card_parts(card, 0.65 * INCH, logo_in * INCH)
+        assert card.contains(parts.logo)
+        assert not parts.logo.intersects(parts.qr)
+        assert parts.logo.w == parts.logo.h <= logo_in * INCH + 1e-6
+
+
+def test_sized_logo_is_bigger_than_the_default_on_a_3x5_card():
+    card = card_rects(Layout())[0]
+    default = card_parts(card, 0.65 * INCH).logo.w
+    big = card_parts(card, 0.65 * INCH, 1.85 * INCH).logo.w
+    assert big == pytest.approx(1.85 * INCH)
+    assert big > 1.7 * default
+
+
 def test_too_small_card_is_rejected():
     tiny = Rect(0, 0, 1.0 * INCH, 0.9 * INCH)
     with pytest.raises(GeometryError):

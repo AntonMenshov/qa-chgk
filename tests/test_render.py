@@ -206,3 +206,14 @@ def test_missing_team_logo_warns_and_falls_back(folder, tmp_path):
                    encoding="utf-8")
     result = build_cards(folder, Mode.CUT_STACK, tmp_path / "out.pdf")
     assert any("team A02" in w and "gone.png" in w for w in result.warnings)
+
+
+def test_team_name_can_be_left_off_the_cards(folder, tmp_path):
+    config = folder / "config.py"
+    config.write_text(config.read_text(encoding="utf-8").replace(
+        "card=CardFields(", "card=CardFields(team_name=False, logo_size=1.85, "), encoding="utf-8")
+    result = build_cards(folder, Mode.TEAM_PAGES, tmp_path / "out.pdf")
+    text = "\n".join(page.extract_text() for page in PdfReader(result.path).pages)
+    assert "Синие зайцы" not in text and "Думать быстро" not in text
+    assert "Осенний кубок · 15.11.2026" in text  # the other footer fields stay
+    assert "Синие зайцы" in "\n".join(p.extract_text() for p in PdfReader(result.jury_path).pages)  # jury still sees names

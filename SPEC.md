@@ -300,6 +300,10 @@ as `chgk jury-sheet <folder> [--mode]`.
 - A logo file that can't be found prints a warning and the card uses the next
   fallback. A fresh clone without the private logos still prints, with owls.
 - Logos are downscaled to 600 px before embedding, which keeps PDFs small.
+- **Size:** `CardFields.logo_size` (inches). `None` (the default) fits the logo into
+  the writing area. A number makes it a square centred in the full card height, left
+  of the QR column, behind the number and footer text but never behind the QR, and
+  shrunk to fit. On a 3×5 card the maximum is about 1.85 in.
 - **Shade:** the darkest 10% of the drawing gets exactly `logo_grey` ink, and anything
   darker is clamped. Scaling by the single darkest pixel printed the user's light-grey
   logos at about a third of the chosen shade (fixed 2026-10-29).

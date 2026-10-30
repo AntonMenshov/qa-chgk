@@ -196,7 +196,8 @@ def render_cards(
 
     rects = card_rects(tournament.layout)
     qr_pt = tournament.layout.qr_size * 72
-    all_parts = [card_parts(r, qr_pt) for r in rects]
+    logo_pt = tournament.card.logo_size * 72 if tournament.card.logo_size else None
+    all_parts = [card_parts(r, qr_pt, logo_pt) for r in rects]
 
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)

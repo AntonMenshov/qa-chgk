@@ -13,13 +13,14 @@ tournament = Tournament(
     scanner_url="https://antonmenshov.github.io/qa-chgk/s/",
     spares_per_team=3,
     card=CardFields(
-        team_name=True,
+        team_name=False,
         tournament_name=True,
         date=True,
         logo=LogoMode.TEAM_ELSE_TOURNAMENT,  # team logo → tournament logo → fallback
         tournament_logo=None,  # e.g. "cup.png": tournament folder first, then the logos/ library
         fallback_logo="nologo.png",
-        logo_grey=0.12,
+        logo_grey=0.10,
+        logo_size=1.85,  # inches: about the largest that fits a 3×5 card left of the QR
     ),
     layout=Layout(cols=3, rows=5, qr_size=0.65),
 )

@@ -81,6 +81,7 @@ def test_invalid_tournament(overrides):
         lambda: CardFields(logo_grey=0),
         lambda: CardFields(logo_grey=0.9),
         lambda: CardFields(logo=LogoMode.TOURNAMENT),
+        lambda: CardFields(logo_size=0.1),
     ],
 )
 def test_invalid_parts(build):

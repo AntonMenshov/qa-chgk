@@ -93,7 +93,8 @@ def render_test_page(
     c.setLineWidth(0.3)
     for card, rect in zip(samples, bottom_row):
         key = logo_key(card, tournament.card, logos)
-        _draw_card(c, card, card_parts(rect, qr_pt), tournament, readers.get(key), warnings)
+        logo_pt = tournament.card.logo_size * INCH if tournament.card.logo_size else None
+        _draw_card(c, card, card_parts(rect, qr_pt, logo_pt), tournament, readers.get(key), warnings)
         c.rect(rect.x, rect.y, rect.w, rect.h, stroke=1, fill=0)
     c.showPage()
     c.save()

@@ -123,8 +123,9 @@ checks that the decks come out in order.
   - **Logo library** `logos/` at the repo root (SPEC §9):
     - team logos are private (git-ignored); only `nologo.png` is public;
     - fallback chain: team → tournament → `nologo.png`;
-    - the user's real teams are in the example: 42, Фиаско, Совхоз Победа, Звезды
-      сошлись (+ one team without a logo).
+    - the example tournament is the user's four logo teams (42, Фиаско, Совхоз Победа,
+      Звезды сошлись), set up the way they asked: **no team name on cards, logo
+      10%, logo_size 1.85 in**. The defaults elsewhere stay team name on, 12%, auto size.
 - **Teams:** one stack per team for the whole game, plus spares (3 by default). Empty
   slots on a team's last page become extra spares.
 - **Juror view:** the app doesn't show the official answer.

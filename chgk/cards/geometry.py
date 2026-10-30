@@ -83,10 +83,13 @@ def card_rects(layout: Layout) -> list[Rect]:
     ]
 
 
-def card_parts(card: Rect, qr_size: float) -> CardParts:
+def card_parts(card: Rect, qr_size: float, logo_size: float | None = None) -> CardParts:
     """Split one card into its parts. `qr_size` in points, including the quiet zone.
 
     The QR's own quiet zone provides its margin, so it sits in the corner without padding.
+    `logo_size` (points): None fits the logo into the writing area; a number makes it a
+    square of that side, centred in the full card height left of the QR column (it may
+    sit behind the number and footer text, never behind the QR), shrunk to fit.
     """
     qr = Rect(card.right - qr_size, card.top - qr_size, qr_size, qr_size)
     number_h = NUMBER_SIZE + ROUND_SIZE + 5
@@ -98,6 +101,11 @@ def card_parts(card: Rect, qr_size: float) -> CardParts:
         raise GeometryError(
             f"card {card.w / INCH:.2f}×{card.h / INCH:.2f} in is too small for a {qr_size / INCH:.2f} in QR code"
         )
-    side = min(writing.w, writing.h) * 0.92
-    logo = Rect(writing.x + (writing.w - side) / 2, writing.y + (writing.h - side) / 2, side, side)
+    if logo_size is None:
+        area = writing
+        side = min(writing.w, writing.h) * 0.92
+    else:
+        area = Rect(card.x + PAD, card.y + PAD, qr.x - card.x - 2 * PAD, card.h - 2 * PAD)
+        side = min(logo_size, area.w, area.h)
+    logo = Rect(area.x + (area.w - side) / 2, area.y + (area.h - side) / 2, side, side)
     return CardParts(card, qr, number, writing, logo, footer)
