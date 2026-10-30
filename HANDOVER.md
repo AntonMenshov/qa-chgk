@@ -246,7 +246,8 @@ checks that the decks come out in order.
   58746, 40400; A01 assigned) and reserve decks R1, R2. Live: 270 card QRs decode, jury
   page 1 holds 3 QRs ≥ 3.7″ apart and no other page has one, R1's first scan put it on the
   tabs, the unused R2 stays off and out of the places, numbers match the reference.
-  Pending in the next deploy: an unused reserve's invalid event reports the real error.
+  Version 385920657ebf deployed: an unused reserve's invalid event reports the real error
+  (checked live: R2, question 99 → «invalid question»).
   **Still to confirm by the user (needs the edit trigger):** typing a name over
   «R1 · впишите название», and a mark edit on a round tab (`+` → `1`, row moves, Log row).
 - Delete the old example folder `ЧГК/… (5R547)` (single Results layout) from Drive.
