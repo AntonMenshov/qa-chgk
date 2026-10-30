@@ -297,7 +297,6 @@ Kept in one place: [SPEC.md §14](SPEC.md) (defaults used unless the user says o
   round tab (`+` → `1`, row moves, Log row), and a «?» leaving «Спорные»
   (docs/manual-checks.md, "The Sheet's edit trigger").
 - A real print of the cards.
-- Delete `spike.jpg` from the root of their Google Drive (left by spike 1).
 
 Live checks done so far (2026-10-29/30, all against the user's backend): marks,
 duplicates, stale scans, bad teams and tokens; sums, «2-3» places and tie-break order vs
