@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.DS_Store
+node_modules/
+
+# generated output
+out/
+
+# per-tournament generated state (contains the jury token)
+tournaments/*/state.json
