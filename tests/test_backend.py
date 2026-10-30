@@ -173,6 +173,18 @@ def test_the_backend_refuses_a_tournament_without_a_board_token(backends):
     assert not a.call("get_teams", tid="ZZ234")["ok"]  # nothing was created
 
 
+def test_new_tournament_with_a_tid_from_config(folder, backends):
+    a, _ = backends
+    config = folder / "config.py"
+    config.write_text(config.read_text(encoding="utf-8").replace("spares_per_team=2,", "spares_per_team=2, tid=11234,"))
+    s = new_tournament(folder, Profile("personal", URL_A, "tokA")).state
+    assert s.tid == "11234" and sent(a, "create_tournament")[0]["tid"] == "11234"
+    assert BackendClient(URL_A, s.jury_token).call("get_state", tid="11234")["ok"]
+    config.write_text(config.read_text(encoding="utf-8").replace("tid=11234,", "tid=99999,"))
+    with pytest.raises(ValueError, match="already has the ID 11234"):
+        new_tournament(folder, Profile("personal", URL_A, "tokA"))
+
+
 def test_new_tournament_is_idempotent(folder, backends):
     a, _ = backends
     first = new_tournament(folder, Profile("personal", URL_A, "tokA")).state

@@ -140,3 +140,17 @@ def test_config_is_immutable():
     with pytest.raises(AttributeError):
         t.rounds = 5  # type: ignore[misc]
     assert replace(t, rounds=4, questions_per_round=10).total_questions == 40
+
+
+@pytest.mark.parametrize(
+    "given,tid", [(None, None), ("11234", "11234"), (11234, "11234"), (" osen26 ", "OSEN26"), ("ABCD1234", "ABCD1234")]
+)
+def test_tid_from_config(given, tid):
+    """The tournament ID may come from config.py, e.g. the rating.chgk.info number; else it is generated."""
+    assert make(tid=given).tid == tid
+
+
+@pytest.mark.parametrize("given", ["", "ABCDE1234", "K7-2Q", "Осень", "A B"])
+def test_invalid_tid(given):
+    with pytest.raises(ConfigError, match="tid must be 1-8 digits or Latin letters"):
+        make(tid=given)

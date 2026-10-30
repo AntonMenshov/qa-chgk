@@ -86,6 +86,14 @@ def test_state_created_once_and_reused(tmp_path):
     assert json.loads((tmp_path / "state.json").read_text())["tid"] == first.tid
 
 
+def test_state_takes_the_tid_from_config_and_refuses_a_different_one(tmp_path):
+    assert load_or_create_state(tmp_path, "11234").tid == "11234"
+    assert load_or_create_state(tmp_path, "11234").tid == "11234"
+    assert load_or_create_state(tmp_path).tid == "11234"  # no tid in config any more: the tournament keeps its own
+    with pytest.raises(ValueError, match=r"config\.py gives tid 99999, but this tournament already has the ID 11234"):
+        load_or_create_state(tmp_path, "99999")
+
+
 def test_state_derived_links_and_tolerates_unknown_keys(tmp_path):
     (tmp_path / "state.json").write_text(
         json.dumps(

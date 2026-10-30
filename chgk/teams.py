@@ -12,11 +12,11 @@ written back into the file (which is then regenerated, without comments). `chgk 
 also regenerates it from the Sheet's Teams tab.
 """
 
-import importlib.util
 import json
 from dataclasses import dataclass
 from pathlib import Path
 
+from chgk import run_python_file
 from chgk.ids import assign_team_ids
 
 TEAMS_FILE = "teams.py"
@@ -65,10 +65,7 @@ def read_teams(path: Path) -> list[Team]:
     path = Path(path)
     if not path.is_file():
         raise ValueError(f"no {TEAMS_FILE} in {path.parent}")
-    spec = importlib.util.spec_from_file_location(f"chgk_teams_{path.parent.name}", path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    given = getattr(module, "teams", None)
+    given = run_python_file(path).get("teams")
     if not isinstance(given, list) or not all(isinstance(t, Team) for t in given):
         raise ValueError(f"{path} must define `teams = [team(...), ...]`")
     if not given:

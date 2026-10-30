@@ -75,9 +75,30 @@ def fit_text(text: str, font: str, size: float, max_width: float, min_size: floa
     return text.rstrip() + ELLIPSIS, size
 
 
+# Card QR codes have been checked at this version (33 modules) on paper and on the iPhone;
+# a longer payload (an 8-character tid and team ID) needs a denser code.
+CHECKED_QR_VERSION = 4
+
+
+def make_qr(payload: str) -> segno.QRCode:
+    return segno.make_qr(payload, error="m", boost_error=False)
+
+
+def denser_qr_warning(payloads: list[str]) -> str | None:
+    """A warning when the longest card payload needs a denser QR code than the checked one."""
+    longest = max(payloads, key=len, default="")
+    version = make_qr(longest).version if longest else 0
+    if version <= CHECKED_QR_VERSION:
+        return None
+    return (
+        f"the longest card QR code ({longest}) needs version {version}, denser than the checked "
+        f"version {CHECKED_QR_VERSION}: print the test page and check that the phone reads it quickly"
+    )
+
+
 def draw_qr(c: Canvas, payload: str, rect: Rect) -> None:
     """Vector QR code filling `rect`, including a white 4-module quiet zone."""
-    qr = segno.make_qr(payload, error="m", boost_error=False)
+    qr = make_qr(payload)
     matrix = qr.matrix
     n = len(matrix)
     module = rect.w / (n + 8)

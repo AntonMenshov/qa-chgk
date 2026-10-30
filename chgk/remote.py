@@ -7,7 +7,7 @@ from pathlib import Path
 from chgk.backend import BackendClient, Profile, Profiles
 from chgk.config import load_config
 from chgk.ids import generate_jury_token
-from chgk.state import State, load_or_create_state, load_state, save_state
+from chgk.state import State, check_tid, load_or_create_state, load_state, save_state
 from chgk.teams import TEAMS_FILE, Team, normalize_teams, read_teams, reserve_teams, write_teams
 
 
@@ -30,10 +30,11 @@ def new_tournament(folder: Path, profile: Profile, client: BackendClient | None 
     tournament = load_config(folder)
     state = load_state(folder)
     if state and state.spreadsheet_id:
+        check_tid(state, tournament.tid)
         return NewResult(state, created=False)
     # teams.py first: without it nothing is created (the jury sheet needs the teams too).
     teams = read_teams(folder / TEAMS_FILE)
-    state = load_or_create_state(folder)
+    state = load_or_create_state(folder, tournament.tid)
 
     client = client or BackendClient(profile.url, profile.admin_token)
     account = profile.account or client.ping().get("account", "")

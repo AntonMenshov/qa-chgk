@@ -111,8 +111,8 @@ README.md             organiser guide (end to end) and contributor commands
 ```
 
 ### How to run
-- Tests: `uv run pytest` (508, incl. 3 browser tests that need Google Chrome + Node) and
-  `npm test` (221, then 78 backend tests again with the Sheets API off).
+- Tests: `uv run pytest` (532, incl. 3 browser tests that need Google Chrome + Node) and
+  `npm test` (230, then 78 backend tests again with the Sheets API off).
 - Lint and format: `uv run ruff format . && uv run ruff check .`, `npm run format && npm run lint`.
 - Backend: `uv run chgk backend add|use|list|check|remove|bundle` (docs/google-account.md).
 - A tournament: `uv run chgk new <folder>` (Sheet + Drive folder), `uv run chgk teams <folder>`
@@ -169,7 +169,8 @@ One line each; SPEC has the details. Decisions recorded only here are written ou
 - **No upgrade code for older Sheets** (user, 2026-10-30): migrations and the pre-Phase-5
   board-token upgrade were removed; a tournament made by an older version is created again.
 - **Sheet tabs**, mark cells (blank / `R` / `1` `0` `?`, last write wins), «Спорные» — SPEC §5.
-- **QR and card identity** — SPEC §6; 0.85 in (was 0.65; user: ~30% bigger); team IDs of
+- **QR and card identity** — SPEC §6; the tournament ID may come from config.py (`tid=`, 1-8
+  digits or letters, e.g. the rating number), otherwise generated; 0.85 in (was 0.65; user: ~30% bigger); team IDs of
   1-8 `[0-9A-Z]` keep the QR at version 4-M.
 - **Scanner**, sync, card photos (kept forever), access via the jury link — SPEC §7.
 - **Cards** — SPEC §8: default grid 3×4 (user; was 3×5), edge to edge in every mode (the

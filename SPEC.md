@@ -136,6 +136,7 @@ tournament = Tournament(
     spares_per_team=2,  # unnumbered spare cards per team, whole game: at least 2 (§8.4)
     reserve_teams=2,  # decks R1, R2, … for teams that turn up unregistered (0-9, §8.7)
     board_grid_max_teams=5,  # projector board: full grid up to this many teams (§10.1)
+    tid=None,  # None generates one; or e.g. 11234, the rating.chgk.info number (§6)
     card=CardFields(
         team_name=True,
         tournament_name=True,
@@ -219,11 +220,17 @@ A missing card scores as incorrect, but the sheet always shows whether a card wa
 
 - QR content is a URL, so the iPhone's built-in Camera also opens the app:
   `https://<user>.github.io/<repo>/s/#<TID>.<TEAM>.<Q>`
-  - `TID`: random 5-char tournament code; `TEAM`: `team_id`; `Q`: question number,
-    or `S1…Sn` for spare cards.
+  - `TID`: the tournament ID. Generated: 5 characters without 0/O/1/I/L (readable aloud).
+    Or given in config.py (`tid=`, user, 2026-10-30), e.g. the rating.chgk.info tournament
+    number: 1-8 digits or capital Latin letters. It must be set before the first `chgk cards`
+    or `chgk new`: a tid in config.py that differs from the one in state.json is an error.
+    `TEAM`: `team_id`; `Q`: question number, or `S1…Sn` for spare cards.
   - Example: `…/s/#K7M2Q.A07.27`. This is short enough for a small, robust QR
     (error correction M, quiet zone 4 modules). Printed at **0.85″** including the
     quiet zone (configurable; the test print chose 0.65″, later raised by ~30% on request).
+  - The checked size is QR version 4 (33 modules). Only the longest mix (an 8-character
+    tid, an 8-character team ID and a 3-digit question) can need version 5; `chgk cards`
+    then warns to check scanning on the test page.
 - The QR contains no secret. Submitting a mark requires the jury token (§7.4).
 - A numbered card's mark always goes to the question in its QR code. Only when a
   **spare card** is scanned (no number in its QR) does the app ask the juror, right

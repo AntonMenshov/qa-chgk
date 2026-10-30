@@ -1,5 +1,8 @@
 """Card identity: tournament ID, team IDs and the QR payload.
 
+A tournament ID is generated (5 readable characters) or given in config.py: 1-8 digits or
+capital Latin letters, e.g. the rating.chgk.info tournament number.
+
 QR payload: `<scanner_url>#<TID>.<TEAM>.<Q>` where Q is a question number or
 `S<n>` for the n-th spare card, e.g. `https://u.github.io/qa-chgk/s/#K7M2Q.A07.27`.
 
@@ -13,14 +16,18 @@ import secrets
 from dataclasses import dataclass
 from urllib.parse import urljoin
 
-# No 0/O or 1/I/L, so a TID can be read aloud or typed without mistakes.
+# A generated TID: no 0/O or 1/I/L, so it can be read aloud or typed without mistakes.
 TID_ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ"
 TID_LENGTH = 5
+# Any TID, generated or given in config.py (e.g. the rating.chgk.info tournament number):
+# 1-8 digits or capital Latin letters, like a team ID.
+TID_PATTERN = "[0-9A-Z]{1,8}"
+TID_RE = re.compile(rf"^{TID_PATTERN}$")
 TEAM_ID_RE = re.compile(r"^[0-9A-Z]{1,8}$")
 MAX_QUESTION = 999  # the payload holds questions 1–999 …
 MAX_SPARE = 99  # … and spare cards S1–S99 (_FRAGMENT_RE, and payload.js on the phone)
 _FRAGMENT_RE = re.compile(
-    rf"^(?P<tid>[{TID_ALPHABET}]{{{TID_LENGTH}}})\.(?P<team>[0-9A-Z]{{1,8}})\.(?:(?P<q>[1-9][0-9]{{0,2}})|S(?P<s>[1-9][0-9]{{0,1}}))$"
+    rf"^(?P<tid>{TID_PATTERN})\.(?P<team>[0-9A-Z]{{1,8}})\.(?:(?P<q>[1-9][0-9]{{0,2}})|S(?P<s>[1-9][0-9]{{0,1}}))$"
 )
 
 
@@ -105,7 +112,7 @@ def assign_team_ids(existing: list[str | None]) -> list[str]:
 # so the phone learns which backend (Google account) this tournament lives on.
 BACKEND_URL_RE = re.compile(r"^https://script\.google\.com/macros/s/(?P<id>[A-Za-z0-9_-]{10,})/exec$")
 _SETUP_RE = re.compile(
-    rf"^setup=(?P<tid>[{TID_ALPHABET}]{{{TID_LENGTH}}})\.(?P<token>[A-Za-z0-9_-]{{16,}})\.(?P<dep>[A-Za-z0-9_-]{{10,}})$"
+    rf"^setup=(?P<tid>{TID_PATTERN})\.(?P<token>[A-Za-z0-9_-]{{16,}})\.(?P<dep>[A-Za-z0-9_-]{{10,}})$"
 )
 
 
@@ -138,7 +145,7 @@ def decode_jury_link(link: str) -> JuryAccess:
 # The board token is read-only (marks and teams), separate from the jury token. `grid`:
 # up to this many teams the board shows the full grid of every round.
 _BOARD_RE = re.compile(
-    rf"^board=(?P<tid>[{TID_ALPHABET}]{{{TID_LENGTH}}})\.(?P<token>[A-Za-z0-9_-]{{16,}})\.(?P<dep>[A-Za-z0-9_-]{{10,}})$"
+    rf"^board=(?P<tid>{TID_PATTERN})\.(?P<token>[A-Za-z0-9_-]{{16,}})\.(?P<dep>[A-Za-z0-9_-]{{10,}})$"
 )
 
 

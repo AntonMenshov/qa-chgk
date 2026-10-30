@@ -5,7 +5,8 @@
 // Jury link:  <scanner_url>#setup=<TID>.<JURY_TOKEN>.<DEPLOYMENT_ID>
 // Board link: <board_url>?grid=<N>#board=<TID>.<BOARD_TOKEN>.<DEPLOYMENT_ID>  (tests/vectors/board_links.json)
 
-const TID = '[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{5}';
+// Generated (5 readable characters) or given in config.py (1-8 digits or capital letters).
+const TID = '[0-9A-Z]{1,8}';
 const CARD_RE = new RegExp(`^(${TID})\\.([0-9A-Z]{1,8})\\.(?:([1-9][0-9]{0,2})|S([1-9][0-9]?))$`);
 const SETUP_RE = new RegExp(`^setup=(${TID})\\.([A-Za-z0-9_-]{16,})\\.([A-Za-z0-9_-]{10,})$`);
 const BOARD_RE = new RegExp(`^board=(${TID})\\.([A-Za-z0-9_-]{16,})\\.([A-Za-z0-9_-]{10,})$`);

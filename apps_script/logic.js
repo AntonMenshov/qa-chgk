@@ -4,7 +4,7 @@
 
 export const STATUS_VALUE = {received: 'R', correct: 1, incorrect: 0, disputed: '?', cleared: ''};
 const APP_STATUSES = ['received', 'correct', 'incorrect', 'disputed']; // "cleared" only comes from the sheet
-const TID_RE = /^[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{5}$/;
+const TID_RE = /^[0-9A-Z]{1,8}$/; // generated, or given in config.py (chgk/ids.py TID_PATTERN)
 const TEAM_ID_RE = /^[0-9A-Z]{1,8}$/; // e.g. a rating.chgk.info number (58746) or A07
 const MAX_EVENTS_PER_REQUEST = 500;
 export const MAX_PHOTO_CHARS = 4000000; // base64 of a ~3 MB JPEG; phones send ~150-300 KB

@@ -1,13 +1,13 @@
 """Tournament configuration, written by the organiser as `tournaments/<slug>/config.py`."""
 
-import importlib.util
 import re
 from dataclasses import dataclass, field
 from datetime import date
 from enum import Enum
 from pathlib import Path
 
-from chgk.ids import MAX_QUESTION, MAX_SPARE
+from chgk import run_python_file
+from chgk.ids import MAX_QUESTION, MAX_SPARE, TID_RE
 
 SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 
@@ -85,10 +85,19 @@ class Tournament:
     # Projector board: up to this many teams it shows the full grid of every round;
     # with more, the total plus the last round's grid.
     board_grid_max_teams: int = 5
+    # The tournament ID printed in every card's QR code: None generates one (5 readable
+    # characters); or give your own, e.g. the rating.chgk.info tournament number (1-8 digits
+    # or capital Latin letters). Set it before the first `chgk cards` / `chgk new`.
+    tid: str | int | None = None
     card: CardFields = field(default_factory=CardFields)
     layout: Layout = field(default_factory=Layout)
 
     def __post_init__(self) -> None:
+        if self.tid is not None:
+            tid = str(self.tid).strip().upper()
+            if not TID_RE.match(tid):
+                raise ConfigError(f"tid must be 1-8 digits or Latin letters, e.g. 11234 or OSEN26, got {self.tid!r}")
+            object.__setattr__(self, "tid", tid)
         if not SLUG_RE.match(self.slug):
             raise ConfigError(f"slug must be lowercase letters, digits and dashes, got {self.slug!r}")
         if not self.name.strip():
@@ -145,10 +154,7 @@ def load_config(folder: Path) -> Tournament:
     path = Path(folder) / "config.py"
     if not path.is_file():
         raise ConfigError(f"no config.py in {folder}")
-    spec = importlib.util.spec_from_file_location(f"chgk_tournament_{path.parent.name}", path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    tournament = getattr(module, "tournament", None)
+    tournament = run_python_file(path).get("tournament")
     if not isinstance(tournament, Tournament):
         raise ConfigError(f"{path} must define `tournament = Tournament(...)`")
     return tournament

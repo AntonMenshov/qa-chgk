@@ -6,10 +6,10 @@ from pathlib import Path
 from chgk import out_dir
 from chgk.cards.impose import Mode, impose
 from chgk.cards.model import team_deck
-from chgk.cards.render import render_cards
+from chgk.cards.render import denser_qr_warning, render_cards
 from chgk.cards.testpage import render_test_page
 from chgk.config import LogoMode, Tournament, load_config
-from chgk.ids import generate_tid
+from chgk.ids import encode_payload, generate_tid
 from chgk.jury import render_jury_sheet
 from chgk.logos import first_logo, load_logos, open_logo, pale
 from chgk.state import load_or_create_state, load_state
@@ -58,7 +58,7 @@ def build_cards(folder: Path, mode: Mode, out: Path | None = None, team_ids: lis
         if unknown:
             raise ValueError(f"unknown team_id(s): {', '.join(sorted(unknown))}")
         teams = [t for t in teams if t.team_id in team_ids]
-    state = load_or_create_state(folder)
+    state = load_or_create_state(folder, tournament.tid)
     sources, logo_warnings = load_logos(folder, tournament.card, teams)
     decks = [team_deck(tournament, state.tid, team) for team in teams]
     pages = impose(mode, decks, tournament.layout.per_page)
@@ -70,6 +70,8 @@ def build_cards(folder: Path, mode: Mode, out: Path | None = None, team_ids: lis
         jury_out = out.with_name("jury.pdf")
     logos = _pale(sources, tournament.card.logo_grey)
     warnings = logo_warnings + render_cards(pages, tournament, mode, out, logos)
+    payloads = [encode_payload(tournament.scanner_url, card.id) for page in pages for card in page if card]
+    warnings += [w for w in [denser_qr_warning(payloads)] if w]
     warnings += render_jury_sheet(tournament, state, all_teams, jury_out)
     n_cards = sum(1 for page in pages for card in page if card is not None)
     n_reserve = sum(1 for t in teams if t.reserve)
@@ -81,7 +83,7 @@ def build_jury_sheet(folder: Path, out: Path | None = None) -> tuple[Path, list[
     folder = Path(folder)
     tournament = load_config(folder)
     teams = load_teams(folder, tournament)
-    state = load_or_create_state(folder)
+    state = load_or_create_state(folder, tournament.tid)
     out = Path(out) if out else out_dir(tournament.slug, "jury.pdf")
     return out, render_jury_sheet(tournament, state, teams, out)
 
@@ -91,7 +93,7 @@ def build_test_page(folder: Path, out: Path | None = None) -> Path:
     folder = Path(folder)
     tournament = load_config(folder)
     teams = read_teams(folder / TEAMS_FILE)  # a registered team: the page shows a real one
-    state = load_or_create_state(folder)
+    state = load_or_create_state(folder, tournament.tid)
     sources, _ = load_logos(folder, tournament.card, teams)
     team = next((t for t in teams if t.team_id in sources), teams[0])
     key = first_logo(tournament.card, team.team_id, sources)
@@ -118,7 +120,7 @@ def build_logo_preview(folder: Path, drafts: dict[str, Path], out: Path | None =
             warnings.append(f"draft {drafts[t.team_id]}: {err}")
     preview = replace(tournament, card=replace(tournament.card, logo=LogoMode.TEAM, fallback_logo=None))
     state = load_state(folder)
-    tid = state.tid if state else generate_tid()  # no tournament yet: the QR codes are only for show
+    tid = state.tid if state else tournament.tid or generate_tid()  # no tournament yet: the QR codes are only for show
     cards = [team_deck(preview, tid, t)[0] for t in teams if t.team_id in images]
     if not cards:
         return None, warnings

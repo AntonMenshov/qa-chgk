@@ -15,6 +15,7 @@ from chgk.cards.impose import Mode
 from chgk.cards.render import (
     ELLIPSIS,
     FONT,
+    denser_qr_warning,
     fit_text,
     missing_glyphs,
     printable,
@@ -73,6 +74,25 @@ def test_every_qr_decodes_from_the_pdf_and_sits_in_its_slot(folder, mode, tmp_pa
         assert result.cards == 3 * 15 and result.pages == 3
     else:
         assert result.cards == 5 * 15 and result.pages == 5  # free slots became extra spares
+
+
+def test_tid_from_config_is_in_every_card_and_the_longest_codes_still_read(folder, tmp_path):
+    config = folder / "config.py"
+    text = config.read_text(encoding="utf-8").replace("spares_per_team=2,", "spares_per_team=2, tid='osen2026',")
+    config.write_text(text, encoding="utf-8")
+    write_teams_file(folder, [("ABCD1234", "Длинный ID", "", ""), *TEAM_ROWS[1:]])
+    result = build_cards(folder, Mode.TEAM_PAGES, tmp_path / "out.pdf")
+    seen = [decode_payload(p) for image in page_images(result.path) for p in decoded_slots(image).values()]
+    assert len(seen) == result.cards and {card.tid for card in seen} == {"OSEN2026"}
+    assert CardId("OSEN2026", "ABCD1234", question=6) in seen
+    assert load_or_create_state(folder).tid == "OSEN2026"
+
+
+def test_a_denser_qr_code_than_the_checked_one_is_a_warning():
+    url = "https://antonmenshov.github.io/qa-chgk/s/"
+    assert denser_qr_warning([f"{url}#K7M2Q.A01.12", f"{url}#11234.58746.120"]) is None  # version 4, as checked
+    warning = denser_qr_warning([f"{url}#K7M2Q.A01.12", f"{url}#OSEN2026.ABCD1234.999"])
+    assert "needs version 5" in warning and "OSEN2026.ABCD1234.999" in warning and "test page" in warning
 
 
 def test_cut_stack_pdf_order_matches_the_guillotine_workflow(folder, tmp_path):

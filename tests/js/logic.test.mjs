@@ -50,12 +50,17 @@ test('validateRequest accepts good requests', () => {
     }),
   );
   assert.ok(L.validateRequest({action: 'record_events', tid: 'K7M2Q', events: [ev()]}));
+  for (const tid of ['11234', 'OSEN2026', 'K0M2Q', 'A']) {
+    assert.ok(L.validateRequest({action: 'get_state', tid}), tid); // a tid given in config.py
+  }
 });
 
 const BAD = [
   [null, 'JSON object'],
   [{action: 'nope', tid: 'K7M2Q'}, 'unknown action'],
   [{action: 'get_state', tid: 'k7m2q'}, 'invalid tid'],
+  [{action: 'get_state', tid: 'ABCDE1234'}, 'invalid tid'],
+  [{action: 'get_state', tid: 'K7-2Q'}, 'invalid tid'],
   [
     {
       action: 'create_tournament',

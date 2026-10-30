@@ -60,12 +60,24 @@ def load_state(folder: Path) -> State | None:
     return State(**{k: v for k, v in data.items() if k in known})
 
 
-def load_or_create_state(folder: Path) -> State:
-    """The tournament's state; a new one with a fresh tournament ID if it has none yet."""
+def check_tid(state: State, tid: str | None) -> None:
+    """A tournament ID given in config.py must be the one the tournament already has."""
+    if tid and state.tid != tid:
+        made = " and its Sheet" if state.spreadsheet_id else ""
+        raise ValueError(
+            f"config.py gives tid {tid}, but this tournament already has the ID {state.tid} "
+            f"(state.json; in its printed cards{made}). Remove tid from config.py, or, if nothing "
+            "was printed or created yet, delete state.json."
+        )
+
+
+def load_or_create_state(folder: Path, tid: str | None = None) -> State:
+    """The tournament's state; a new one if it has none yet, with `tid` (from config.py) or a fresh ID."""
     state = load_state(folder)
     if state is not None:
+        check_tid(state, tid)
         return state
-    state = State(tid=generate_tid())
+    state = State(tid=tid or generate_tid())
     save_state(folder, state)
     return state
 
