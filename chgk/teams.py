@@ -50,7 +50,7 @@ def load_teams_csv(path: Path) -> list[Team]:
 
 def write_teams_csv(path: Path, teams: list[Team]) -> None:
     with Path(path).open("w", encoding="utf-8", newline="") as f:
-        writer = csv.writer(f)
+        writer = csv.writer(f, lineterminator="\n")  # git-friendly; Excel reads it too
         writer.writerow(COLUMNS)
         for t in teams:
             writer.writerow([t.team_id, t.name, t.city, t.logo_file])

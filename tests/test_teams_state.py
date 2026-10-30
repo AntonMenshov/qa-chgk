@@ -23,6 +23,7 @@ def test_load_assigns_ids_and_writes_them_back(tmp_path):
     # Second load reads the same IDs from the file.
     assert load_teams_csv(csv_path) == teams
     assert "A01,Синие зайцы" in csv_path.read_text(encoding="utf-8")
+    assert b"\r" not in csv_path.read_bytes()  # LF only: no git CRLF warnings
 
 
 def test_load_handles_bom_name_only_column_and_blank_lines(tmp_path):
