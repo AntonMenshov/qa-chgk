@@ -17,6 +17,8 @@ from urllib.parse import urljoin
 TID_ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ"
 TID_LENGTH = 5
 TEAM_ID_RE = re.compile(r"^[0-9A-Z]{1,8}$")
+MAX_QUESTION = 999  # the payload holds questions 1–999 …
+MAX_SPARE = 99  # … and spare cards S1–S99 (_FRAGMENT_RE, and payload.js on the phone)
 _FRAGMENT_RE = re.compile(
     rf"^(?P<tid>[{TID_ALPHABET}]{{{TID_LENGTH}}})\.(?P<team>[0-9A-Z]{{1,8}})\.(?:(?P<q>[1-9][0-9]{{0,2}})|S(?P<s>[1-9][0-9]{{0,1}}))$"
 )
@@ -54,7 +56,7 @@ def encode_payload(scanner_url: str, card: CardId) -> str:
 def decode_payload(payload: str) -> CardId:
     """Parse a scanned QR payload (full URL, or just the part after '#')."""
     fragment = payload.rsplit("#", 1)[-1]
-    m = _FRAGMENT_RE.match(fragment)
+    m = _FRAGMENT_RE.fullmatch(fragment)
     if not m:
         raise PayloadError(f"not a ЧГК card: {payload!r}")
     if m["q"] is not None:
@@ -126,7 +128,7 @@ def encode_jury_link(scanner_url: str, access: JuryAccess) -> str:
 
 
 def decode_jury_link(link: str) -> JuryAccess:
-    m = _SETUP_RE.match(link.rsplit("#", 1)[-1])
+    m = _SETUP_RE.fullmatch(link.rsplit("#", 1)[-1])
     if not m:
         raise PayloadError(f"not a jury setup link: {link!r}")
     return JuryAccess(m["tid"], m["token"], f"https://script.google.com/macros/s/{m['dep']}/exec")
@@ -160,7 +162,7 @@ def encode_board_link(scanner_url: str, access: BoardAccess, grid_max_teams: int
 
 
 def decode_board_link(link: str) -> BoardAccess:
-    m = _BOARD_RE.match(link.rsplit("#", 1)[-1])
+    m = _BOARD_RE.fullmatch(link.rsplit("#", 1)[-1])
     if not m:
         raise PayloadError(f"not a board link: {link!r}")
     return BoardAccess(m["tid"], m["token"], f"https://script.google.com/macros/s/{m['dep']}/exec")

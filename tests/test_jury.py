@@ -1,11 +1,10 @@
-import json
+from dataclasses import replace
 from datetime import date
 
 import pypdfium2
 import pytest
-from conftest import read_qr
+from conftest import read_qr, runner
 from pypdf import PdfReader
-from typer.testing import CliRunner
 
 from chgk.cards.build import build_cards, build_jury_sheet
 from chgk.cards.impose import Mode
@@ -24,16 +23,14 @@ from chgk.jury import (
     RESERVE_HOWTO,
     _questions_line,
 )
-from chgk.state import load_or_create_state
+from chgk.state import load_or_create_state, save_state
 
 BACKEND = "https://script.google.com/macros/s/AKfycbTEST_deployment_0000000/exec"
-runner = CliRunner()
 
 
 def with_backend(folder):
-    state = json.loads((folder / "state.json").read_text()) if (folder / "state.json").exists() else {}
-    state.setdefault("tid", load_or_create_state(folder).tid)
-    state.update(
+    state = replace(
+        load_or_create_state(folder),
         backend_url=BACKEND,
         backend_profile="club",
         backend_account="club@gmail.com",
@@ -41,7 +38,7 @@ def with_backend(folder):
         jury_token="secretTOKEN_0123456789ab",
         board_token="boardTOKEN_0123456789ab",
     )
-    (folder / "state.json").write_text(json.dumps(state))
+    save_state(folder, state)
     return state
 
 
@@ -79,11 +76,11 @@ def test_page_one_is_for_the_jury_page_two_for_everyone(folder, tmp_path):
     setup = [q for q in page1 if "#setup=" in q]
     assert len(setup) == 1
     access = decode_jury_link(setup[0])
-    assert (access.tid, access.jury_token, access.backend_url) == (state["tid"], state["jury_token"], BACKEND)
+    assert (access.tid, access.jury_token, access.backend_url) == (state.tid, state.jury_token, BACKEND)
     assert set(page1) == {setup[0], EDIT, SCANNER} and len(page1) == 3
     board = (
         "https://example.github.io/qa-chgk/b/?grid=5#board="
-        + state["tid"]
+        + state.tid
         + ".boardTOKEN_0123456789ab.AKfycbTEST_deployment_0000000"
     )
     assert sorted(qr_texts(out, 1)) == sorted([board, VIEW])
@@ -94,10 +91,10 @@ def test_page_one_is_for_the_jury_page_two_for_everyone(folder, tmp_path):
     texts = [" ".join(t.split()) for t in page_texts(out)]
     assert "Доступ жюри — секретно" in texts[0] and "Таблица — редактирование" in texts[0]
     assert "Табло для проектора" in texts[1] and "Таблица — только просмотр" in texts[1]
-    assert state["jury_token"] not in texts[1]
+    assert state.jury_token not in texts[1]
     assert "разнесены" not in "".join(texts)
     assert "club · club@gmail.com" in texts[2]
-    assert state["tid"] in texts[2]
+    assert state.tid in texts[2]
 
 
 def test_every_page_has_the_date(folder, tmp_path):
@@ -221,5 +218,5 @@ def test_links_are_clickable_with_the_full_address(folder, tmp_path):
     assert set(page1) == {setup, EDIT, SCANNER}
     board = next(u for u in page2 if "#board=" in u)
     assert page2.count(board) >= 2 and page2.count(VIEW) >= 2 and set(page2) == {board, VIEW}
-    assert decode_jury_link(setup).jury_token == state["jury_token"]
+    assert decode_jury_link(setup).jury_token == state.jury_token
     assert {EDIT, SCANNER, VIEW, board, BACKEND} <= set(link_targets(out, 2))  # page 3 links table, backend too

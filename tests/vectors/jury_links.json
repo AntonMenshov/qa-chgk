@@ -9,6 +9,7 @@
     {"link": "https://example.github.io/qa-chgk/s/#K7M2Q.A07.27", "valid": false, "note": "a card, not a setup link"},
     {"link": "https://example.github.io/qa-chgk/s/#setup=K7M2Q.short.AKfycbx_Example", "valid": false, "note": "token too short"},
     {"link": "https://example.github.io/qa-chgk/s/#setup=K7M2Q.abcDEF123_-ghiJKL456mno", "valid": false, "note": "no deployment"},
-    {"link": "https://example.github.io/qa-chgk/s/#setup=K7M2Q.abc+DEF/123ghiJKL456.AKfycbx_Example", "valid": false, "note": "non-url-safe token"}
+    {"link": "https://example.github.io/qa-chgk/s/#setup=K7M2Q.abc+DEF/123ghiJKL456.AKfycbx_Example", "valid": false, "note": "non-url-safe token"},
+    {"link": "https://example.github.io/qa-chgk/s/#setup=K7M2Q.abcDEF123_-ghiJKL456mno.AKfycbx_Example-Deployment_ID123\n", "valid": false, "note": "trailing newline"}
   ]
 }

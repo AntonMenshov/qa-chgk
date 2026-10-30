@@ -3,7 +3,7 @@
 // send is retried with growing pauses. Events are idempotent (scan_id), so a retry after
 // a lost reply never counts twice.
 
-const BACKOFF_MS = [2000, 4000, 8000, 15000, 30000];
+export const BACKOFF_MS = [2000, 4000, 8000, 15000, 30000];
 
 export class Queue {
   /**

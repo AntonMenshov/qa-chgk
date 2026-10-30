@@ -24,6 +24,7 @@ export function photoStore(tid, indexedDB = globalThis.indexedDB) {
           const req = fn(tx.objectStore(STORE));
           tx.oncomplete = () => resolve(req && req.result);
           tx.onerror = () => reject(tx.error);
+          tx.onabort = () => reject(tx.error || new Error('transaction aborted')); // e.g. quota, at commit
         }),
     );
   const fallback = memoryStore();

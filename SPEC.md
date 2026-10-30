@@ -133,7 +133,7 @@ tournament = Tournament(
     rounds=3,
     questions_per_round=12,  # int, or a list per round: [12, 12, 15]
     scanner_url="https://<user>.github.io/qa-chgk/s/",  # printed inside every QR
-    spares_per_team=2,  # unnumbered spare cards per team, whole game: at least 2
+    spares_per_team=2,  # unnumbered spare cards per team, whole game: at least 2 (§8.4)
     reserve_teams=2,  # decks R1, R2, … for teams that turn up unregistered (0-9, §8.7)
     board_grid_max_teams=5,  # projector board: full grid up to this many teams (§10.1)
     card=CardFields(
@@ -150,6 +150,9 @@ tournament = Tournament(
     layout=Layout(cols=3, rows=4, qr_size=0.85),  # 12 cards per Letter page
 )
 ```
+
+The QR payload (§6) sets the limits: at most 999 questions, and spare cards numbered up to
+S99 (extra spares from a last page's empty slots included); a config beyond them is refused.
 
 Values the system generates (tournament ID, backend, spreadsheet ID, jury and board tokens) are stored
 next to the config in `tournaments/<slug>/state.json`, which is never hand-edited
@@ -409,6 +412,8 @@ as `chgk jury-sheet <folder>`.
 
 ## 9. Logos
 
+A pale greyscale watermark. The source is chosen per team and per tournament (table below).
+
 **Shared logo library:** `logos/` at the repo root (user decision, 2026-10-29).
 - A logo name (`logo=` in teams.py, `tournament_logo`, `fallback_logo`) is looked
   up in the tournament folder first, then in `logos/`, so one team logo serves every
@@ -428,8 +433,6 @@ as `chgk jury-sheet <folder>`.
 - **Shade:** the darkest 10% of the drawing gets exactly `logo_grey` ink, and anything
   darker is clamped. Scaling by the single darkest pixel printed the user's light-grey
   logos at about a third of the chosen shade (fixed 2026-10-29).
-
-A pale greyscale watermark. The source is chosen per team and per tournament:
 
 | Source | How |
 |---|---|
@@ -459,8 +462,9 @@ The Claude API does not output raster images, but it can write SVG.
   without it, 2 of the first 4 drawings thought until 128K and were cut off with no SVG (user:
   "failing with no output is definitely not ok"); a drawing cut off anyway is asked for again
   once. Each round prints its time and output tokens.
-- **The prompt** (`chgk/logo_drafts.py`): a system text on how the logo is used (pale
-  watermark, ~4.7 cm, the QR over its top-right corner) and the set's style; then
+- **The prompt** (`chgk/logo_drafts.py`): a system text on how the logo is used, built from
+  the tournament's own cards (`logo_look`: printed size, card size, shade, whether the QR
+  covers its corner), and the set's style; then
   `style_rules(name)`, written from the first 22 drafts: one idea that the owl itself acts
   out, at most three props each recognisable by its outline (no joke resting on small
   details), the owl's anatomy, layout zones in canvas units (drawing y 40–720, name below
@@ -549,11 +553,6 @@ Not unit-testable, so covered by a manual checklist per release
 - iPhone camera scanning speed and reliability;
 - print scale and grey shades on real printers;
 - the deployed backend (quotas, CORS, the Sheet's edit trigger).
-
-The Apps Script code is also run in Node against in-memory fakes of Sheets, Drive and
-the Sheets API (`tests/js/fake_apps_script.mjs`), including behaviour seen live (a
-formula written in the same API call is not calculated yet for a sort). `npm test`
-runs the backend suites a second time with the Sheets API off.
 
 CI (`.github/workflows/tests.yml`) runs on every push: `ruff check`, `ruff format --check`,
 `uv run pytest`; `npm run lint`, `npm run format:check`, `npm test`.

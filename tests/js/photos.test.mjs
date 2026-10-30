@@ -4,7 +4,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {PhotoQueue, blobToBase64, firstPhoto} from '../../web/s/lib/photos.js';
-import {memoryStore} from '../../web/s/lib/photostore.js';
+import {memoryStore, photoStore} from '../../web/s/lib/photostore.js';
 import {BackendError} from '../../web/s/lib/api.js';
 
 const rec = (n, over = {}) => ({
@@ -174,4 +174,28 @@ test('a card counts as photographed only once a photo exists (no camera yet: a l
   assert.deepEqual(keys, ['A01:3']);
   assert.equal(await firstPhoto(Promise.resolve({size: 2}), 'A01:3', photographed), null); // scanned again
   assert.equal(await firstPhoto(Promise.resolve(jpeg), 'A01:4', photographed), jpeg);
+});
+
+test('an IndexedDB transaction that aborts (e.g. the quota at commit) falls back to memory, never hangs', async () => {
+  // A fake IndexedDB whose every transaction aborts, firing only `abort` (no `error`, no `complete`).
+  const db = {
+    transaction: () => {
+      const tx = {
+        objectStore: () => ({put: () => ({}), getAll: () => ({}), delete: () => ({})}),
+      };
+      setTimeout(() => tx.onabort && tx.onabort());
+      return tx;
+    },
+  };
+  const indexedDB = {
+    open: () => {
+      const req = {result: db};
+      setTimeout(() => req.onsuccess());
+      return req;
+    },
+  };
+  const store = photoStore('T1', indexedDB);
+  const rec = {photo_id: 'p1', tid: 'T1'};
+  await store.put(rec); // would hang without onabort
+  assert.deepEqual(await store.all(), [rec]); // kept in memory instead
 });

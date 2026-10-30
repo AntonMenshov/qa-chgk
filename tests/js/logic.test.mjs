@@ -103,6 +103,11 @@ const BAD = [
     {action: 'create_tournament', tid: 'K7M2Q', name: 'X', date: '2026-11-15', round_sizes: [1], jury_token: 'short'},
     'jury_token',
   ],
+  // Long enough, but not URL-safe: a jury link with it would not decode on the phone.
+  ...['jury.token.0123456789', 'jury+token+0123456789'].map((token) => [
+    {action: 'create_tournament', tid: 'K7M2Q', name: 'X', date: '2026-11-15', round_sizes: [1], jury_token: token},
+    'jury_token',
+  ]),
   [
     {
       action: 'set_teams',
@@ -170,6 +175,32 @@ test('applyEvents: idempotent, order-independent for judgements, reports outcome
   assert.deepEqual(cells['A01:2'], {value: 0, ts: NOW - 200});
   // A later request retrying "b" is a duplicate too.
   assert.equal(L.applyEvents(cells, seen, [ev({scan_id: 'b'})], TEAMS, ROUNDS, NOW)[0].duplicate, true);
+  // Order-independent: the same three events in every order end in the same cell.
+  const events = [
+    ev({scan_id: 'a', status: 'received', client_ts: NOW - 300}),
+    ev({scan_id: 'b', status: 'incorrect', client_ts: NOW - 200}),
+    ev({scan_id: 'c', status: 'correct', client_ts: NOW - 250}),
+  ];
+  const orders = [
+    [0, 1, 2],
+    [0, 2, 1],
+    [1, 0, 2],
+    [1, 2, 0],
+    [2, 0, 1],
+    [2, 1, 0],
+  ];
+  for (const order of orders) {
+    const fresh = {};
+    L.applyEvents(
+      fresh,
+      new Set(),
+      order.map((i) => events[i]),
+      TEAMS,
+      ROUNDS,
+      NOW,
+    );
+    assert.deepEqual(fresh['A01:2'], {value: 0, ts: NOW - 200}, `order ${order}`);
+  }
 });
 
 test('normalizeCellInput', () => {

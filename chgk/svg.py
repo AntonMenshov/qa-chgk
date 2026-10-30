@@ -14,10 +14,9 @@ from pathlib import Path
 import resvg_py
 from PIL import Image
 
-from chgk import PROJECT_DIR
+from chgk import FONT_BOLD_FILE, FONT_REGULAR_FILE
 
-FONT_DIR = PROJECT_DIR / "chgk" / "assets" / "fonts"
-FONT_FILES = [str(FONT_DIR / "PT_Sans-Web-Regular.ttf"), str(FONT_DIR / "PT_Sans-Web-Bold.ttf")]
+FONT_FILES = [str(FONT_REGULAR_FILE), str(FONT_BOLD_FILE)]
 FONT_FAMILY = "PT Sans"
 FORCE_FONT = f'* {{ font-family: "{FONT_FAMILY}" !important; }}'
 MAX_BYTES = 2_000_000

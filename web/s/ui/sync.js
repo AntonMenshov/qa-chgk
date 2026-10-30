@@ -27,9 +27,10 @@ export function flushSoon() {
   setTimeout(flush, 50);
 }
 
+/** Fetch the tournament's state; true if it arrived. */
 export async function refresh() {
   if (!app.call || !app.session) {
-    return;
+    return false;
   }
   const started = Date.now();
   try {
@@ -37,8 +38,10 @@ export async function refresh() {
     store.set(K.state(app.setup.tid), state);
     app.session.setSnapshot(state, started);
     render();
+    return true;
   } catch {
     // offline: keep showing what we have; the sync pill says so
+    return false;
   }
 }
 

@@ -234,7 +234,7 @@ test('a «Сумма» formula overwritten by hand: the slow sort repairs it bef
   assertSorted(w);
 });
 
-test('«Итоги» formulas from an older version (Место as a plain RANK) are upgraded by the next sort', () => {
+test('«Итоги» formulas overwritten by hand (Место as a plain RANK) are repaired by the next sort', () => {
   const w = world();
   const sum = w.tab('Итоги');
   const sl = L.summaryLayout(SIZES);

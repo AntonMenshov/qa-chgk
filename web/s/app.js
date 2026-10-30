@@ -23,16 +23,13 @@ function wire() {
       toast(`Камера недоступна: ${err.message}`, true);
     }
   };
-  $('q-prev').onclick = () => {
-    app.session.setQuestion(app.session.current - 1);
+  const stepQuestion = (step) => {
+    app.session.setQuestion(app.session.current + step);
     store.set(K.current(app.setup.tid), app.session.current);
     render();
   };
-  $('q-next').onclick = () => {
-    app.session.setQuestion(app.session.current + 1);
-    store.set(K.current(app.setup.tid), app.session.current);
-    render();
-  };
+  $('q-prev').onclick = () => stepQuestion(-1);
+  $('q-next').onclick = () => stepQuestion(1);
   $('v-correct').onclick = () => verdict('correct');
   $('v-incorrect').onclick = () => verdict('incorrect');
   $('v-disputed').onclick = () => verdict('disputed');
@@ -87,10 +84,17 @@ function wire() {
     app.session.juror = $('juror').value.trim();
   };
   $('refresh').onclick = async () => {
-    await refresh();
-    toast('Данные обновлены');
+    if (await refresh()) {
+      toast('Данные обновлены');
+    } else {
+      toast('Нет связи — данные не обновлены', true);
+    }
   };
   $('settings-close').onclick = () => sheet(null);
+  const forgetTournament = () => {
+    store.remove(K.setup);
+    location.replace(location.pathname);
+  };
   $('forget').onclick = () => {
     const pending = app.queue.status.pending + app.photos.status.pending;
     if (
@@ -102,13 +106,9 @@ function wire() {
     ) {
       return;
     }
-    store.remove(K.setup);
-    location.replace(location.pathname);
+    forgetTournament();
   };
-  $('loading-reset').onclick = () => {
-    store.remove(K.setup);
-    location.replace(location.pathname);
-  };
+  $('loading-reset').onclick = forgetTournament;
   setInterval(flush, FLUSH_EVERY_MS);
   setInterval(() => app.photos && app.photos.pump().then(render), FLUSH_EVERY_MS);
   setInterval(refresh, REFRESH_EVERY_MS);

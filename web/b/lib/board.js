@@ -49,13 +49,13 @@ export function boardModel(data, revealed, {gridMax, view = null}) {
         marks[q] = cellMark(values[q - 1] ?? '');
       }
     }
-    return {team_id: team.team_id, name: team.name, rounds: sums, sums, total: sums.reduce((a, b) => a + b, 0), marks};
+    return {team_id: team.team_id, name: team.name, sums, total: sums.reduce((a, b) => a + b, 0), marks};
   });
-  rows.sort(compareStandings);
+  // compareStandings (the backend's tie-break rule) reads the round sums as `rounds`.
+  rows.sort((a, b) => compareStandings({...a, rounds: a.sums}, {...b, rounds: b.sums}));
   const places = placeLabels(rows.map((r) => r.total));
   rows.forEach((r, i) => {
     r.place = places[i];
-    delete r.rounds;
   });
 
   const took = {};

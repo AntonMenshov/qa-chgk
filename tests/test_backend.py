@@ -4,8 +4,8 @@ import re
 import httpx
 import pytest
 import respx
+from conftest import runner, write_teams_file
 from node_backend import NODE, NodeBackend
-from typer.testing import CliRunner
 
 from chgk.backend import (
     APPS_SCRIPT_DIR,
@@ -25,7 +25,6 @@ from chgk.teams import Team, read_teams
 
 URL_A = "https://script.google.com/macros/s/AKfycbAccountA_000000000/exec"
 URL_B = "https://script.google.com/macros/s/AKfycbAccountB_000000000/exec"
-runner = CliRunner()
 
 
 @pytest.fixture(autouse=True)
@@ -344,6 +343,14 @@ def test_cli_new_and_teams(folder, backends):
     assert "Already created" in again.output
     teams = runner.invoke(app, ["teams", str(folder)])
     assert teams.exit_code == 0 and "3 teams synced" in teams.output
+
+
+def test_cli_new_prints_the_jury_sheets_warnings(folder, backends):
+    write_teams_file(folder, [("A01", "Зайцы 🐰", "", "")])  # the font has no emoji
+    runner.invoke(app, ["backend", "add", "personal", "--url", URL_A, "--token", "tokA"])
+    result = runner.invoke(app, ["new", str(folder)])
+    assert result.exit_code == 0, result.output
+    assert "Warning:" in result.output and "🐰" in result.output
 
 
 def test_cli_new_without_profile_explains(folder):

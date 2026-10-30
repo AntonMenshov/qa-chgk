@@ -17,24 +17,25 @@ import os
 import re
 import shutil
 import time
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 import anthropic
 from PIL import Image
 
 from chgk import logos
+from chgk.cards.geometry import INCH, card_parts, card_rects
+from chgk.config import CardFields, Layout
 from chgk.svg import check_svg, render_svg
 from chgk.teams import Team, write_teams
 
 API_KEY_ENV = "ANTHROPIC_API_KEY"
 MODEL = "claude-opus-5-5"
-EFFORT = "max"  # user, 2026-10-30: always Opus at max effort
+EFFORT = "max"  # always Opus at max effort (user rule)
 FALLBACK_BETA = "server-side-fallback-2026-07-01"  # a declined request is re-run on Anthropic's fallback model
 MAX_TOKENS = 128000  # the model's limit; max effort thinks at length, and only what is used is billed
 TASK_BUDGET_BETA = "task-budgets-2026-03-13"
-# Claude sees this budget and plans to finish within it. Without one, two of the first four max-effort
-# drawings thought until MAX_TOKENS and were cut off before any SVG; finished drawings used 107k-124k.
+# Claude sees this budget and plans to finish within it, so a max-effort drawing ends before MAX_TOKENS.
 TASK_BUDGET = 100_000
 CUT_OFF_RETRIES = 1  # a drawing cut off anyway is asked for again, so a team is not left with nothing
 REVIEW_ROUNDS = 2  # after the first drawing: render it, show it back, let Claude fix it (or approve)
@@ -43,19 +44,60 @@ MAX_REFERENCES = 4
 REFERENCE_SIDE = 512  # px: enough to show the style, cheap in tokens
 HEARTBEAT = 120  # s: a progress line while a round is still running
 RENDER_SIDE = 800  # px: the drawing shown back for review
-CARD_SIDE = 260  # px: the pale version shown back at about the size it prints (1.85 in)
+CARD_SIDE = 260  # px: the pale version shown back small, as it reads on the card
 EDGE_MARGIN = 30  # canvas units (of 1000) that stay empty along every edge
 APPROVED = "APPROVED"
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".svg"}
 STEM_LENGTH = 40  # an accepted logo's file name, before ".svg"
 
-SYSTEM = """You draw team logos for the answer cards of a sport ЧГК («Что? Где? Когда?») quiz tournament.
+
+@dataclass(frozen=True)
+class LogoLook:
+    """How a tournament prints its logos, which the prompt describes to Claude."""
+
+    grey: float  # ink of the logo's dark parts (CardFields.logo_grey)
+    side_cm: float  # the logo square as printed
+    card_w_cm: float
+    card_h_cm: float
+    sized: bool  # CardFields.logo_size set: centred on the card; else it fits the writing area
+    under_qr: bool  # the QR code covers the logo's top-right corner
+
+
+def logo_look(fields: CardFields, layout: Layout) -> LogoLook:
+    """The printed size and shade of a logo with these card settings (the cards' own geometry)."""
+    card = card_rects(layout)[0]
+    logo_pt = fields.logo_size * INCH if fields.logo_size else None
+    parts = card_parts(card, layout.qr_size * INCH, logo_pt)
+    cm = 2.54 / INCH
+    return LogoLook(
+        grey=fields.logo_grey,
+        side_cm=parts.logo.w * cm,
+        card_w_cm=card.w * cm,
+        card_h_cm=card.h * cm,
+        sized=fields.logo_size is not None,
+        under_qr=parts.logo.intersects(parts.qr),
+    )
+
+
+DEFAULT_LOOK = logo_look(CardFields(), Layout())
+
+
+def system_prompt(look: LogoLook) -> str:
+    """The system text: how the logo is used (from the tournament's settings) and the set's style."""
+    where = "centred on the card" if look.sized else "in the writing area below the question number"
+    qr = (
+        "The card's QR code covers the logo's top-right corner."
+        if look.under_qr
+        else "The card's QR code sits above it, at the top right."
+    )
+    return f"""\
+You draw team logos for the answer cards of a sport ЧГК («Что? Где? Когда?») quiz tournament.
 
 How the logo is used: it is printed behind the team's handwritten answers on small cards
-(about 7 × 7 cm), as a square about 4.7 cm wide, turned into a very pale grey watermark: the
-darkest tenth of the drawing is printed at about 10% ink and everything else lighter. So the
-logo must read as a few big, simple, flat shapes; fine detail disappears. The card's QR code
-covers the logo's top-right corner when the logo is large.
+(about {look.card_w_cm:.1f} × {look.card_h_cm:.1f} cm), as a square about {look.side_cm:.1f} cm wide {where},
+turned into a very pale grey watermark: the darkest tenth of the drawing is printed
+at about {look.grey:.0%} ink and everything else lighter. So the logo must read as a few big,
+simple, flat shapes; fine detail disappears. {qr}
 
 The style is fixed by the tournament's existing logos, which you are shown: the ЧГК owl in a
 small scene that acts out the team's name as a visual pun, flat light-grey shapes with
@@ -164,6 +206,17 @@ def reference_logos() -> list[Path]:
     return files[:MAX_REFERENCES]
 
 
+def _png_block(image: Image.Image) -> dict:
+    """An image as an API PNG block, transparent parts white as on the card."""
+    flat = Image.new("RGB", image.size, "white")
+    rgba = image.convert("RGBA")
+    flat.paste(rgba, mask=rgba)
+    buffer = io.BytesIO()
+    flat.save(buffer, "PNG")
+    data = base64.standard_b64encode(buffer.getvalue()).decode("ascii")
+    return {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": data}}
+
+
 def reference_blocks(paths: list[Path]) -> tuple[list[dict], list[str]]:
     """The reference logos as API image blocks (PNG on white), plus warnings for files that can't be read.
 
@@ -177,12 +230,7 @@ def reference_blocks(paths: list[Path]) -> tuple[list[dict], list[str]]:
             warnings.append(f"reference {path.name}: {err}; left out")
             continue
         image.thumbnail((REFERENCE_SIDE, REFERENCE_SIDE))
-        flat = Image.new("RGB", image.size, "white")  # transparent → white, as on the card
-        flat.paste(image, mask=image)
-        buffer = io.BytesIO()
-        flat.save(buffer, "PNG")
-        data = base64.standard_b64encode(buffer.getvalue()).decode("ascii")
-        blocks.append({"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": data}})
+        blocks.append(_png_block(image))
     if blocks:
         blocks[-1] = {**blocks[-1], "cache_control": {"type": "ephemeral"}}
     return blocks, warnings
@@ -195,16 +243,6 @@ def extract_svg(text: str) -> str:
     if not match:
         raise ValueError("the reply has no SVG")
     return match.group(1) if block else match.group(0)
-
-
-def _png_block(image: Image.Image) -> dict:
-    flat = Image.new("RGB", image.size, "white")
-    rgba = image.convert("RGBA")
-    flat.paste(rgba, mask=rgba)
-    buffer = io.BytesIO()
-    flat.save(buffer, "PNG")
-    data = base64.standard_b64encode(buffer.getvalue()).decode("ascii")
-    return {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": data}}
 
 
 def measure(image: Image.Image) -> str:
@@ -240,13 +278,16 @@ class CutOffError(ValueError):
     """The reply hit MAX_TOKENS before it was complete."""
 
 
-def _ask(client: anthropic.Anthropic, messages: list[dict], log, label: str):
+_now = time.monotonic  # the clock for progress lines and round times (tests replace it)
+
+
+def _ask(client: anthropic.Anthropic, messages: list[dict], system: str, log, label: str):
     """One streamed request; returns the message and a note on its time and tokens.
 
     A max-effort round can think for many minutes before any text: `log` gets a line every
     HEARTBEAT seconds meanwhile.
     """
-    started = last = time.monotonic()
+    started = last = _now()
     with client.beta.messages.stream(
         model=MODEL,
         max_tokens=MAX_TOKENS,
@@ -254,16 +295,16 @@ def _ask(client: anthropic.Anthropic, messages: list[dict], log, label: str):
         fallbacks="default",
         output_config={"effort": EFFORT, "task_budget": {"type": "tokens", "total": TASK_BUDGET}},
         cache_control={"type": "ephemeral"},  # each round resends the conversation so far: cache it
-        system=SYSTEM,
+        system=system,
         messages=messages,
     ) as stream:
         for _event in stream:
-            if time.monotonic() - last >= HEARTBEAT:
-                last = time.monotonic()
+            if _now() - last >= HEARTBEAT:
+                last = _now()
                 log(f"{label}: still working ({(last - started) / 60:.0f} min)")
         message = stream.get_final_message()
     usage = message.usage
-    note = f"{(time.monotonic() - started) / 60:.1f} min, {(usage.output_tokens or 0) / 1000:.1f}k tokens out"
+    note = f"{(_now() - started) / 60:.1f} min, {(usage.output_tokens or 0) / 1000:.1f}k tokens out"
     if message.stop_reason == "refusal":
         raise ValueError("the API declined to draw it")
     if message.stop_reason == "max_tokens":
@@ -275,15 +316,16 @@ def draw_logo(
     client: anthropic.Anthropic,
     name: str,
     references: list[dict],
-    grey: float = 0.12,
+    look: LogoLook = DEFAULT_LOOK,
     log=lambda line: None,
 ) -> str:
     """Ask Claude for one team's logo, then let it review and fix its own rendering; return checked SVG text.
 
-    `references` come from reference_blocks; `grey` is the tournament's logo shade, for the
-    pale card-size image Claude reviews; `log` gets a line per round (and progress lines while
-    one runs). A reply whose SVG is refused or can't be drawn goes back to Claude as feedback;
-    a reply cut off before there is any drawing is asked for again (CUT_OFF_RETRIES).
+    `references` come from reference_blocks; `look` is how the tournament prints logos
+    (logo_look), for the system text and the pale card-size image Claude reviews; `log` gets
+    a line per round (and progress lines while one runs). A reply whose SVG is refused or
+    can't be drawn goes back to Claude as feedback; a reply cut off before there is any
+    drawing is asked for again (CUT_OFF_RETRIES).
     ValueError if no round gave a usable SVG; API errors (anthropic.APIError) pass through.
     """
     intro = "The images above are the tournament's existing logos: match their style. " if references else ""
@@ -299,7 +341,7 @@ def draw_logo(
         round_no += 1
         label = "drawing" if round_no == 0 else f"review {round_no}"
         try:
-            message, note = _ask(client, messages, log, label)
+            message, note = _ask(client, messages, system_prompt(look), log, label)
         except CutOffError as err:
             if svg is None and retries:
                 retries -= 1
@@ -335,10 +377,16 @@ def draw_logo(
                 }
             )
             continue
+        if svg is None:  # the first usable drawing, whichever round it came in
+            unreviewed = round_no == REVIEW_ROUNDS
+            log(
+                f"drawn ({note})" + ("; not reviewed: unusable replies used up the review rounds" if unreviewed else "")
+            )
+        else:
+            log(f"review {round_no}: revised ({note})")
         svg = candidate
-        log(f"{'drawn' if round_no == 0 else f'review {round_no}: revised'} ({note})")
         if round_no < REVIEW_ROUNDS:
-            messages.append(_review_message(name, image, grey, round_no + 1))
+            messages.append(_review_message(name, image, look.grey, round_no + 1))
     if svg is None:
         raise ValueError(problem or "no usable SVG")
     return svg
@@ -357,9 +405,10 @@ def save_draft(slug: str, team_id: str, svg: str) -> Path:
     return path
 
 
-def write_brief(out: Path, folder: Path, slug: str, teams: list[Team]) -> Path:
+def write_brief(out: Path, folder: Path, slug: str, teams: list[Team], look: LogoLook = DEFAULT_LOOK) -> Path:
     """Instructions for drawing these teams' logos in a Claude Code session (no API key needed)."""
     root = logos.LOGO_LIBRARY.parent
+    review = Path(out).parent  # the review images go next to the brief
     refs = "\n".join(f"- `{p.relative_to(root)}`" for p in reference_logos()) or "- (none in logos/ yet)"
     lines = [
         f"# Logo drafts for `{slug}`",
@@ -380,16 +429,17 @@ def write_brief(out: Path, folder: Path, slug: str, teams: list[Team]) -> Path:
         "",
         "## How they are used",
         "",
-        SYSTEM,
+        system_prompt(look),
         "",
-        "## Review each drawing (twice, or until it passes)",
+        f"## Review each drawing (up to {REVIEW_ROUNDS} times, or until it passes)",
         "",
         "Render it, look at it at full size and pale at card size, and fix what fails:",
         "",
         "```",
         'uv run python -c "from chgk.svg import open_svg; from chgk.logos import pale; '
-        "im = open_svg('<file>', 800); im.save('/tmp/full.png'); "
-        "pale(im, 0.12).resize((260, 260)).save('/tmp/card.png')\"",
+        f"im = open_svg('<file>', {RENDER_SIDE}); im.save('{review}/review-full.png'); "
+        f"card = pale(im, {look.grey}); card.thumbnail(({CARD_SIDE}, {CARD_SIDE})); "
+        f"card.save('{review}/review-card.png')\"",
         "```",
         "",
         review_checklist("<the team name>"),

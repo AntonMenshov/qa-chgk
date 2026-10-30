@@ -12,7 +12,7 @@ const REFRESH_EVERY_MS = 15000;
 const $ = (id) => document.getElementById(id);
 const store = storage();
 const access = decodeBoard(location.hash);
-// Links made by the CLI always carry ?grid=; 5 is board_grid_max_teams's default (user: fine hard-coded).
+// Links made by the CLI always carry ?grid=; 5 is board_grid_max_teams's default.
 const gridMax = Number(new URLSearchParams(location.search).get('grid') ?? 5);
 const key = (name) => `chgk.board.${name}.${access ? access.tid : ''}`;
 
@@ -134,6 +134,7 @@ function table(m) {
       el('h1', {textContent: m.name}),
       el('div', {
         className: 'after',
+        // «после 1 тура» reads «после 1-го тура»; other counts stay as numbers.
         textContent: `после ${roundsWord(m.revealed).replace(/^1 /, '1-го ')} из ${m.rounds}`,
       }),
     ),
@@ -242,6 +243,14 @@ function wake() {
   clearTimeout(idleTimer);
   idleTimer = setTimeout(() => $('controls').classList.add('idle'), 3000);
 }
+
+// A board link opened into this tab only changes the #… (no reload): load the board it names.
+addEventListener('hashchange', () => {
+  const next = decodeBoard(location.hash);
+  if (next && !(access && next.tid === access.tid && next.boardToken === access.boardToken)) {
+    location.reload();
+  }
+});
 
 $('next').onclick = () => setRevealed(revealed + 1);
 $('prev').onclick = () => setRevealed(revealed - 1);

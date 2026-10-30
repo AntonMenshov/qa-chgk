@@ -106,8 +106,26 @@ def test_fallback_owl_ships_with_the_repo():
 def test_logo_chain_per_mode(mode, chain):
     fields = CardFields(logo=mode, tournament_logo="t.png")
     assert logo_chain(fields, "A01") == chain
-    loaded = {FALLBACK_KEY: None, TOURNAMENT_KEY: None}  # A01's own logo missing
-    assert first_logo(fields, "A01", loaded) == next((k for k in chain if k in loaded), None)
+
+
+@pytest.mark.parametrize(
+    "mode,loaded,expected",
+    [
+        (LogoMode.NONE, {"A01", "tournament", "fallback"}, None),
+        (LogoMode.TEAM, {"A01", "fallback"}, "A01"),
+        (LogoMode.TEAM, {"tournament", "fallback"}, "fallback"),  # TEAM mode ignores the tournament logo
+        (LogoMode.TEAM, set(), None),
+        (LogoMode.TOURNAMENT, {"A01", "tournament", "fallback"}, "tournament"),
+        (LogoMode.TOURNAMENT, {"A01", "fallback"}, "fallback"),
+        (LogoMode.TEAM_ELSE_TOURNAMENT, {"A01", "tournament", "fallback"}, "A01"),
+        (LogoMode.TEAM_ELSE_TOURNAMENT, {"tournament", "fallback"}, "tournament"),
+        (LogoMode.TEAM_ELSE_TOURNAMENT, {"fallback"}, "fallback"),
+        (LogoMode.TEAM_ELSE_TOURNAMENT, {"A02"}, None),  # another team's logo is never used
+    ],
+)
+def test_first_logo_follows_the_chain(mode, loaded, expected):
+    fields = CardFields(logo=mode, tournament_logo="t.png")
+    assert first_logo(fields, "A01", {key: Image.new("L", (1, 1)) for key in loaded}) == expected
 
 
 def test_logo_report_says_what_each_team_shows(folder):

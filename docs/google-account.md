@@ -82,9 +82,7 @@ code. To update:
    Editing the existing deployment keeps the same `/exec` URL, so profiles, jury
    sheets and phones keep working. (**New deployment** would create a new URL.)
 3. The **Google Sheets API** service must be on (step 1.4); `chgk backend check` warns
-   while it is off. Tournaments made by versions before 2026-10-30 are not upgraded
-   (the upgrade code was removed once the only such tournament had been upgraded):
-   create them again.
+   while it is off. Older tournaments are not upgraded: create them again.
 
 ## 5. Cleaning up Drive
 

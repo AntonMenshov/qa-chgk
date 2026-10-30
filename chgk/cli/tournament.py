@@ -23,9 +23,11 @@ def new(
     try:
         profile = profiles.get(backend) if backend else profiles.active()
         result = new_tournament(folder, profile)
-        jury_path, _ = build_jury_sheet(folder)
+        jury_path, warnings = build_jury_sheet(folder)
     except (ValueError, BackendError) as err:
         raise fail(err) from err
+    for warning in warnings:
+        typer.secho(f"Warning: {warning}", fg="yellow", err=True)
     s = result.state
     if result.created:
         typer.echo(f"Created on backend '{s.backend_profile}' ({s.backend_account}).")

@@ -41,7 +41,7 @@ function readMarks_(ss, reg, with_) {
   const teams = blocks[0]
     .map((r) => ({team_id: String(r[0]).trim(), name: String(r[1])}))
     .filter((t) => t.team_id !== '')
-    .sort((a, b) => (a.team_id < b.team_id ? -1 : a.team_id > b.team_id ? 1 : 0));
+    .sort((a, b) => compareIds(a.team_id, b.team_id));
   const cells = {};
   const where = {};
   // The sort keys as the Sheet computed them must agree with the marks read with them; a
@@ -170,10 +170,7 @@ function appendLog_(m, rows) {
  * time-stamp and log them. Returns the rounds that changed. Needs `m` read with the Log.
  */
 function applySheetEdits_(ss, m, user) {
-  const current = {};
-  Object.keys(m.cells).forEach((key) => {
-    current[key] = m.cells[key].value;
-  });
+  const current = markValues_(m);
   const now = Date.now();
   const rows = [];
   const rounds = new Set();

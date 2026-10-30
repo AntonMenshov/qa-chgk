@@ -34,10 +34,12 @@ Full design: [SPEC.md](SPEC.md). Build order: [PLAN.md](PLAN.md).
   profile `personal`), with the «Google Sheets API» service on. `uv run chgk backend check`
   compares it with the local code, and says when `out/apps_script/Code.gs` is an old bundle.
 - **Example tournament:** `tournaments/example/` (the user's four teams 645 «42», 58746
-  Фиаско, 40400 Совхоз Победа, A01 Звезды сошлись; reserve decks R1, R2), TID **UYDJ7** (re-created 2026-10-30 after the user deleted the old folder)
-  on that backend; `out/example/` holds its cards (team-pages, 3×4, 24 pages) and jury.pdf.
+  Фиаско, 40400 Совхоз Победа, A01 Звезды сошлись; reserve decks R1, R2), TID **UYDJ7**
+  (re-created 2026-10-30 after the user deleted the old folder) on that backend;
+  `out/example/` holds its cards (team-pages, 3×4, 24 pages) and jury.pdf.
 - **Second example:** `tournaments/example-15/` — the same four teams, 3 rounds of 15
-  questions, TID **U9FP4**; `out/example-15/` has its cards (team-pages, 3×4, 24 pages) and jury.pdf.
+  questions, TID **U9FP4**; `out/example-15/` has its cards (team-pages, 3×4, 24 pages)
+  and jury.pdf.
 
 ### Repository layout
 ```
@@ -107,8 +109,8 @@ README.md             organiser guide (end to end) and contributor commands
 ```
 
 ### How to run
-- Tests: `uv run pytest` (492, incl. 3 browser tests that need Google Chrome + Node) and
-  `npm test` (210, then 75 backend tests again with the Sheets API off).
+- Tests: `uv run pytest` (500, incl. 3 browser tests that need Google Chrome + Node) and
+  `npm test` (216, then 75 backend tests again with the Sheets API off).
 - Lint and format: `uv run ruff format . && uv run ruff check .`, `npm run format && npm run lint`.
 - Backend: `uv run chgk backend add|use|list|check|remove|bundle` (docs/google-account.md).
 - A tournament: `uv run chgk new <folder>` (Sheet + Drive folder), `uv run chgk teams <folder>`

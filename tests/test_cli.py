@@ -1,9 +1,7 @@
-from typer.testing import CliRunner
+from conftest import runner
 
 from chgk import __version__
 from chgk.cli import app
-
-runner = CliRunner()
 
 
 def test_version_command_prints_version():

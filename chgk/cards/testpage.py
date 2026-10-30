@@ -12,10 +12,10 @@ from reportlab.pdfgen.canvas import Canvas
 
 from chgk.cards.geometry import INCH, PAGE_H, PAGE_W, Rect, card_parts, card_rects
 from chgk.cards.model import team_deck
-from chgk.cards.render import FONT, FONT_BOLD, _draw_card, _fonts, draw_qr, logo_key
+from chgk.cards.render import FONT, FONT_BOLD, draw_card, draw_qr, register_fonts
 from chgk.config import Tournament
 from chgk.ids import CardId, encode_payload
-from chgk.logos import pale
+from chgk.logos import first_logo, pale
 from chgk.teams import Team
 
 QR_SIZES = [0.55, 0.65, 0.75, 0.85, 0.95]
@@ -46,7 +46,7 @@ def render_test_page(
     `source_logo` (unprocessed) is shown at every shade in GREYS; the sample cards use the
     tournament's configured logos and shade.
     """
-    _fonts()
+    register_fonts()
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     c = Canvas(str(out_path), pagesize=(PAGE_W, PAGE_H))
@@ -100,9 +100,9 @@ def render_test_page(
     c.setStrokeGray(0.65)
     c.setLineWidth(0.3)
     for card, rect in zip(samples, bottom_row, strict=False):  # fewer samples than slots is fine
-        key = logo_key(card, tournament.card, logos)
+        key = first_logo(tournament.card, card.team.team_id, logos)
         logo_pt = tournament.card.logo_size * INCH if tournament.card.logo_size else None
-        _draw_card(c, card, card_parts(rect, qr_pt, logo_pt), tournament, readers.get(key), warnings)
+        draw_card(c, card, card_parts(rect, qr_pt, logo_pt), tournament, readers.get(key), warnings)
         c.rect(rect.x, rect.y, rect.w, rect.h, stroke=1, fill=0)
     c.showPage()
     c.save()

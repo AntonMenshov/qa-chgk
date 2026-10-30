@@ -5,6 +5,7 @@
     {"link": "board=ZZ234.0123456789abcdefABCD.AKfycbz0000000000", "valid": true, "tid": "ZZ234", "board_token": "0123456789abcdefABCD", "backend_url": "https://script.google.com/macros/s/AKfycbz0000000000/exec", "grid": null, "note": "bare fragment"},
     {"link": "https://example.github.io/qa-chgk/s/#setup=K7M2Q.abcDEF123_-ghiJKL456mno.AKfycbx_Example-Deployment_ID123", "valid": false, "note": "a jury link, not a board link"},
     {"link": "https://example.github.io/qa-chgk/b/#board=K7M2Q.short.AKfycbx_Example", "valid": false, "note": "token too short"},
-    {"link": "https://example.github.io/qa-chgk/b/#K7M2Q.A07.27", "valid": false, "note": "a card"}
+    {"link": "https://example.github.io/qa-chgk/b/#K7M2Q.A07.27", "valid": false, "note": "a card"},
+    {"link": "https://example.github.io/qa-chgk/b/?grid=5#board=K7M2Q.abcDEF123_-ghiJKL456mno.AKfycbx_Example-Deployment_ID123\n", "valid": false, "note": "trailing newline"}
   ]
 }

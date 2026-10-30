@@ -10,7 +10,7 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen.canvas import Canvas
 
-from chgk import FONTS_DIR
+from chgk import FONT_BOLD_FILE, FONT_REGULAR_FILE
 from chgk.cards.geometry import (
     INFO_SIZE,
     NUMBER_SIZE,
@@ -26,7 +26,7 @@ from chgk.cards.geometry import (
 )
 from chgk.cards.impose import Mode, Page
 from chgk.cards.model import Card
-from chgk.config import CardFields, Tournament
+from chgk.config import Tournament
 from chgk.ids import encode_payload
 from chgk.logos import first_logo
 
@@ -41,10 +41,10 @@ RESERVE_NAME_LABEL = "Команда:"
 
 
 @cache
-def _fonts() -> TTFont:
-    regular = TTFont(FONT, FONTS_DIR / "PT_Sans-Web-Regular.ttf")
+def register_fonts() -> TTFont:
+    regular = TTFont(FONT, FONT_REGULAR_FILE)
     pdfmetrics.registerFont(regular)
-    pdfmetrics.registerFont(TTFont(FONT_BOLD, FONTS_DIR / "PT_Sans-Web-Bold.ttf"))
+    pdfmetrics.registerFont(TTFont(FONT_BOLD, FONT_BOLD_FILE))
     # Lets <b> work inside reportlab Paragraphs (jury sheet).
     pdfmetrics.registerFontFamily(FONT, normal=FONT, bold=FONT_BOLD, italic=FONT, boldItalic=FONT_BOLD)
     return regular
@@ -52,7 +52,7 @@ def _fonts() -> TTFont:
 
 def missing_glyphs(text: str) -> set[str]:
     """Characters the bundled font cannot draw (they would print as empty boxes)."""
-    cmap = _fonts().face.charToGlyph
+    cmap = register_fonts().face.charToGlyph
     return {ch for ch in text if ord(ch) not in cmap and not ch.isspace()}
 
 
@@ -73,11 +73,6 @@ def fit_text(text: str, font: str, size: float, max_width: float, min_size: floa
     while text and pdfmetrics.stringWidth(text + ELLIPSIS, font, size) > max_width:
         text = text[:-1]
     return text.rstrip() + ELLIPSIS, size
-
-
-def logo_key(card: Card, fields: CardFields, logos: dict[str, Image.Image]) -> str | None:
-    """Which loaded logo a card shows: its team's, the tournament's, the fallback, or none."""
-    return first_logo(fields, card.team.team_id, logos)
 
 
 def draw_qr(c: Canvas, payload: str, rect: Rect) -> None:
@@ -136,7 +131,7 @@ def spare_box(number: Rect) -> Rect:
     return Rect(number.x, number.y, min(SPARE_BOX_W, number.w), number.h)
 
 
-def _draw_card(
+def draw_card(
     c: Canvas, card: Card, parts: CardParts, tournament: Tournament, logo: ImageReader | None, warnings: list[str]
 ) -> None:
     fields = tournament.card
@@ -208,7 +203,7 @@ def render_cards(
 
     `logos` maps team_id / TOURNAMENT_KEY / FALLBACK_KEY to pale images.
     """
-    _fonts()
+    register_fonts()
     logos = logos or {}
     readers = {k: ImageReader(v) for k, v in logos.items()}
 
@@ -226,8 +221,8 @@ def render_cards(
         for card, parts in zip(page, all_parts, strict=False):  # a last page may have empty slots
             if card is None:
                 continue
-            key = logo_key(card, tournament.card, logos)
-            _draw_card(c, card, parts, tournament, readers.get(key), warnings)
+            key = first_logo(tournament.card, card.team.team_id, logos)
+            draw_card(c, card, parts, tournament, readers.get(key), warnings)
         # Guides last: the QR's white quiet zone would otherwise hide them at the corners.
         _draw_guides(c, tournament, mode, rects)
         c.showPage()

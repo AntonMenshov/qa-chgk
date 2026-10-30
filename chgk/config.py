@@ -7,6 +7,8 @@ from datetime import date
 from enum import Enum
 from pathlib import Path
 
+from chgk.ids import MAX_QUESTION, MAX_SPARE
+
 SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 
 
@@ -21,7 +23,7 @@ class LogoMode(Enum):
     TEAM_ELSE_TOURNAMENT = "team_else_tournament"
 
 
-MIN_SPARES = 2  # spare cards per team at the least (user rule, 2026-10-30)
+MIN_SPARES = 2  # spare cards per team at the least (user rule)
 
 
 @dataclass(frozen=True)
@@ -30,12 +32,12 @@ class CardFields:
 
     team_name: bool = True
     tournament_name: bool = True
-    date: bool = False  # off unless asked for (user: no date on the cards)
+    date: bool = False  # off unless asked for (user rule)
     logo: LogoMode = LogoMode.NONE
     tournament_logo: str | None = None  # file name: tournament folder first, then the logos/ library
     fallback_logo: str | None = "nologo.png"  # for cards that would otherwise have no logo
-    logo_size: float | None = None  # inches; None fits the writing area, a number allows up to the full card height
-    logo_grey: float = 0.12  # ink of the logo's dark parts: 0 = white, 1 = black (user's choice, 2026-10-29)
+    logo_size: float | None = None  # inches; None fits the writing area, a number up to the card's shorter inner side
+    logo_grey: float = 0.12  # ink of the logo's dark parts: 0 = white, 1 = black (user's choice)
     no_qr: bool = False  # True: no QR code (a paper-only game, no scanning); its corner stays empty
 
     def __post_init__(self) -> None:
@@ -98,8 +100,17 @@ class Tournament:
             raise ConfigError(f"questions_per_round lists {len(per_round)} rounds, but rounds={self.rounds}")
         if any(k < 1 for k in per_round):
             raise ConfigError(f"every round needs ≥ 1 question, got {per_round}")
+        if self.total_questions > MAX_QUESTION:
+            raise ConfigError(f"at most {MAX_QUESTION} questions fit in a card's QR code, got {self.total_questions}")
         if self.spares_per_team < MIN_SPARES:
             raise ConfigError(f"spares_per_team must be ≥ {MIN_SPARES}, got {self.spares_per_team}")
+        # Empty slots on a team's last page add up to per_page − 1 more spares; all must fit S1–S99.
+        most = MAX_SPARE - (self.layout.per_page - 1)
+        if self.spares_per_team > most:
+            raise ConfigError(
+                f"spares_per_team must be ≤ {most} with {self.layout.per_page} cards per page "
+                f"(spare cards are numbered S1–S{MAX_SPARE}), got {self.spares_per_team}"
+            )
         if not 0 <= self.reserve_teams <= 9:
             raise ConfigError(f"reserve_teams must be 0–9, got {self.reserve_teams}")
         if not 0 <= self.board_grid_max_teams <= 100:

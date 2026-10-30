@@ -4,12 +4,19 @@ from itertools import product
 
 import pytest
 
-from chgk.cards.impose import Mode, cut_stack, impose, stack_and_cut, team_pages
-from chgk.cards.model import team_deck
+from chgk.cards.impose import Mode, Page, cut_stack, impose, team_pages
+from chgk.cards.model import Card, team_deck
 from chgk.config import Tournament
 from chgk.teams import Team
 
 TID = "K7M2Q"
+
+
+def stack_and_cut(pages: list[Page]) -> list[Card]:
+    """Simulate the guillotine workflow for `cut_stack`: stack the sheets, cut once, piles in slot order."""
+    per_page = len(pages[0]) if pages else 0
+    piles = [[page[s] for page in pages] for s in range(per_page)]
+    return [card for pile in piles for card in pile if card is not None]
 
 
 def tournament(questions: list[int], spares: int) -> Tournament:
@@ -70,7 +77,7 @@ def test_cut_stack_properties(n_teams, questions, spares, per_page):
 @pytest.mark.parametrize("n_teams,questions,spares,per_page", COMBOS)
 def test_team_pages_properties(n_teams, questions, spares, per_page):
     ds = decks(n_teams, questions, spares)
-    pages = team_pages(ds, per_page, TID)
+    pages = team_pages(ds, per_page)
 
     assert all(len(p) == per_page and None not in p for p in pages)  # free slots filled
     assert all(len({c.team for c in p}) == 1 for p in pages)  # one team per page
@@ -89,10 +96,10 @@ def test_team_pages_properties(n_teams, questions, spares, per_page):
 def test_impose_dispatch():
     ds = decks(2, [3], 2)
     assert impose(Mode.CUT_STACK, ds, 15) == cut_stack(ds, 15)
-    assert impose(Mode.TEAM_PAGES, ds, 15, TID) == team_pages(ds, 15, TID)
-    assert impose(Mode.SCISSORS, ds, 15, TID) == team_pages(ds, 15, TID)
+    assert impose(Mode.TEAM_PAGES, ds, 15) == team_pages(ds, 15)
+    assert impose(Mode.SCISSORS, ds, 15) == team_pages(ds, 15)
 
 
 def test_empty_input():
     assert cut_stack([], 15) == []
-    assert team_pages([], 15, TID) == []
+    assert team_pages([], 15) == []

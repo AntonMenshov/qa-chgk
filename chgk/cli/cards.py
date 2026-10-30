@@ -6,7 +6,7 @@ import typer
 
 from chgk.cards.build import INSTRUCTIONS, build_cards, build_jury_sheet, build_test_page
 from chgk.cards.impose import Mode
-from chgk.cli.common import app, fail
+from chgk.cli.common import app, fail, team_ids
 
 MODE_HELP = {
     Mode.TEAM_PAGES: "one team per page, cut along the lines",
@@ -36,9 +36,8 @@ def cards(
 ) -> None:
     """Generate the printable answer cards."""
     mode = mode or _ask_mode()
-    team_ids = [t.strip() for t in teams.split(",")] if teams else None
     try:
-        result = build_cards(folder, mode, out, team_ids)
+        result = build_cards(folder, mode, out, team_ids(teams) if teams else None)
     except ValueError as err:
         raise fail(err) from err
     for warning in result.warnings:

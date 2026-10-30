@@ -124,7 +124,7 @@ export function validateReserve(reserve, teams) {
   }
 }
 
-// ---- Drive names: Latin only (user rule, 2026-10-30) ----
+// ---- Drive names: Latin only (user rule) ----
 
 const CYRILLIC_TO_LATIN = {
   а: 'a',
@@ -239,9 +239,7 @@ export function validateRequest(body) {
         fail('date must be YYYY-MM-DD');
       }
       validateRoundSizes(body.round_sizes);
-      if (typeof body.jury_token !== 'string' || body.jury_token.length < 16) {
-        fail('jury_token must be at least 16 characters');
-      }
+      validateToken(body.jury_token, 'jury_token');
       validateTeams(body.teams || []);
       validateReserve(body.reserve || [], body.teams || []);
       if (body.board_token !== undefined) {
@@ -490,6 +488,11 @@ export function standings(roundSizes, teamIds, marks) {
   return rows;
 }
 
+/** Team IDs in the order of the cards (and of the tabs' tie-breaks): code-unit order, as the Sheet sorts them. */
+export function compareIds(a, b) {
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
 /** «Итоги» order (user rule): Итого; on a tie the better last round, then the round before, …; then ID. */
 export function compareStandings(a, b) {
   if (a.total !== b.total) {
@@ -500,7 +503,7 @@ export function compareStandings(a, b) {
       return b.rounds[i] - a.rounds[i];
     }
   }
-  return a.team_id < b.team_id ? -1 : a.team_id > b.team_id ? 1 : 0;
+  return compareIds(a.team_id, b.team_id);
 }
 
 /** compareStandings as sort specs for «Итоги» (sheet columns, 1-based). */
@@ -534,7 +537,7 @@ export function roundOrder(roundSizes, round, ids, values) {
     }
     return s;
   };
-  return [...ids].sort((a, b) => sum(b) - sum(a) || (a < b ? -1 : a > b ? 1 : 0));
+  return [...ids].sort((a, b) => sum(b) - sum(a) || compareIds(a, b));
 }
 
 /** Team IDs in the order «Итоги» should show them (summarySortSpec). */
@@ -603,7 +606,7 @@ export function disputedSheet(roundSizes, names, values, photos) {
       const [teamId, q] = key.split(':');
       return {teamId, q: Number(q), round: questionCell(roundSizes, Number(q)).round, photo: (photos || {})[key] || ''};
     })
-    .sort((a, b) => a.q - b.q || (a.teamId < b.teamId ? -1 : a.teamId > b.teamId ? 1 : 0));
+    .sort((a, b) => a.q - b.q || compareIds(a.teamId, b.teamId));
   const name = (id) => names[id] || id;
   const list = [['Тур', 'Вопрос', 'Команда', 'Фото']].concat(
     items.map((it) => [it.round, it.q, name(it.teamId), it.photo]),
@@ -613,7 +616,7 @@ export function disputedSheet(roundSizes, names, values, photos) {
   items.forEach((it) => {
     perTeam[it.teamId] = (perTeam[it.teamId] || 0) + 1;
   });
-  const teams = Object.keys(perTeam).sort((a, b) => perTeam[b] - perTeam[a] || (a < b ? -1 : a > b ? 1 : 0));
+  const teams = Object.keys(perTeam).sort((a, b) => perTeam[b] - perTeam[a] || compareIds(a, b));
   const summary = [
     ['Всего «?»', items.length],
     ['', ''],

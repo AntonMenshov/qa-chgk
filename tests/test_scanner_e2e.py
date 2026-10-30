@@ -396,6 +396,11 @@ def test_projector_board_reveals_round_by_round(folder, tmp_path, backend_server
         assert page.inner_text("thead").count("Тур") == 1
         page.keyboard.press("ArrowLeft")
         page.wait_for_selector("text=после 1-го тура из 2")
+        # Another board link opened into this tab changes only the #…: the board loads what it names
+        # (here a token the backend refuses, so the switch shows as the error).
+        other = encode_board_link(f"{web_server}/s/", BoardAccess(tid, "x" * 24, BACKEND), 5)
+        page.evaluate("hash => { location.hash = hash; }", other.split("#", 1)[1])
+        page.wait_for_selector("text=Не удалось загрузить")
         browser.close()
     assert not errors, errors
 

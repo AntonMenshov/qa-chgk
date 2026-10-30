@@ -18,21 +18,22 @@ class Mode(Enum):
     SCISSORS = "scissors"
 
 
-def impose(mode: Mode, decks: list[list[Card]], per_page: int, tid: str = "") -> list[Page]:
+def impose(mode: Mode, decks: list[list[Card]], per_page: int) -> list[Page]:
     if mode is Mode.CUT_STACK:
         return cut_stack(decks, per_page)
-    return team_pages(decks, per_page, tid)
+    return team_pages(decks, per_page)
 
 
-def with_extra_spares(deck: list[Card], extra: int, tid: str) -> list[Card]:
+def with_extra_spares(deck: list[Card], extra: int) -> list[Card]:
     """The deck followed by `extra` more spares, numbered after its own."""
     if not extra:
         return list(deck)
     next_spare = 1 + max((c.id.spare for c in deck if c.is_spare), default=0)
-    return list(deck) + [spare_card(tid, deck[0].team, next_spare + i) for i in range(extra)]
+    first = deck[0]
+    return list(deck) + [spare_card(first.id.tid, first.team, next_spare + i) for i in range(extra)]
 
 
-def team_pages(decks: list[list[Card]], per_page: int, tid: str) -> list[Page]:
+def team_pages(decks: list[list[Card]], per_page: int) -> list[Page]:
     """Each page holds one team's cards in order.
 
     Empty slots on a team's last page become extra spares, numbered after the team's own
@@ -42,7 +43,7 @@ def team_pages(decks: list[list[Card]], per_page: int, tid: str) -> list[Page]:
     for deck in decks:
         if not deck:
             continue
-        cards = with_extra_spares(deck, -len(deck) % per_page, tid)
+        cards = with_extra_spares(deck, -len(deck) % per_page)
         pages += [cards[i : i + per_page] for i in range(0, len(cards), per_page)]
     return pages
 
@@ -67,19 +68,9 @@ def cut_stack(decks: list[list[Card]], per_page: int) -> list[Page]:
         return []
     n_pages = ceil(total / per_page)
     free = n_pages * per_page - total
-    decks = [
-        with_extra_spares(deck, free // len(decks) + (k < free % len(decks)), deck[0].id.tid)
-        for k, deck in enumerate(decks)
-    ]
+    decks = [with_extra_spares(deck, free // len(decks) + (k < free % len(decks))) for k, deck in enumerate(decks)]
     sequence = [card for deck in decks for card in deck]
     pages: list[Page] = [[None] * per_page for _ in range(n_pages)]
     for i, card in enumerate(sequence):
         pages[i % n_pages][i // n_pages] = card
     return pages
-
-
-def stack_and_cut(pages: list[Page]) -> list[Card]:
-    """Simulate the guillotine workflow for `cut_stack` (used by tests and as a self-check)."""
-    per_page = len(pages[0]) if pages else 0
-    piles = [[page[s] for page in pages] for s in range(per_page)]
-    return [card for pile in piles for card in pile if card is not None]

@@ -24,6 +24,7 @@
     {"payload": "https://example.github.io/qa-chgk/s/#K7M2Q.ABCDE1234.1", "valid": false, "note": "team id longer than 8"},
     {"payload": "https://example.github.io/qa-chgk/s/#K7M2Q.a07.1", "valid": false, "note": "lowercase team id"},
     {"payload": "https://example.github.io/qa-chgk/s/#K7M2Q.A-1.1", "valid": false, "note": "punctuation in team id"},
-    {"payload": "https://example.github.io/qa-chgk/s/#K7M2Q..1", "valid": false, "note": "empty team id"}
+    {"payload": "https://example.github.io/qa-chgk/s/#K7M2Q..1", "valid": false, "note": "empty team id"},
+    {"payload": "https://example.github.io/qa-chgk/s/#K7M2Q.A07.27\n", "valid": false, "note": "trailing newline"}
   ]
 }

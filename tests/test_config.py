@@ -101,6 +101,17 @@ def test_at_least_two_spares():
             make(spares_per_team=few)
 
 
+def test_every_card_fits_its_qr_payload():
+    """Questions 1–999 and spares S1–S99, counting the extra spares a last page can add."""
+    assert make(rounds=9, questions_per_round=111).total_questions == 999
+    with pytest.raises(ConfigError, match="at most 999 questions"):
+        make(rounds=10, questions_per_round=100)
+    grid = Layout(cols=3, rows=4)  # 12 per page: up to 11 extra spares
+    assert make(spares_per_team=88, layout=grid).spares_per_team == 88
+    with pytest.raises(ConfigError, match="spares_per_team must be ≤ 88 with 12 cards per page"):
+        make(spares_per_team=89, layout=grid)
+
+
 def test_load_config(tmp_path):
     (tmp_path / "config.py").write_text(
         "from datetime import date\n"

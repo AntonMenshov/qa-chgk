@@ -15,7 +15,7 @@ from chgk.config import CardFields, LogoMode
 from chgk.svg import open_svg
 
 LOGO_LIBRARY = PROJECT_DIR / "logos"
-MAX_SIDE = 600  # px; the default logo is about 1.3 in across, so this is ~450 dpi and keeps PDFs small
+MAX_SIDE = 600  # px: ≥ ~300 dpi at the sizes used, and keeps PDFs small
 TOURNAMENT_KEY = "tournament"
 FALLBACK_KEY = "fallback"
 

@@ -496,7 +496,7 @@ test('a team called «42» stays text on every tab', () => {
   );
 });
 
-test('a name already stored as the number 42 (older Sheets) is rewritten as text by set_teams', () => {
+test('a name stored as the number 42 (its text format lost by hand) is rewritten as text by set_teams', () => {
   const teams = [{team_id: 'A01', name: '42'}];
   const {b, admin, tab} = world([3], teams);
   for (const name of ['Итоги', 'Тур 1']) {
@@ -509,7 +509,7 @@ test('a name already stored as the number 42 (older Sheets) is rewritten as text
   }
 });
 
-test('set_teams upgrades «Итоги» formulas from older versions (Место was a plain RANK)', () => {
+test('set_teams repairs «Итоги» formulas overwritten by hand (Место as a plain RANK)', () => {
   const teams = teamList(3);
   const {b, admin, tab} = world([2], teams);
   const sum = tab('Итоги'); // A ID, B name, C Тур 1, D Итого, E Место

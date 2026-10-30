@@ -5,23 +5,23 @@ import io
 import json
 import os
 import shutil
+from dataclasses import replace
 
 import anthropic
 import httpx2
 import pytest
 from anthropic import DefaultHttpxClient
-from conftest import LONG_NAME
+from conftest import LONG_NAME, runner
 from PIL import Image
 from pypdf import PdfReader
-from typer.testing import CliRunner
 
 import chgk.logos as logos
 from chgk import logo_drafts as drafts
 from chgk.cards.build import build_logo_preview
 from chgk.cli import app
+from chgk.config import CardFields, Layout
 from chgk.teams import read_teams
 
-runner = CliRunner()
 SECRET = "sk-ant-test-SECRET-never-printed"
 OWL_SVG = (
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000">'
@@ -129,7 +129,7 @@ def test_first_request_max_effort_opus_with_references():
     assert first["stream"] is True and first["fallbacks"] == "default"
     assert first["cache_control"] == {"type": "ephemeral"}
     assert drafts.FALLBACK_BETA in seen[0].headers["anthropic-beta"]
-    assert "watermark" in first["system"]
+    assert first["system"] == drafts.system_prompt(drafts.DEFAULT_LOOK)
     content = first["messages"][0]["content"]
     images = [block for block in content if block["type"] == "image"]
     assert len(images) == 2  # the owl and the other team's logo
@@ -140,7 +140,8 @@ def test_first_request_max_effort_opus_with_references():
 
 def test_review_shows_the_rendering_back_in_the_same_conversation():
     seen = []
-    drafts.draw_logo(mock_client([sse(fenced(OWL_SVG)), APPROVE], seen), "Синие зайцы", [], grey=0.1)
+    look = replace(drafts.DEFAULT_LOOK, grey=0.1)
+    drafts.draw_logo(mock_client([sse(fenced(OWL_SVG)), APPROVE], seen), "Синие зайцы", [], look)
     assert len(seen) == 2
     messages = body(seen[1])["messages"]
     assert [m["role"] for m in messages] == ["user", "assistant", "user"]
@@ -152,6 +153,16 @@ def test_review_shows_the_rendering_back_in_the_same_conversation():
     assert card.convert("L").getextrema()[0] >= round(255 * 0.9) - 3  # pale (resampling may ring a little)
     assert "Review 1 of 2" in review[2]["text"] and "The ink spans x" in review[2]["text"]
     assert drafts.review_checklist("Синие зайцы") in review[2]["text"]
+
+
+def test_the_system_text_follows_the_tournaments_card_settings():
+    sized = drafts.logo_look(CardFields(logo_size=1.85, logo_grey=0.1), Layout())
+    text = drafts.system_prompt(sized)
+    assert "about 4.7 cm wide centred on the card" in text and "about 10% ink" in text
+    assert "QR code covers the logo's top-right corner" in text
+    default = drafts.system_prompt(drafts.logo_look(CardFields(), Layout()))  # logo_size None: the writing area
+    assert "about 3.4 cm wide in the writing area" in default and "about 12% ink" in default
+    assert "QR code sits above it" in default
 
 
 def test_review_loop_revises_then_approves():
@@ -191,6 +202,15 @@ def test_only_a_plain_approved_counts_as_approval():
     assert drafts.draw_logo(mock_client([sse(fenced(OWL_SVG)), sse(" Approved.\n")], []), "Синие зайцы", []) == OWL_SVG
 
 
+def test_a_first_drawing_in_the_last_round_is_logged_as_not_reviewed():
+    lines = []
+    replies = [sse("no drawing"), sse("still none"), sse(fenced(OWL_SVG))]
+    assert drafts.draw_logo(mock_client(replies, []), "Синие зайцы", [], log=lines.append) == OWL_SVG
+    assert lines[-1].startswith("drawn (") and lines[-1].endswith(
+        "not reviewed: unusable replies used up the review rounds"
+    )
+
+
 def test_approval_before_any_drawing_does_not_count():
     seen = []
     replies = [APPROVE, sse(fenced(OWL_SVG)), APPROVE]
@@ -227,7 +247,7 @@ def test_a_stopped_reply(reply, error):
 
 def test_a_long_round_says_it_is_still_working(monkeypatch):
     clock = iter(range(0, 10_000, 50))  # every look at the clock: 50 s later
-    monkeypatch.setattr(drafts.time, "monotonic", lambda: next(clock))
+    monkeypatch.setattr(drafts, "_now", lambda: next(clock))
     lines = []
     drafts.draw_logo(mock_client([sse(fenced(OWL_SVG)), APPROVE], []), "Синие зайцы", [], log=lines.append)
     assert any(line.startswith("drawing: still working (") for line in lines)
@@ -332,7 +352,8 @@ def test_file_stem_is_latin(name, stem):
 
 def test_brief_lists_the_teams_paths_and_references(folder, tmp_path):
     teams = read_teams(folder / "teams.py")[1:]
-    out = drafts.write_brief(tmp_path / "brief.md", folder, "test-cup", teams)
+    look = replace(drafts.DEFAULT_LOOK, grey=0.07)
+    out = drafts.write_brief(tmp_path / "brief.md", folder, "test-cup", teams, look)
     text = out.read_text(encoding="utf-8")
     assert "logos/nologo.png" in text.replace("library/", "logos/")  # references by path
     for t in teams:
@@ -340,7 +361,9 @@ def test_brief_lists_the_teams_paths_and_references(folder, tmp_path):
         assert f"drafts/test-cup/{t.team_id}.svg" in text
         assert f"«{t.name.upper()}»" in text
     assert f"chgk logos {folder} --accept all" in text
-    assert drafts.SYSTEM in text and drafts.review_checklist("<the team name>") in text  # the API's rules and review
+    assert drafts.system_prompt(look) in text and drafts.review_checklist("<the team name>") in text  # as the API
+    assert "pale(im, 0.07)" in text and f"up to {drafts.REVIEW_ROUNDS} times" in text  # the tournament's shade
+    assert "/tmp" not in text and str(tmp_path / "review-card.png") in text
     assert "never overwritten" in text
 
 

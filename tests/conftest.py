@@ -3,9 +3,11 @@ import textwrap
 import pytest
 import zxingcpp
 from PIL import Image, ImageDraw
+from typer.testing import CliRunner
 
 from chgk.config import Layout
 
+runner = CliRunner()  # the CLI tests' runner
 SCANNER = "https://example.github.io/qa-chgk/s/"
 # The test tournament keeps 3×5 (15 per page), not the 3×4 default: the hand-written card
 # orders in the tests assume it, and it keeps a non-default grid covered.

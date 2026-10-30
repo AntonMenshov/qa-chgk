@@ -3,7 +3,7 @@
 // result. A failed upload is retried with growing pauses; one the server refuses as wrong
 // (retry: false) is dropped, since sending it again can't help.
 
-const BACKOFF_MS = [2000, 4000, 8000, 15000, 30000];
+import {BACKOFF_MS} from './queue.js'; // the same pauses as the marks
 
 export class PhotoQueue {
   /**

@@ -9,17 +9,13 @@ import typer
 
 from chgk import logo_drafts as drafts
 from chgk.cards.build import build_logo_preview
-from chgk.cli.common import app, fail
+from chgk.cli.common import app, fail, team_ids
 from chgk.config import LogoMode, load_config
 from chgk.logos import LOGO_LIBRARY, logo_report, own_logo_problem
 from chgk.teams import TEAMS_FILE, read_teams
 
 
-def _ids(text: str) -> list[str]:
-    return [t.strip().upper() for t in text.split(",") if t.strip()]
-
-
-def _draw(folder: Path, slug: str, grey: float, teams: list, only: list[str] | None) -> None:
+def _draw(folder: Path, slug: str, look: drafts.LogoLook, teams: list, only: list[str] | None) -> None:
     if only:
         unknown = sorted(set(only) - {t.team_id for t in teams})
         if unknown:
@@ -32,7 +28,7 @@ def _draw(folder: Path, slug: str, grey: float, teams: list, only: list[str] | N
         typer.echo("Nothing to draw: every team has a logo or a draft (`--draw --team A01` redraws one).")
         return
     if not drafts.api_key_set():
-        out = drafts.write_brief(Path("out") / slug / "logo-brief.md", folder, slug, todo)
+        out = drafts.write_brief(Path("out") / slug / "logo-brief.md", folder, slug, todo, look)
         typer.echo(f"{drafts.API_KEY_ENV} is not set, so nothing was sent to the API.")
         typer.echo(f"{out}: a brief for {len(todo)} logos. Open Claude Code here and ask it to follow that file.")
         return
@@ -53,7 +49,7 @@ def _draw(folder: Path, slug: str, grey: float, teams: list, only: list[str] | N
         if key_refused.is_set():
             return None
         try:
-            svg = drafts.draw_logo(client, t.name, references, grey, log)
+            svg = drafts.draw_logo(client, t.name, references, look, log)
         except anthropic.AuthenticationError:
             key_refused.set()
             raise
@@ -116,12 +112,13 @@ def logos_cmd(
         teams_path = Path(folder) / TEAMS_FILE
         teams = read_teams(teams_path)
         if accept:
-            which = None if accept.strip().lower() == "all" else _ids(accept)
+            which = None if accept.strip().lower() == "all" else team_ids(accept)
             for t in drafts.accept_drafts(teams_path, tournament.slug, teams, which):
                 typer.echo(f"  {t.team_id} «{t.name}»: logo={t.logo_file!r} (in {LOGO_LIBRARY})")
             teams = read_teams(teams_path)
         if draw:
-            _draw(Path(folder), tournament.slug, tournament.card.logo_grey, teams, _ids(team) if team else None)
+            look = drafts.logo_look(tournament.card, tournament.layout)
+            _draw(Path(folder), tournament.slug, look, teams, team_ids(team) if team else None)
         _report(Path(folder), tournament, teams)
     except ValueError as err:
         raise fail(err) from err

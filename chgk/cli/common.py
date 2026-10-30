@@ -17,6 +17,11 @@ def warn_permissions(reply: dict) -> None:
         typer.secho(SHEETS_API_HINT, fg="yellow")
 
 
+def team_ids(text: str) -> list[str]:
+    """Team IDs typed on the command line: "a01, A02" → ["A01", "A02"]."""
+    return [t.strip().upper() for t in text.split(",") if t.strip()]
+
+
 def fail(err: Exception) -> typer.Exit:
     typer.secho(f"Error: {err}", fg="red", err=True)
     return typer.Exit(1)

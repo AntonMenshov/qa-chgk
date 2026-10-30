@@ -4,21 +4,18 @@ from dataclasses import replace
 
 import pypdfium2
 import pytest
-from conftest import LONG_NAME, TEAM_ROWS, TEST_GRID, read_qr, write_teams_file
+from conftest import LONG_NAME, TEAM_ROWS, TEST_GRID, read_qr, runner, write_teams_file
 from PIL import Image
 from pypdf import PdfReader
 from reportlab.pdfbase import pdfmetrics
-from typer.testing import CliRunner
 
 from chgk.cards.build import build_cards, build_test_page
 from chgk.cards.geometry import PAGE_H, card_parts, card_rects
 from chgk.cards.impose import Mode
-from chgk.cards.model import Card
 from chgk.cards.render import (
     ELLIPSIS,
     FONT,
     fit_text,
-    logo_key,
     missing_glyphs,
     printable,
     spare_box,
@@ -26,8 +23,8 @@ from chgk.cards.render import (
 from chgk.cli import app
 from chgk.config import CardFields, LogoMode
 from chgk.ids import TID_ALPHABET, CardId, decode_payload
+from chgk.logos import first_logo
 from chgk.state import load_or_create_state, save_state
-from chgk.teams import Team
 
 DPI = 200
 
@@ -192,36 +189,19 @@ def test_fit_text():
     assert 5 <= size < 8 and not text.endswith(ELLIPSIS)
 
 
-@pytest.mark.parametrize(
-    "mode,loaded,expected",
-    [
-        (LogoMode.NONE, {"A01", "tournament", "fallback"}, None),
-        (LogoMode.TEAM, {"A01", "fallback"}, "A01"),
-        (LogoMode.TEAM, {"tournament", "fallback"}, "fallback"),  # TEAM mode ignores the tournament logo
-        (LogoMode.TEAM, set(), None),
-        (LogoMode.TOURNAMENT, {"A01", "tournament", "fallback"}, "tournament"),
-        (LogoMode.TOURNAMENT, {"A01", "fallback"}, "fallback"),
-        (LogoMode.TEAM_ELSE_TOURNAMENT, {"A01", "tournament", "fallback"}, "A01"),
-        (LogoMode.TEAM_ELSE_TOURNAMENT, {"tournament", "fallback"}, "tournament"),
-        (LogoMode.TEAM_ELSE_TOURNAMENT, {"fallback"}, "fallback"),
-        (LogoMode.TEAM_ELSE_TOURNAMENT, {"A02"}, None),  # another team's logo is never used
-    ],
-)
-def test_logo_key_fallback_chain(mode, loaded, expected):
-    card = Card(Team("A01", "X"), CardId("K7M2Q", "A01", question=1), 1)
-    fields = CardFields(logo=mode, tournament_logo="t.png")
-    assert logo_key(card, fields, {key: Image.new("L", (1, 1)) for key in loaded}) == expected
-
-
-runner = CliRunner()
-
-
 def test_cli_cards_with_mode(folder, tmp_path):
     out = tmp_path / "cli.pdf"
     result = runner.invoke(app, ["cards", str(folder), "--mode", "cut-stack", "--out", str(out)])
     assert result.exit_code == 0, result.output
     assert "3 teams + 2 reserve decks, 45 cards, 3 pages (cut-stack)" in result.output  # 5 free slots → spares
     assert out.read_bytes().startswith(b"%PDF")
+
+
+def test_cli_cards_team_ids_in_any_case(folder, tmp_path):
+    out = tmp_path / "one.pdf"
+    result = runner.invoke(app, ["cards", str(folder), "--mode", "team-pages", "--teams", " a03, ", "--out", str(out)])
+    assert result.exit_code == 0, result.output
+    assert "1 teams, 15 cards, 1 pages" in result.output
 
 
 def test_cli_cards_asks_for_mode_and_reprompts(folder, tmp_path):
@@ -410,11 +390,9 @@ def test_reserve_cards_have_a_name_line_and_the_generic_logo(folder, tmp_path):
         assert "Синие зайцы" not in text
     assert all("Команда:" not in text for text in pages[:3])
     # A reserve team has no logo of its own: tournament logo first, then the fallback.
-    card = Card(Team("R1", "", reserve=True), CardId("K7M2Q", "R1", question=1), 1)
     loaded = {key: Image.new("L", (1, 1)) for key in ("A01", "tournament", "fallback")}
-    assert (
-        logo_key(card, CardFields(logo=LogoMode.TEAM_ELSE_TOURNAMENT, tournament_logo="t.png"), loaded) == "tournament"
-    )
+    fields = CardFields(logo=LogoMode.TEAM_ELSE_TOURNAMENT, tournament_logo="t.png")
+    assert first_logo(fields, "R1", loaded) == "tournament"
 
 
 def test_reserve_cards_without_team_names_on_cards(folder, tmp_path):

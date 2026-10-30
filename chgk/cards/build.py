@@ -60,7 +60,7 @@ def build_cards(folder: Path, mode: Mode, out: Path | None = None, team_ids: lis
     state = load_or_create_state(folder)
     sources, logo_warnings = load_logos(folder, tournament.card, teams)
     decks = [team_deck(tournament, state.tid, team) for team in teams]
-    pages = impose(mode, decks, tournament.layout.per_page, state.tid)
+    pages = impose(mode, decks, tournament.layout.per_page)
     if out:
         out = Path(out)
         jury_out = out.with_name(f"{out.stem}-jury.pdf")

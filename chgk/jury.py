@@ -23,7 +23,7 @@ from reportlab.platypus import (
 )
 
 from chgk.cards.geometry import INCH, PAGE_H, PAGE_W, Rect
-from chgk.cards.render import FONT, FONT_BOLD, _fonts, draw_qr, fit_text, printable
+from chgk.cards.render import FONT, FONT_BOLD, draw_qr, fit_text, printable, register_fonts
 from chgk.config import Tournament
 from chgk.ids import encode_board_link, encode_jury_link
 from chgk.state import State
@@ -100,7 +100,7 @@ FORMS_RESERVE_NOTE = (
 
 
 def _styles() -> dict[str, ParagraphStyle]:
-    _fonts()
+    register_fonts()
     base = ParagraphStyle("base", fontName=FONT, fontSize=9.5, leading=12)
     return {
         "base": base,

@@ -9,17 +9,9 @@ up to commit f68651c. Only the findings below matter.
 **Question:** can the scanner page send marks and a ~200 KB photo to an Apps Script
 web app, and read the reply, despite CORS?
 
-How it was run (the files are in the git history):
-
-1. Go to script.google.com → New project → paste `spikes/apps_script_post/Code.gs`.
-2. Deploy → New deployment → type **Web app**; Execute as **Me**; Who has access
-   **Anyone**. Authorize, then copy the `/exec` URL.
-3. Serve the page locally: `uv run python -m http.server 8000 -d spikes`, open
-   <http://localhost:8000/apps_script_post/> on the laptop, and paste the URL.
-4. Run GET, small POST, ~200 KB photo (with and without "save to Drive"), and the
-   burst of 10.
-
-Localhost behaves like GitHub Pages for CORS, so a laptop run answers the question.
+How it was run: a throwaway Apps Script web app and a local test page (both in the git
+history) sent a GET, a small POST, a ~200 KB photo and a burst of 10. Localhost behaves
+like GitHub Pages for CORS, so a laptop run answers the question.
 
 Run 2026-10-29 from the laptop (Python httpx, sending `Origin: https://example.github.io`)
 against the user's deployment. The deployment URL is kept out of the repo.
