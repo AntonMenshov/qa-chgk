@@ -18,13 +18,27 @@ web app, and read the reply, despite CORS?
 
 Localhost behaves like GitHub Pages for CORS, so a laptop run answers the question.
 
+Run 2026-10-29 from the laptop (Python httpx, sending `Origin: https://example.github.io`)
+against the user's deployment. The deployment URL is kept out of the repo.
+
 | Check | Result |
 |---|---|
-| GET works | |
-| POST small JSON works, reply readable | |
-| POST ~200 KB photo works; time | |
-| Photo saved to Drive | |
-| Burst of 10: typical round trip (ms) | |
+| GET works | ✅ 200; 302 redirect to googleusercontent, final response has `Access-Control-Allow-Origin: *` |
+| POST small JSON works, reply readable | ✅ ~1.0 s round trip; Cyrillic echoed correctly; server time ~1 ms |
+| POST photo (94 KB JPEG, 129 K base64 chars) | ✅ 1.3 s round trip; server time 0.1 s |
+| Photo saved to Drive | ✅ 3.0 s round trip; **Drive save itself ~1.9 s** |
+| Burst of 10 small POSTs | ✅ 0.6–1.05 s each, median ~0.95 s |
+
+**Conclusions**
+- The Apps Script backend works as designed. `text/plain` POST needs no preflight,
+  and the CORS header is present on the final response. Still to confirm in real iPhone
+  Safari during spike 2 (the page is ready).
+- ~1 s per request means marks must go **from the background queue, several events
+  per request**, never blocking the juror.
+- Photos cost ~3 s each with the Drive save, so ~75 s for 25 cards if sequential.
+  Upload them in the background with **2–3 in parallel**, separate from marks
+  (already in the spec).
+- The test left one file, `spike.jpg`, in the root of the user's Drive.
 
 ## Spike 2: QR scanning on iPhone Safari
 

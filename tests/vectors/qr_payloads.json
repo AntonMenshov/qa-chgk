@@ -1,0 +1,22 @@
+{
+  "description": "QR payloads on answer cards. Python encodes, the JS scanner decodes; both must agree. 'valid' cases round-trip; 'invalid' cases must be rejected.",
+  "scanner_url": "https://example.github.io/qa-chgk/s/",
+  "cases": [
+    {"payload": "https://example.github.io/qa-chgk/s/#K7M2Q.A07.27", "valid": true, "tid": "K7M2Q", "team_id": "A07", "question": 27, "spare": null},
+    {"payload": "https://example.github.io/qa-chgk/s/#K7M2Q.A07.1", "valid": true, "tid": "K7M2Q", "team_id": "A07", "question": 1, "spare": null},
+    {"payload": "https://example.github.io/qa-chgk/s/#K7M2Q.B12.120", "valid": true, "tid": "K7M2Q", "team_id": "B12", "question": 120, "spare": null},
+    {"payload": "https://example.github.io/qa-chgk/s/#ZZ234.A01.S1", "valid": true, "tid": "ZZ234", "team_id": "A01", "question": null, "spare": 1},
+    {"payload": "https://example.github.io/qa-chgk/s/#ZZ234.A01.S12", "valid": true, "tid": "ZZ234", "team_id": "A01", "question": null, "spare": 12},
+    {"payload": "K7M2Q.A07.27", "valid": true, "tid": "K7M2Q", "team_id": "A07", "question": 27, "spare": null, "note": "bare fragment is accepted"},
+    {"payload": "https://example.github.io/qa-chgk/s/#K7M2Q.A07.0", "valid": false, "note": "question 0"},
+    {"payload": "https://example.github.io/qa-chgk/s/#K7M2Q.A07.027", "valid": false, "note": "leading zero"},
+    {"payload": "https://example.github.io/qa-chgk/s/#K7M2Q.A07.S0", "valid": false, "note": "spare 0"},
+    {"payload": "https://example.github.io/qa-chgk/s/#K0M2Q.A07.27", "valid": false, "note": "0 is not in the TID alphabet"},
+    {"payload": "https://example.github.io/qa-chgk/s/#K7M2.A07.27", "valid": false, "note": "TID too short"},
+    {"payload": "https://example.github.io/qa-chgk/s/#k7m2q.A07.27", "valid": false, "note": "lowercase TID"},
+    {"payload": "https://example.github.io/qa-chgk/s/#K7M2Q.A7.27", "valid": false, "note": "team id needs two digits"},
+    {"payload": "https://example.github.io/qa-chgk/s/#K7M2Q.A07.27.1", "valid": false, "note": "extra part"},
+    {"payload": "https://example.com/some-other-qr", "valid": false, "note": "foreign QR code"},
+    {"payload": "", "valid": false, "note": "empty"}
+  ]
+}

@@ -1,0 +1,86 @@
+"""Card identity: tournament ID, team IDs and the QR payload.
+
+QR payload: `<scanner_url>#<TID>.<TEAM>.<Q>` where Q is a question number or
+`S<n>` for the n-th spare card, e.g. `https://u.github.io/qa-chgk/s/#K7M2Q.A07.27`.
+"""
+
+import re
+import secrets
+from dataclasses import dataclass
+
+# No 0/O or 1/I/L, so a TID can be read aloud or typed without mistakes.
+TID_ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ"
+TID_LENGTH = 5
+TEAM_ID_RE = re.compile(r"^[A-Z][0-9]{2}$")
+_FRAGMENT_RE = re.compile(
+    rf"^(?P<tid>[{TID_ALPHABET}]{{{TID_LENGTH}}})\.(?P<team>[A-Z][0-9]{{2}})\.(?:(?P<q>[1-9][0-9]{{0,2}})|S(?P<s>[1-9][0-9]{{0,1}}))$"
+)
+
+
+class PayloadError(ValueError):
+    """A QR payload is not a valid card ID."""
+
+
+@dataclass(frozen=True)
+class CardId:
+    tid: str
+    team_id: str
+    question: int | None = None  # set for numbered cards
+    spare: int | None = None  # set for spare cards (1-based)
+
+    def __post_init__(self) -> None:
+        if (self.question is None) == (self.spare is None):
+            raise ValueError("a card has either a question number or a spare number")
+
+    @property
+    def fragment(self) -> str:
+        last = str(self.question) if self.question is not None else f"S{self.spare}"
+        return f"{self.tid}.{self.team_id}.{last}"
+
+
+def generate_tid() -> str:
+    return "".join(secrets.choice(TID_ALPHABET) for _ in range(TID_LENGTH))
+
+
+def encode_payload(scanner_url: str, card: CardId) -> str:
+    return f"{scanner_url}#{card.fragment}"
+
+
+def decode_payload(payload: str) -> CardId:
+    """Parse a scanned QR payload (full URL, or just the part after '#')."""
+    fragment = payload.rsplit("#", 1)[-1]
+    m = _FRAGMENT_RE.match(fragment)
+    if not m:
+        raise PayloadError(f"not a ЧГК card: {payload!r}")
+    if m["q"] is not None:
+        return CardId(m["tid"], m["team"], question=int(m["q"]))
+    return CardId(m["tid"], m["team"], spare=int(m["s"]))
+
+
+def _team_id(n: int) -> str:
+    """0 → A01, 98 → A99, 99 → B01, …"""
+    letter, number = divmod(n, 99)
+    if letter >= 26:
+        raise ValueError("too many teams")
+    return f"{chr(ord('A') + letter)}{number + 1:02d}"
+
+
+def assign_team_ids(existing: list[str | None]) -> list[str]:
+    """Keep existing IDs and give each missing one the next unused ID, in order."""
+    used = set()
+    for team_id in existing:
+        if team_id is None:
+            continue
+        if not TEAM_ID_RE.match(team_id):
+            raise ValueError(f"invalid team_id {team_id!r}; expected e.g. A07")
+        if team_id in used:
+            raise ValueError(f"duplicate team_id {team_id}")
+        used.add(team_id)
+    result, n = [], 0
+    for team_id in existing:
+        if team_id is None:
+            while (team_id := _team_id(n)) in used:
+                n += 1
+            used.add(team_id)
+        result.append(team_id)
+    return result

@@ -148,6 +148,9 @@ access needs HTTPS, which GitHub Pages provides.
 - Photos upload separately from marks (JPEG ≈ 150 KB), so a slow photo never delays
   a result.
 - Events are idempotent (`scan_id`), so retries never double-count.
+- Measured (spike 1): one Apps Script request takes ~1 s, and a photo with the Drive
+  save ~3 s. So marks are sent in batches (all pending events in one request), and
+  photos upload 2–3 at a time.
 
 ### 7.3 Multi-juror readiness (UI later)
 Every event carries juror name, device ID, client timestamp and UUID, and the
