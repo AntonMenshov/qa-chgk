@@ -74,8 +74,9 @@ class FakeRange {
     return this;
   }
   /** The sorting itself, shared by Range.sort and the Sheets API's sortRange; counted in sheet.sorts. */
-  sortRows(specs) {
-    const value = makeEvaluator(this.sheet.ss);
+  sortRows(specs, notCalculated = new Set()) {
+    const evaluate = makeEvaluator(this.sheet.ss);
+    const value = (sheet, r, c) => (notCalculated.has(`${r},${c}`) ? '' : evaluate(sheet, r, c));
     const rows = [];
     for (let r = this.row; r < this.row + this.rows; r++) {
       const cells = [];
@@ -366,12 +367,14 @@ function fakeSheetsApi(spreadsheets, api) {
     return sheet;
   };
   // spreadsheets.batchUpdate requests the backend uses, checked before anything is applied
-  // (the real call is all or nothing), then applied in order.
+  // (the real call is all or nothing), then applied in order. Seen live: a formula written
+  // by updateCells is not calculated yet for a sortRange later in the same call (the rows
+  // then sort as if its value were blank), so the fake treats such cells as blank keys.
   const cellValue = (cell) => {
     const v = cell.userEnteredValue || {};
     return v.formulaValue ?? v.stringValue ?? v.numberValue ?? v.boolValue ?? '';
   };
-  const plan = (ss, request) => {
+  const plan = (ss, request, written) => {
     if (request.updateCells) {
       const {start, rows, fields} = request.updateCells;
       if (fields !== 'userEnteredValue') {
@@ -384,7 +387,14 @@ function fakeSheetsApi(spreadsheets, api) {
       }
       return () =>
         rows.forEach((r, i) =>
-          r.values.forEach((cell, j) => sheet.set(start.rowIndex + 1 + i, start.columnIndex + 1 + j, cellValue(cell))),
+          r.values.forEach((cell, j) => {
+            const row = start.rowIndex + 1 + i;
+            const col = start.columnIndex + 1 + j;
+            sheet.set(row, col, cellValue(cell));
+            if (cell.userEnteredValue && cell.userEnteredValue.formulaValue !== undefined) {
+              written.add(`${sheet.sheetId}:${row},${col}`);
+            }
+          }),
         );
     }
     if (request.sortRange) {
@@ -400,7 +410,11 @@ function fakeSheetsApi(spreadsheets, api) {
       });
       const target = sheet.getRange(range.startRowIndex + 1, range.startColumnIndex + 1, rows, cols);
       return () => {
-        target.sortRows(specs);
+        const prefix = `${sheet.sheetId}:`;
+        const notCalculated = new Set(
+          [...written].filter((k) => k.startsWith(prefix)).map((k) => k.slice(prefix.length)),
+        );
+        target.sortRows(specs, notCalculated);
         api.sortRanges += 1;
       };
     }
@@ -424,7 +438,8 @@ function fakeSheetsApi(spreadsheets, api) {
           throw new Error("Quota exceeded for quota metric 'Write requests'");
         }
         const ss = spreadsheets.get(id);
-        const steps = resource.requests.map((request) => plan(ss, request));
+        const written = new Set(); // formula cells written in this call: not calculated yet
+        const steps = resource.requests.map((request) => plan(ss, request, written));
         steps.forEach((step) => step());
         api.requests.push(resource.requests.map((r) => Object.keys(r)[0]));
         return {};

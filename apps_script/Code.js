@@ -659,7 +659,7 @@ function sortTabs_(ss, sizes, rounds, m, reg) {
   if (!tabs.length) {
     return;
   }
-  if (m && reg && sheetsApi_() && sortWithApi_(ss, reg, tabs)) {
+  if (m && m.sortKeysOk && reg && sheetsApi_() && sortWithApi_(ss, reg, tabs)) {
     return;
   }
   // The slow way: per tab, read the formulas and fix the wrong ones, sort, fix them again.
@@ -677,12 +677,15 @@ function sortTabs_(ss, sizes, rounds, m, reg) {
 }
 
 /**
- * Sort tabs in one Sheets API call. Per tab: write its formula columns (the sort keys are
- * their results), sort the team rows, write the formulas again (a moved formula may still
- * point at its old row). The formulas depend only on the row number, so they are written
- * without being read. Needs the teams on rows 2…n+1 with no gaps, as the backend keeps
- * them; otherwise, or when the call fails (quota; a cached tab ID that no longer exists,
- * then dropped from the cache), returns false and the caller sorts the slow way.
+ * Sort tabs in one Sheets API call. Per tab: sort the team rows, then write the formula
+ * columns (a moved formula may still point at its old row). The formulas depend only on
+ * the row number, so they are written without being read. They are not written before
+ * the sort: seen live, a formula written earlier in the same call is not calculated yet
+ * when sortRange runs, so every key looks blank and the rows end up in ID order. The
+ * caller checks the keys first (m.sortKeysOk). Needs the teams on rows 2…n+1 with no gaps,
+ * as the backend keeps them; otherwise, or when the call fails (quota; a cached tab ID
+ * that no longer exists, then dropped from the cache), returns false and the caller
+ * sorts the slow way.
  */
 function sortWithApi_(ss, reg, tabs) {
   const contiguous = tabs.every((tab) =>
@@ -717,7 +720,6 @@ function sortWithApi_(ss, reg, tabs) {
         })),
         fields: 'userEnteredValue',
       };
-      requests.push({updateCells: formulas});
       if (n > 1) {
         requests.push({
           sortRange: {
@@ -728,8 +730,8 @@ function sortWithApi_(ss, reg, tabs) {
             })),
           },
         });
-        requests.push({updateCells: formulas});
       }
+      requests.push({updateCells: formulas});
     });
     if (requests.length) {
       timed_('sort', () => Sheets.Spreadsheets.batchUpdate({requests}, ss.getId()));
@@ -930,10 +932,12 @@ function readMarks_(ss, reg, with_) {
   const lays = sizes.map((_, i) => roundLayout(sizes, i + 1));
   const logFirst = LOG_HEADER.indexOf('scan_id') + 1;
   const logCols = LOG_HEADER.length - logFirst + 1;
+  const sl = summaryLayout(sizes);
+  // With the computed sort keys: «Итоги» up to Итого, round tabs up to «Сумма».
   const specs = [
-    {name: TABS.summary, row: 2, col: 1, cols: 2},
+    {name: TABS.summary, row: 2, col: 1, cols: sl.totalCol},
     {name: TABS.meta, row: 1, col: 1, cols: ml.width},
-  ].concat(lays.map((lay) => ({name: lay.name, row: 2, col: 1, cols: lay.sumCol - 1})));
+  ].concat(lays.map((lay) => ({name: lay.name, row: 2, col: 1, cols: lay.sumCol})));
   if (opts.teams) {
     specs.push({name: TABS.teams, row: 2, col: 1, cols: TEAMS_HEADER.length});
   }
@@ -958,18 +962,37 @@ function readMarks_(ss, reg, with_) {
     .sort((a, b) => (a.team_id < b.team_id ? -1 : a.team_id > b.team_id ? 1 : 0));
   const cells = {};
   const where = {};
+  // The sort keys as the Sheet computed them must agree with the marks read with them; a
+  // formula overwritten by hand makes them disagree, and then sortTabs_ takes the slow way,
+  // which repairs formulas before sorting (the one-call sort can't: see sortWithApi_).
+  let sortKeysOk = true;
+  const roundSums = {};
   lays.forEach((lay, i) => {
     blocks[2 + i].forEach((r, j) => {
       const id = String(r[0]).trim();
       if (!id) {
         return;
       }
+      let took = 0;
       for (let k = 0; k < lay.size; k++) {
         const key = `${id}:${lay.first + k}`;
         cells[key] = {value: r[lay.firstCol - 1 + k], ts: 0};
         where[key] = {name: lay.name, row: j + 2, col: lay.firstCol + k, round: i + 1};
+        took += cells[key].value === 1 ? 1 : 0;
       }
+      (roundSums[id] = roundSums[id] || [])[i] = took;
+      sortKeysOk = sortKeysOk && r[lay.sumCol - 1] === took;
     });
+  });
+  blocks[0].forEach((r) => {
+    const id = String(r[0]).trim();
+    if (id) {
+      const sums = lays.map((_, i) => (roundSums[id] || [])[i] || 0);
+      sums.forEach((sum, i) => {
+        sortKeysOk = sortKeysOk && r[sl.firstRound - 1 + i] === sum;
+      });
+      sortKeysOk = sortKeysOk && r[sl.totalCol - 1] === sums.reduce((a, b) => a + b, 0);
+    }
   });
 
   const metaBlock = blocks[1];
@@ -1002,7 +1025,7 @@ function readMarks_(ss, reg, with_) {
   });
   const meta = {ml, rows, next: Math.max(metaBlock.length, 1) + 1};
 
-  const m = {sizes, n, teams, summaryRows, cells, where, known, meta, w};
+  const m = {sizes, n, teams, summaryRows, cells, where, known, meta, w, sortKeysOk};
   const extra = blocks.slice(2 + lays.length); // the optional blocks, in the order requested
   if (opts.teams) {
     m.teamsTab = teamsFromRows_(extra.shift());

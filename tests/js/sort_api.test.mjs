@@ -142,7 +142,9 @@ test('a mark that changes the order: one API call sorts the tabs; no slow sort, 
   assert.equal(b.$.api.updates - before.updates, 1);
   assert.deepEqual(
     [...b.$.api.requests.at(-1)],
-    ['updateCells', 'sortRange', 'updateCells', 'updateCells', 'sortRange', 'updateCells'],
+    // Per tab: sort, then the formulas. Not before the sort: a formula written earlier in the
+    // same call isn't calculated yet when sortRange runs (seen live; the fake does the same).
+    ['sortRange', 'updateCells', 'sortRange', 'updateCells'],
   );
   assert.equal(w.appSorts(), before.sorts);
   assert.equal(b.$.api.opens, before.opens);
@@ -220,13 +222,15 @@ test('the sort call fails (quota): the slow sort gives the same tabs; nothing is
   assert.equal(slow.registry().sheet_ids, undefined); // dropped after the failed call
 });
 
-test('a «Сумма» formula overwritten by hand is rewritten before sorting, so the sort uses the real sums', () => {
+test('a «Сумма» formula overwritten by hand: the slow sort repairs it before sorting, so the sort uses the real sums', () => {
   const w = world();
   const t1 = w.tab('Тур 1');
   const lay = L.roundLayout(SIZES, 1);
   // Someone typed 99 over A01's «Сумма»: with it, A01 would sort to the top.
   t1.set(t1.rowOf('A01'), lay.sumCol, 99);
+  const sorts = w.appSorts();
   w.post([w.ev({team_id: 'A02', question: 1})]); // changes the order of «Тур 1»
+  assert.ok(w.appSorts() > sorts, 'the sort keys disagree with the marks: slow sort');
   assert.equal(t1.ids()[0], 'A02');
   assert.notEqual(t1.ids()[0], 'A01');
   assertSorted(w);

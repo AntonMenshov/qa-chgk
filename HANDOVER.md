@@ -197,7 +197,14 @@ checks that the decks come out in order.
 
 ## Lessons learned
 
-- Backend 271296487de6 (built, not yet deployed): the spreadsheet is opened only when needed
+- **Seen live (271296487de6):** in one spreadsheets.batchUpdate, a formula written by
+  updateCells is not calculated yet for a later sortRange: every key looked blank and
+  «Итоги» ended up in ID order (totals and places were right). Fix: no formula rewrite
+  before the sort; instead readMarks_ reads the computed keys («Сумма», round sums, Итого)
+  and checks them against the marks (`m.sortKeysOk`); if they disagree (a formula broken
+  by hand) the slow sort, which repairs formulas first, is used. The fake now treats
+  formulas written earlier in the same call as blank sort keys, which reproduces the bug.
+- Backend (lazy open + one-call sort, first deployed as 271296487de6): the spreadsheet is opened only when needed
   (`open_` returns a lazy wrapper); a re-sort is one Sheets API spreadsheets.batchUpdate per
   request (per tab: updateCells formulas, sortRange, updateCells formulas; formulas depend
   only on the row number). Tab IDs cached in the registry (`sheet_ids`); stale ID, quota,
