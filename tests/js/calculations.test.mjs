@@ -64,6 +64,17 @@ function results(b) {
   return res;
 }
 
+/** «Итоги» and every round tab are in the user's order (see compareStandings / roundSortSpec). */
+function assertOrder(ss, roundSizes, teamIds, values, label = "") {
+  const expected = L.standings(roundSizes, teamIds, values).sort(L.compareStandings).map((r) => r.team_id);
+  assert.deepEqual(ss.getSheetByName("Итоги").ids(), expected, `${label} «Итоги» order`);
+  const rows = L.standings(roundSizes, teamIds, values);
+  roundSizes.forEach((_, i) => {
+    const want = [...rows].sort((a, b) => b.rounds[i] - a.rounds[i] || (a.team_id < b.team_id ? -1 : 1)).map((r) => r.team_id);
+    assert.deepEqual(ss.getSheetByName(`Тур ${i + 1}`).ids(), want, `${label} «Тур ${i + 1}» order`);
+  });
+}
+
 function assertMatchesReference(b, roundSizes, teamIds, values, label = "") {
   const res = results(b);
   const expected = L.standings(roundSizes, teamIds, values);
@@ -198,14 +209,17 @@ test("the example tournament: 42 = 2, Фиаско = 1, Совхоз Побед�
   marks.A04[0] = "received";
   sendMarks(b, marks);
   const res = assertMatchesReference(b, [12, 12, 12], ["A01", "A02", "A03", "A04"], asValues(marks));
+  // Фиаско and Совхоз Победа share 2-3; Совхоз Победа is higher: equal in round 3, better in round 2.
   assert.deepEqual(res.standings.map((r) => [r.name, r.rounds, r.total, r.place]), [
     ["42", [2, 0, 0], 2, 1],
-    ["Фиаско", [1, 0, 0], 1, "2-3"],
     ["Совхоз Победа", [0, 1, 0], 1, "2-3"],
+    ["Фиаско", [1, 0, 0], 1, "2-3"],
     ["Звезды сошлись", [0, 0, 0], 0, 4],
   ]);
-  assert.equal(tab("Итоги").value(4, 7), "2-3"); // A03's Место (G)
-  assert.equal(tab("Тур 2").value(4, 15), 1); // Совхоз Победа's «Сумма» for round 2
+  assert.equal(tab("Итоги").value(tab("Итоги").rowOf("A03"), 7), "2-3"); // Место (G)
+  assert.equal(tab("Тур 2").value(tab("Тур 2").rowOf("A03"), 15), 1); // «Сумма» for round 2
+  assert.deepEqual(tab("Тур 1").ids(), ["A01", "A02", "A03", "A04"]); // 2, 1, 0, 0
+  assert.deepEqual(tab("Тур 2").ids(), ["A03", "A01", "A02", "A04"]); // 1, then 0s in ID order
 });
 
 test("ties: everyone level, two groups, a tie for last, a single team", () => {
@@ -234,7 +248,7 @@ test("a team with no marks at all still gets 0 and a place", () => {
   const marks = { A01: ["correct", "correct", null, null], A02: [null, null, null, null], A03: ["correct", null, null, null] };
   sendMarks(b, marks);
   const res = assertMatchesReference(b, [2, 2], ["A01", "A02", "A03"], asValues(marks));
-  assert.deepEqual(res.standings.map((r) => [r.total, r.place]), [[2, 1], [0, 3], [1, 2]]);
+  assert.deepEqual(res.standings.map((r) => [r.team_id, r.total, r.place]), [["A01", 2, 1], ["A03", 1, 2], ["A02", 0, 3]]);
 });
 
 test("a jury edit (? → 1) moves the team up and splits a shared place", () => {
@@ -282,7 +296,7 @@ test("teams added later (chgk teams) get correct sums and push places down", () 
     A03: ["correct", "correct", "correct", null], A04: ["correct", null, null, null] };
   sendMarks(b, { A03: marks.A03, A04: marks.A04 });
   const res = assertMatchesReference(b, sizes, all.map((t) => t.team_id), asValues(marks));
-  assert.deepEqual(res.standings.map((r) => r.place), ["2-3", 4, 1, "2-3"]);
+  assert.deepEqual(res.standings.map((r) => [r.team_id, r.place]), [["A03", 1], ["A01", "2-3"], ["A04", "2-3"], ["A02", 4]]);
 });
 
 test("random tournaments: «Итоги», round sums, places and Stats match the reference (80 cases)", () => {
@@ -298,9 +312,11 @@ test("random tournaments: «Итоги», round sums, places and Stats match the
       if (x < pCorrect) return "correct";
       return r.pick(["incorrect", "disputed", "received", null]);
     })]));
-    const { b } = world(sizes, teams);
+    const { b, ss } = world(sizes, teams);
     sendMarks(b, marks);
-    assertMatchesReference(b, sizes, teams.map((t) => t.team_id), asValues(marks), `case ${k} ${JSON.stringify(sizes)}×${teams.length}`);
+    const label = `case ${k} ${JSON.stringify(sizes)}×${teams.length}`;
+    assertMatchesReference(b, sizes, teams.map((t) => t.team_id), asValues(marks), label);
+    assertOrder(ss, sizes, teams.map((t) => t.team_id), asValues(marks), label);
   }
 });
 
@@ -330,10 +346,88 @@ test("set_teams upgrades «Итоги» formulas from older versions (Место
   const teams = teamList(3);
   const { b, admin, tab } = world([2], teams);
   const sum = tab("Итоги"); // A ID, B name, C Тур 1, D Итого, E Место
-  for (const row of [2, 3, 4]) sum.set(row, 5, `=RANK(D${row},D$2:D)`);
   sendMarks(b, { A01: ["correct", null], A02: ["correct", null], A03: [null, null] });
+  for (const row of [2, 3, 4]) sum.set(row, 5, `=RANK(D${row},D$2:D)`);
   assert.deepEqual(results(b).standings.map((r) => r.place), [1, 1, 3]); // the old behaviour
   b.post({ action: "set_teams", tid: TID, token: admin, teams });
   assert.deepEqual(results(b).standings.map((r) => r.place), ["1-2", "1-2", 3]);
   assert.equal(sum.get(2, 5), L.placeFormula("D", 2));
+});
+
+// ---------- order of rows ----------
+
+test("compareStandings: total, then the last round, then the one before, then ID", () => {
+  const row = (team_id, rounds) => ({ team_id, rounds, total: rounds.reduce((a, b) => a + b, 0) });
+  const rows = [
+    row("A01", [5, 3, 2]), // 10, last round 2
+    row("A02", [2, 4, 4]), // 10, last round 4 → above A01
+    row("A03", [4, 2, 4]), // 10, last round 4, round 2: 2 < 4 → below A02
+    row("A04", [6, 6, 0]), // 12 → first
+    row("A05", [3, 3, 4]), // 10, 4, round 2: 3 → between A02 and A03
+    row("A06", [3, 3, 4]), // identical to A05 → ID order
+    row("A07", [0, 0, 0]),
+  ];
+  assert.deepEqual([...rows].sort(L.compareStandings).map((r) => r.team_id),
+    ["A04", "A02", "A05", "A06", "A03", "A01", "A07"]);
+  // Places stay shared: the order inside a tie does not change the place.
+  assert.deepEqual(L.placeLabels([10, 10, 10, 12, 10, 10, 0]), ["2-6", "2-6", "2-6", 1, "2-6", "2-6", 7]);
+});
+
+test("summarySortSpec / roundSortSpec point at the right columns", () => {
+  // [3, 3, 2]: A ID, B name, C-E rounds, F Итого, G Место
+  assert.deepEqual(L.summarySortSpec([3, 3, 2]), [
+    { column: 6, ascending: false }, { column: 5, ascending: false }, { column: 4, ascending: false },
+    { column: 3, ascending: false }, { column: 1, ascending: true }]);
+  assert.deepEqual(L.roundSortSpec(L.roundLayout([3, 3, 2], 3)), [{ column: 5, ascending: false }, { column: 1, ascending: true }]);
+});
+
+test("«Итоги» in the Sheet: equal totals ordered by the last round, then the round before", () => {
+  const sizes = [3, 3, 3];
+  const teams = teamList(6);
+  const { b, ss } = world(sizes, teams);
+  const plan = { // correct answers per round → order
+    A01: [3, 1, 1], // 5, last 1
+    A02: [1, 1, 3], // 5, last 3 → first among the 5s
+    A03: [2, 0, 3], // 5, last 3, round 2: 0 < 1 → after A02
+    A04: [0, 2, 3], // 5, last 3, round 2: 2 → before A02
+    A05: [3, 3, 3], // 9 → first
+    A06: [0, 0, 0],
+  };
+  const marks = Object.fromEntries(Object.entries(plan).map(([id, per]) =>
+    [id, per.flatMap((k) => [0, 1, 2].map((q) => (q < k ? "correct" : "incorrect")))]));
+  sendMarks(b, marks);
+  const res = assertMatchesReference(b, sizes, teams.map((t) => t.team_id), asValues(marks));
+  assert.deepEqual(res.standings.map((r) => [r.team_id, r.total, r.place]),
+    [["A05", 9, 1], ["A04", 5, "2-5"], ["A02", 5, "2-5"], ["A03", 5, "2-5"], ["A01", 5, "2-5"], ["A06", 0, 6]]);
+  assertOrder(ss, sizes, teams.map((t) => t.team_id), asValues(marks));
+  assert.deepEqual(ss.getSheetByName("Тур 1").ids(), ["A01", "A05", "A03", "A02", "A04", "A06"]);
+});
+
+test("a jury edit re-sorts its round tab and «Итоги»", () => {
+  const teams = teamList(3);
+  const { b, ss, tab } = world([2, 2], teams);
+  sendMarks(b, { A01: ["correct", null, null, null], A02: ["correct", "correct", null, null], A03: [null, null, null, null] });
+  assert.deepEqual(tab("Итоги").ids(), ["A02", "A01", "A03"]);
+  const r2 = tab("Тур 2");
+  const row = r2.rowOf("A03");
+  r2.set(row, 3, "+"); r2.set(row, 4, 1); // the juror gives A03 both round-2 questions
+  b.onSheetEdit({ range: r2.getRange(row, 3, 1, 2) });
+  assert.deepEqual(tab("Тур 2").ids(), ["A03", "A01", "A02"]);
+  assert.deepEqual(tab("Итоги").ids(), ["A03", "A02", "A01"]); // 2 and 2: A03 better in the last round
+  const res = results(b);
+  assert.deepEqual(res.standings.map((r) => [r.team_id, r.place]), [["A03", "1-2"], ["A02", "1-2"], ["A01", 3]]);
+  assertOrder(ss, [2, 2], ["A01", "A02", "A03"], { A01: [1, "", "", ""], A02: [1, 1, "", ""], A03: ["", "", 1, 1] });
+});
+
+// ---------- jury edits are found by comparing with the last known value ----------
+
+test("sheetEdits: only changed marks; typed variants are normalised; nonsense has no status", () => {
+  const edits = L.sheetEdits(
+    { "A01:1": 1, "A01:2": "+", "A01:3": "", "A02:1": "maybe", "A02:2": "?", "A02:3": "р" },
+    { "A01:1": 1, "A01:2": "", "A01:3": 1, "A02:1": "", "A02:2": "?" });
+  assert.deepEqual(edits.map((e) => [e.key, e.status, e.value]), [
+    ["A01:2", "correct", 1], ["A01:3", "cleared", ""], ["A02:1", null, null], ["A02:3", "received", "R"]]);
+  assert.deepEqual(L.sheetEdits({ "A01:1": 1 }, { "A01:1": 1 }), []);
+  assert.deepEqual(L.metaLayout(2).header, ["team_id", 1, 2, "v1", "v2"]);
+  assert.deepEqual([L.metaLayout(2).tsCol(2), L.metaLayout(2).knownCol(1)], [3, 4]);
 });

@@ -200,11 +200,11 @@ function buildTabs_(ss, req) {
     ["tid", req.tid], ["name", req.name], ["date", req.date], ["round_sizes", JSON.stringify(sizes)],
     ["created", new Date()], ["backend_version", VERSION],
   ]);
-  // Last-write timestamps: team_id, then one column per question.
+  // Per team: last-write time of each mark, and the last value the backend knows (metaLayout).
   const meta = ss.insertSheet(TABS.meta, ss.getSheets().length);
-  const n = totalQuestions(sizes);
-  ensureSize_(meta, 1, 1 + n);
-  meta.getRange(1, 1, 1, 1 + n).setValues([["team_id"].concat(Array.from({ length: n }, (_, k) => k + 1))]);
+  const ml = metaLayout(totalQuestions(sizes));
+  ensureSize_(meta, 1, ml.width);
+  meta.getRange(1, 1, 1, ml.width).setValues([ml.header]);
   meta.hideSheet();
 
   formatSheets_(ss, sizes); // first: names must land in plain-text cells
@@ -307,24 +307,46 @@ function syncTeamRows_(ss, sizes, teams) {
     appendRows_(sheet, plan.append.map((t, i) => rowFor(t, first + i)));
     counts = counts || { appended: plan.append.length, renamed: plan.rename.length };
   });
-  refreshSummaryFormulas_(ss, sizes);
   const meta = ss.getSheetByName(TABS.meta);
   const inMeta = new Set(teamRowsOf_(meta).map((t) => t.team_id));
-  const n = totalQuestions(sizes);
+  const ml = metaLayout(totalQuestions(sizes));
   appendRows_(meta, teams.filter((t) => !inMeta.has(t.team_id))
-    .map((t) => [t.team_id].concat(new Array(n).fill(""))));
+    .map((t) => [t.team_id].concat(new Array(ml.width - 1).fill(""))));
+  sortTabs_(ss, sizes, sizes.map((_, i) => i + 1));
   return counts;
 }
 
-/** Rewrite «Итоги» formulas that differ from the current ones (e.g. Место from older versions). */
-function refreshSummaryFormulas_(ss, sizes) {
-  const summary = summaryOf_(ss);
+/**
+ * Re-sort round tabs (by «Сумма») and «Итоги» (by Итого, then the last round, …), then
+ * rewrite any per-row formula that the move left pointing at another row.
+ */
+function sortTabs_(ss, sizes, rounds) {
+  // Formulas are made right before sorting too, since the sort keys are their results.
+  const sortTab = (sheet, width, spec, firstFormulaCol, rowFor) => {
+    const want = (t, row) => rowFor(t, row).slice(firstFormulaCol - 1);
+    refreshFormulas_(sheet, firstFormulaCol, want);
+    if (sheet.getLastRow() > 2) sheet.getRange(2, 1, sheet.getLastRow() - 1, width).sort(spec);
+    refreshFormulas_(sheet, firstFormulaCol, want);
+  };
+  rounds.forEach((round) => {
+    const lay = roundLayout(sizes, round);
+    sortTab(ss.getSheetByName(lay.name), lay.width, roundSortSpec(lay), lay.sumCol, (t, row) => roundRow(lay, t, row));
+  });
+  // Also upgrades «Итоги» formulas written by older versions (e.g. Место as a plain RANK).
   const sl = summaryLayout(sizes);
-  const width = sl.width - sl.firstRound + 1;
-  teamRowsOf_(summary).forEach((t) => {
-    const range = summary.getRange(t.row, sl.firstRound, 1, width);
-    const want = summaryRow(sizes, t, t.row).slice(sl.firstRound - 1);
-    if (range.getFormulas()[0].some((f, i) => f !== want[i])) range.setValues([want]);
+  sortTab(summaryOf_(ss), sl.width, summarySortSpec(sizes), sl.firstRound, (t, row) => summaryRow(sizes, t, row));
+}
+
+/** Rewrite the formula cells from `firstCol` on every team row where they differ from `want(team, row)`. */
+function refreshFormulas_(sheet, firstCol, want) {
+  const teams = teamRowsOf_(sheet);
+  if (!teams.length) return;
+  const width = want(teams[0], teams[0].row).length;
+  const last = teams[teams.length - 1].row;
+  const formulas = sheet.getRange(2, firstCol, last - 1, width).getFormulas();
+  teams.forEach((t) => {
+    const w = want(t, t.row);
+    if (formulas[t.row - 2].some((f, i) => f !== w[i])) sheet.getRange(t.row, firstCol, 1, width).setValues([w]);
   });
 }
 
@@ -337,25 +359,32 @@ function setTeams_(ss, reg, teams) {
 
 // ---- marks ----
 
-/** Meta row per team ID; a team without one gets it appended. */
+/** Meta rows by team ID (a missing team gets a row), and its column layout. */
 function metaRows_(ss, n) {
   const meta = ss.getSheetByName(TABS.meta);
+  const ml = metaLayout(n);
+  ensureSize_(meta, 1, ml.width);
   const rows = new Map(teamRowsOf_(meta).map((t) => [t.team_id, t.row]));
   const rowOf = (teamId) => {
     if (!rows.has(teamId)) {
-      appendRows_(meta, [[teamId].concat(new Array(n).fill(""))]);
+      appendRows_(meta, [[teamId].concat(new Array(ml.width - 1).fill(""))]);
       rows.set(teamId, meta.getLastRow());
     }
     return rows.get(teamId);
   };
-  return { meta, rows, rowOf };
+  return { meta, ml, rows, rowOf };
 }
 
-/** Every mark as "TEAM:Q" → {value, ts}, plus where each one sits on its round tab. */
+/**
+ * Every mark: "TEAM:Q" → {value, ts}, where it sits now, and the last value the backend
+ * knows. Rows are matched by team ID, so the tabs may have been re-sorted in between.
+ */
 function readMarks_(ss, reg) {
   const sizes = reg.round_sizes;
   const n = totalQuestions(sizes);
-  const teams = teamRowsOf_(summaryOf_(ss)).map((t) => ({ team_id: t.team_id, name: t.name }));
+  // ID order (the order of the cards), not the standings order of «Итоги».
+  const teams = teamRowsOf_(summaryOf_(ss)).map((t) => ({ team_id: t.team_id, name: t.name }))
+    .sort((a, b) => (a.team_id < b.team_id ? -1 : a.team_id > b.team_id ? 1 : 0));
   const cells = {};
   const where = {};
   sizes.forEach((_, i) => {
@@ -369,21 +398,73 @@ function readMarks_(ss, reg) {
       for (let k = 0; k < lay.size; k++) {
         const key = `${id}:${lay.first + k}`;
         cells[key] = { value: r[lay.firstCol - 1 + k], ts: 0 };
-        where[key] = { sheet, row: j + 2, col: lay.firstCol + k };
+        where[key] = { sheet, row: j + 2, col: lay.firstCol + k, round: i + 1 };
       }
     });
   });
+
   const m = metaRows_(ss, n);
+  const known = {};
+  // Sheets from before the known-value columns: start from what is on the tabs now.
+  const upgrade = m.meta.getRange(1, m.ml.knownCol(1)).getValue() !== "v1";
+  if (upgrade) m.meta.getRange(1, 1, 1, m.ml.width).setValues([m.ml.header]);
   const lastMeta = m.meta.getLastRow();
   if (lastMeta >= 2) {
-    m.meta.getRange(2, 1, lastMeta - 1, 1 + n).getValues().forEach((r) => {
+    m.meta.getRange(2, 1, lastMeta - 1, m.ml.width).getValues().forEach((r, j) => {
+      const id = String(r[0]).trim();
       for (let q = 1; q <= n; q++) {
-        const cell = cells[`${String(r[0]).trim()}:${q}`];
-        if (cell) cell.ts = Number(r[q]) || 0;
+        const key = `${id}:${q}`;
+        if (!cells[key]) continue;
+        cells[key].ts = Number(r[m.ml.tsCol(q) - 1]) || 0;
+        known[key] = upgrade ? cells[key].value : r[m.ml.knownCol(q) - 1];
+      }
+      if (upgrade) {
+        const row = Array.from({ length: n }, (_, k) => (cells[`${id}:${k + 1}`] || { value: "" }).value);
+        m.meta.getRange(j + 2, m.ml.knownCol(1), 1, n).setValues([row]);
       }
     });
   }
-  return { n, teams, cells, where, meta: m };
+  return { sizes, n, teams, cells, where, known, meta: m };
+}
+
+/** Store a mark's value and time: on its round tab (if `toTab`) and in Meta. */
+function writeMark_(m, key, cell, toTab) {
+  const at = m.where[key];
+  if (toTab) at.sheet.getRange(at.row, at.col).setValue(cell.value);
+  const [teamId, q] = key.split(":");
+  const row = m.meta.rowOf(teamId);
+  m.meta.meta.getRange(row, m.meta.ml.tsCol(Number(q))).setValue(cell.ts);
+  m.meta.meta.getRange(row, m.meta.ml.knownCol(Number(q))).setValue(cell.value);
+  m.known[key] = cell.value;
+}
+
+/**
+ * Pick up jury edits on the round tabs (see sheetEdits): normalise them («+» → 1),
+ * time-stamp and log them. Returns the rounds that changed.
+ */
+function applySheetEdits_(ss, m, user) {
+  const current = {};
+  Object.keys(m.cells).forEach((key) => { current[key] = m.cells[key].value; });
+  const now = Date.now();
+  const rows = [];
+  const rounds = new Set();
+  sheetEdits(current, m.known).forEach((edit) => {
+    const at = m.where[edit.key];
+    const range = at.sheet.getRange(at.row, at.col);
+    if (edit.status === null) {
+      range.setNote("Непонятное значение: используйте 1, 0, ? или R");
+      return;
+    }
+    range.clearNote();
+    m.cells[edit.key] = { value: edit.value, ts: now };
+    writeMark_(m, edit.key, m.cells[edit.key], edit.raw !== edit.value);
+    rounds.add(at.round);
+    const [teamId, q] = edit.key.split(":");
+    rows.push([new Date(now), new Date(now), `sheet-${now}-${edit.key}`, "sheet", user, "", teamId, Number(q), "",
+      edit.status, edit.value, true, ""]);
+  });
+  appendRows_(ss.getSheetByName(TABS.log), rows);
+  return rounds;
 }
 
 function readState_(ss, reg) {
@@ -423,6 +504,8 @@ function readResults_(ss, reg) {
 
 function recordEvents_(ss, reg, req) {
   const m = readMarks_(ss, reg);
+  // Jury edits first, so they get their time before app marks are compared with them.
+  const rounds = applySheetEdits_(ss, m, "");
   const cells = m.cells;
   const before = Object.assign({}, cells);
   const log = ss.getSheetByName(TABS.log);
@@ -436,10 +519,8 @@ function recordEvents_(ss, reg, req) {
   // Write only the cells that changed, so a juror editing the sheet at the same moment is not overwritten.
   Object.keys(cells).forEach((key) => {
     if (cells[key] === before[key]) return;
-    const at = m.where[key];
-    at.sheet.getRange(at.row, at.col).setValue(cells[key].value);
-    const [teamId, q] = key.split(":");
-    m.meta.meta.getRange(m.meta.rowOf(teamId), 1 + Number(q)).setValue(cells[key].ts);
+    writeMark_(m, key, cells[key], true);
+    rounds.add(m.where[key].round);
   });
 
   const now = new Date();
@@ -451,10 +532,15 @@ function recordEvents_(ss, reg, req) {
       ev.question, ev.spare || "", ev.status, STATUS_VALUE[ev.status], o.applied, ev.photo || ""]);
   });
   appendRows_(log, logRows);
+  if (rounds.size) sortTabs_(ss, reg.round_sizes, [...rounds]);
   return { ok: true, results: outcomes };
 }
 
-/** Installable onEdit trigger on each tournament sheet: jury edits on round tabs are logged and time-stamped. */
+/**
+ * Installable onEdit trigger: a jury edit of a mark on a round tab. The edit is found by
+ * comparing every mark with the last known value (not by e.range, whose row may hold
+ * another team by now if the tab was re-sorted), then the tabs are re-sorted.
+ */
 function onSheetEdit(e) {
   const sheet = e.range.getSheet();
   const name = sheet.getName();
@@ -462,33 +548,17 @@ function onSheetEdit(e) {
   const ss = sheet.getParent();
   const settings = ss.getSheetByName(TABS.settings).getRange(1, 1, 6, 2).getValues();
   const sizes = JSON.parse(settings.find((r) => r[0] === "round_sizes")[1]);
+  // Columns never move, so the column still tells whether a mark was touched.
+  let touchesMarks = false;
+  for (let c = 0; c < e.range.getNumColumns(); c++) {
+    if (questionAt(sizes, name, 2, e.range.getColumn() + c) !== null) touchesMarks = true;
+  }
+  if (!touchesMarks || e.range.getRow() + e.range.getNumRows() - 1 < 2) return;
   const user = e.user && e.user.getEmail ? e.user.getEmail() : "";
 
   withLock_(() => {
-    const meta = metaRows_(ss, totalQuestions(sizes));
-    const log = ss.getSheetByName(TABS.log);
-    const now = Date.now();
-    const rows = [];
-    const values = e.range.getValues();
-    values.forEach((rowValues, dr) => rowValues.forEach((raw, dc) => {
-      const row = e.range.getRow() + dr;
-      const col = e.range.getColumn() + dc;
-      const q = questionAt(sizes, name, row, col);
-      if (q === null) return;
-      const teamId = String(sheet.getRange(row, 1).getValue()).trim();
-      if (!teamId) return;
-      const cell = sheet.getRange(row, col);
-      const status = normalizeCellInput(raw);
-      if (status === null) {
-        cell.setNote("Непонятное значение: используйте 1, 0, ? или R");
-        return;
-      }
-      cell.clearNote();
-      const value = STATUS_VALUE[status];
-      if (raw !== value) cell.setValue(value);
-      meta.meta.getRange(meta.rowOf(teamId), 1 + q).setValue(now);
-      rows.push([new Date(now), new Date(now), `sheet-${now}-${row}-${col}`, "sheet", user, "", teamId, q, "", status, value, true, ""]);
-    }));
-    appendRows_(log, rows);
+    const m = readMarks_(ss, { round_sizes: sizes });
+    const rounds = applySheetEdits_(ss, m, user);
+    if (rounds.size) sortTabs_(ss, sizes, [...rounds]);
   });
 }

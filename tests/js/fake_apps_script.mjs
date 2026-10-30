@@ -35,6 +35,45 @@ class FakeRange {
   clearContent() { this.setValues(Array.from({ length: this.rows }, () => new Array(this.cols).fill(""))); return this; }
   setNote(n) { this.sheet.notes.set(`${this.row},${this.col}`, n); return this; }
   clearNote() { this.sheet.notes.delete(`${this.row},${this.col}`); return this; }
+  getNumRows() { return this.rows; }
+  getNumColumns() { return this.cols; }
+  /**
+   * Range.sort: rows ordered by computed values, blanks last. Raw cells and notes move
+   * with their row, but formulas are NOT re-pointed at their new row (the worst case),
+   * so the backend has to rewrite per-row formulas itself.
+   */
+  sort(specs) {
+    const value = makeEvaluator(this.sheet.ss);
+    const rows = [];
+    for (let r = this.row; r < this.row + this.rows; r++) {
+      const cells = [];
+      const notes = [];
+      for (let c = this.col; c < this.col + this.cols; c++) {
+        cells.push(this.sheet.cells.get(`${r},${c}`));
+        notes.push(this.sheet.notes.get(`${r},${c}`));
+      }
+      rows.push({ keys: specs.map((s) => value(this.sheet, r, s.column)), cells, notes });
+    }
+    rows.sort((a, b) => {
+      for (let i = 0; i < specs.length; i++) {
+        const x = a.keys[i];
+        const y = b.keys[i];
+        if (x === y) continue;
+        if (x === "") return 1;
+        if (y === "") return -1;
+        const cmp = typeof x === "number" && typeof y === "number" ? x - y : String(x).localeCompare(String(y));
+        if (cmp !== 0) return specs[i].ascending === false ? -cmp : cmp;
+      }
+      return 0;
+    });
+    rows.forEach((row, i) => row.cells.forEach((v, j) => {
+      const key = `${this.row + i},${this.col + j}`;
+      if (v === undefined) this.sheet.cells.delete(key); else this.sheet.cells.set(key, v);
+      if (row.notes[j] === undefined) this.sheet.notes.delete(key); else this.sheet.notes.set(key, row.notes[j]);
+    }));
+    this.sheet.sorts = (this.sheet.sorts || 0) + 1;
+    return this;
+  }
   getRow() { return this.row; }
   getColumn() { return this.col; }
   getSheet() { return this.sheet; }
@@ -82,6 +121,13 @@ export class FakeSheet {
   setFrozenColumns() {}
   hideSheet() { this.hidden = true; return this; }
   setConditionalFormatRules(rules) { this.rules = rules; }
+  /** The row of a team (column A = its ID): rows move when the backend sorts a tab. */
+  rowOf(teamId) {
+    for (let r = 2; r <= this.getLastRow(); r++) if (this.get(r, 1) === teamId) return r;
+    throw new Error(`${teamId} not on ${this.name}`);
+  }
+  /** Team IDs from row 2 down, i.e. the order the jury sees. */
+  ids() { return Array.from({ length: Math.max(this.getLastRow() - 1, 0) }, (_, i) => this.get(i + 2, 1)).filter(Boolean); }
   /** Row values as a plain array, for assertions. */
   row(r, width) { return Array.from({ length: width }, (_, c) => this.get(r, c + 1)); }
 }

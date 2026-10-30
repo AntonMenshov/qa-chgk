@@ -168,6 +168,12 @@ checks that the decks come out in order.
 
 ## Lessons learned
 
+- Tabs are sorted (user request), so rows move under the jury. Never trust an edit's row:
+  `applySheetEdits_` diffs every mark against Meta's known values by team ID, in the
+  trigger and at the start of every `record_events`. Sorting refreshes per-row formulas
+  before and after `Range.sort` (the fake's sort deliberately doesn't re-point them).
+  `get_state` lists teams in ID order for the phones.
+
 - Test the numbers, not only formula text: `sheet_formulas.mjs` evaluates the backend's
   formulas in the fakes, and `calculations.test.mjs` compares them with
   `standings()`/`placeLabels()` in logic.js. Mutating the place formula is caught by 8 tests.

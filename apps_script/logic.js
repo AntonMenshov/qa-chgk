@@ -248,6 +248,51 @@ function standings(roundSizes, teamIds, marks) {
   return rows;
 }
 
+/** «Итоги» order (user rule): Итого; on a tie the better last round, then the round before, …; then ID. */
+function compareStandings(a, b) {
+  if (a.total !== b.total) return b.total - a.total;
+  for (let i = a.rounds.length - 1; i >= 0; i--) {
+    if (a.rounds[i] !== b.rounds[i]) return b.rounds[i] - a.rounds[i];
+  }
+  return a.team_id < b.team_id ? -1 : a.team_id > b.team_id ? 1 : 0;
+}
+
+/** The same order as Range.sort() specs for «Итоги» (sheet columns, 1-based). */
+function summarySortSpec(roundSizes) {
+  const L = summaryLayout(roundSizes);
+  const spec = [{ column: L.totalCol, ascending: false }];
+  for (let i = roundSizes.length - 1; i >= 0; i--) spec.push({ column: L.firstRound + i, ascending: false });
+  spec.push({ column: 1, ascending: true });
+  return spec;
+}
+
+/** Round tabs: by the round's «Сумма», equal sums in team ID order (the order of the cards). */
+function roundSortSpec(lay) {
+  return [{ column: lay.sumCol, ascending: false }, { column: 1, ascending: true }];
+}
+
+/** Hidden Meta tab: team_id, a last-write time per question, then the last value the backend knows. */
+function metaLayout(n) {
+  const header = ["team_id"];
+  for (let q = 1; q <= n; q++) header.push(q);
+  for (let q = 1; q <= n; q++) header.push(`v${q}`);
+  return { header, width: 1 + 2 * n, tsCol: (q) => 1 + q, knownCol: (q) => 1 + n + q };
+}
+
+/**
+ * Jury edits: marks whose value on a round tab differs from the last value the backend knows.
+ * Found by team ID and question, never by row, so rows may be re-sorted at any time.
+ * `current` and `known` map "TEAM:Q" → value. Returns [{key, raw, status, value}]; status null = not a mark.
+ */
+function sheetEdits(current, known) {
+  return Object.keys(current)
+    .filter((key) => String(current[key]) !== String(key in known ? known[key] : ""))
+    .map((key) => {
+      const status = normalizeCellInput(current[key]);
+      return { key, raw: current[key], status, value: status === null ? null : STATUS_VALUE[status] };
+    });
+}
+
 /** Stats tab rows: one per question with how many teams took it. */
 function statsRows(roundSizes) {
   const rows = [["Вопрос", "Тур", "Взяли", "Доля"]];
@@ -273,6 +318,7 @@ if (typeof module !== "undefined") {
   module.exports = {
     STATUSES, STATUS_VALUE, RequestError, tokensEqual, colLetter, totalQuestions, validateRequest,
     eventError, mergeCell, applyEvents, normalizeCellInput, roundSheetName, roundLayout, roundRow, questionCell,
-    questionAt, summaryLayout, summaryRow, placeFormula, placeLabels, standings, statsRows, planTeamRows,
+    questionAt, summaryLayout, summaryRow, placeFormula, placeLabels, standings, compareStandings, summarySortSpec,
+    roundSortSpec, metaLayout, sheetEdits, statsRows, planTeamRows,
   };
 }

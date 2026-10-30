@@ -162,8 +162,8 @@ test("rows are found by team ID: sorting a round tab doesn't misplace marks", ()
   row3.forEach((v, c) => r2.set(2, c + 1, v));
   row2.forEach((v, c) => r2.set(3, c + 1, v));
   b.post({ action: "record_events", tid: TID, token: JURY, events: [ev({ team_id: "A02", question: 4 })] });
-  assert.deepEqual(r2.row(2, 3), ["A02", "Фиаско", 1]);
-  assert.equal(r2.get(3, 3), "");
+  assert.deepEqual(r2.row(2, 3), ["A02", "Фиаско", 1]); // and A02 now leads «Тур 2»
+  assert.deepEqual(r2.row(3, 3), ["A01", "42", ""]);
   assert.deepEqual(b.post({ action: "get_state", tid: TID, token: JURY }).marks.A02, ["", "", "", 1, "", ""]);
 });
 
@@ -196,17 +196,21 @@ test("set_teams adds rows on every tab for new teams and renames changed ones", 
   ] });
   assert.deepEqual([res.appended, res.renamed], [1, 1]);
   for (const name of ["Итоги", "Тур 1", "Тур 2"]) {
-    assert.equal(tab(name).get(2, 2), "42 (новое имя)", name);
-    assert.deepEqual(tab(name).row(4, 2), ["A03", "Совхоз Победа"], name);
+    const t = tab(name);
+    assert.equal(t.get(t.rowOf("A01"), 2), "42 (новое имя)", name);
+    assert.equal(t.get(t.rowOf("A03"), 2), "Совхоз Победа", name);
   }
-  assert.equal(tab("Итоги").get(4, 5), "=SUM(C4:D4)");
-  assert.equal(tab("Тур 2").get(4, 6), "=COUNTIF(C4:E4,1)");
-  assert.equal(tab("Meta").get(4, 1), "A03");
+  const s3 = tab("Итоги").rowOf("A03");
+  assert.equal(tab("Итоги").get(s3, 5), `=SUM(C${s3}:D${s3})`);
+  const r3 = tab("Тур 2").rowOf("A03");
+  assert.equal(tab("Тур 2").get(r3, 6), `=COUNTIF(C${r3}:E${r3},1)`);
+  assert.equal(tab("Meta").rowOf("A03"), 4);
   assert.deepEqual(b.post({ action: "get_teams", tid: TID, token: admin }).teams.map((t) => t.team_id), ["A01", "A02", "A03"]);
   // Marks for the new team work straight away.
   assert.equal(b.post({ action: "record_events", tid: TID, token: JURY, events: [ev({ team_id: "A03", question: 6 })] })
     .results[0].applied, true);
-  assert.equal(tab("Тур 2").get(4, 5), 1);
+  assert.equal(tab("Тур 2").get(tab("Тур 2").rowOf("A03"), 5), 1);
+  assert.deepEqual(tab("Тур 2").ids(), ["A03", "A01", "A02"]);
 });
 
 test("onSheetEdit: jury edits on a round tab are normalised, time-stamped and logged; nonsense gets a note", () => {
@@ -214,13 +218,16 @@ test("onSheetEdit: jury edits on a round tab are normalised, time-stamped and lo
   const r2 = tab("Тур 2");
   r2.set(3, 4, "+"); // A02, question 5
   b.onSheetEdit({ range: r2.getRange(3, 4), user: { getEmail: () => "judge@gmail.com" } });
-  assert.equal(r2.get(3, 4), 1);
-  assert.ok(tab("Meta").get(3, 1 + 5) > 0);
+  assert.equal(r2.get(r2.rowOf("A02"), 4), 1);
+  assert.equal(r2.rowOf("A02"), 2); // sorted to the top of «Тур 2»
+  assert.ok(tab("Meta").get(tab("Meta").rowOf("A02"), 1 + 5) > 0);
   assert.deepEqual(tab("Log").row(2, 11).slice(3, 11), ["sheet", "judge@gmail.com", "", "A02", 5, "", "correct", 1]);
 
-  r2.set(2, 3, "maybe");
-  b.onSheetEdit({ range: r2.getRange(2, 3) });
-  assert.match(r2.notes.get("2,3"), /Непонятное/);
+  const a01 = r2.rowOf("A01");
+  r2.set(a01, 3, "maybe");
+  b.onSheetEdit({ range: r2.getRange(a01, 3) });
+  assert.match(r2.notes.get(`${r2.rowOf("A01")},3`), /Непонятное/);
+  assert.equal(r2.get(r2.rowOf("A01"), 3), "maybe");
   assert.equal(tab("Log").getLastRow(), 2);
 
   // Names, sums, headers and other tabs are ignored.
@@ -232,5 +239,66 @@ test("onSheetEdit: jury edits on a round tab are normalised, time-stamped and lo
 
   // A later app event older than the jury's edit does not overwrite it.
   b.post({ action: "record_events", tid: TID, token: JURY, events: [ev({ team_id: "A02", status: "incorrect", question: 5, client_ts: Date.now() - 3600000 })] });
-  assert.equal(r2.get(3, 4), 1);
+  assert.equal(r2.get(r2.rowOf("A02"), 4), 1);
+});
+
+test("a jury edit is credited to the right team even if a batch re-sorts the tab before the trigger runs", () => {
+  const { b, tab } = world({ teams: [{ team_id: "A01", name: "42" }, { team_id: "A02", name: "Фиаско" },
+    { team_id: "A03", name: "Совхоз Победа" }] });
+  const r1 = tab("Тур 1");
+  // The juror types «+» for A01, question 1, in row 2 ...
+  assert.equal(r1.rowOf("A01"), 2);
+  r1.set(2, 3, "+");
+  // ... but before the edit trigger runs, a batch from the phone gives A03 two points and
+  // re-sorts «Тур 1»: row 2 now holds A03.
+  b.post({ action: "record_events", tid: TID, token: JURY, events: [
+    ev({ team_id: "A03", question: 2 }), ev({ team_id: "A03", question: 3 })] });
+  assert.equal(r1.rowOf("A03"), 2);
+  // The late trigger still points at row 2.
+  b.onSheetEdit({ range: r1.getRange(2, 3), user: { getEmail: () => "judge@gmail.com" } });
+
+  const marks = b.post({ action: "get_state", tid: TID, token: JURY }).marks;
+  assert.deepEqual(marks.A01.slice(0, 3), [1, "", ""]);
+  assert.deepEqual(marks.A03.slice(0, 3), ["", 1, 1]);
+  const sheetLog = Array.from({ length: tab("Log").getLastRow() - 1 }, (_, i) => tab("Log").row(i + 2, 8))
+    .filter((r) => r[3] === "sheet");
+  assert.deepEqual(sheetLog.map((r) => [r[6], r[7]]), [["A01", 1]]); // logged once, for A01
+  assert.ok(tab("Meta").get(tab("Meta").rowOf("A01"), 2) > 0);
+  assert.equal(tab("Meta").get(tab("Meta").rowOf("A03"), 2), "");
+});
+
+test("a jury edit not yet seen by its trigger still beats an older scan that syncs late", () => {
+  const { b, tab } = world();
+  const r1 = tab("Тур 1");
+  // Scanned «?» a while ago.
+  b.post({ action: "record_events", tid: TID, token: JURY, events: [ev({ status: "disputed", question: 1, client_ts: Date.now() - 600000 })] });
+  // The jury decides «1» in the Sheet; its trigger has not run yet ...
+  r1.set(r1.rowOf("A01"), 3, 1);
+  // ... when a phone that was offline sends an «incorrect» it scanned before the decision.
+  b.post({ action: "record_events", tid: TID, token: JURY, events: [ev({ status: "incorrect", question: 1, client_ts: Date.now() - 60000 })] });
+  assert.equal(r1.get(r1.rowOf("A01"), 3), 1);
+  const log = Array.from({ length: tab("Log").getLastRow() - 1 }, (_, i) => tab("Log").row(i + 2, 12));
+  assert.deepEqual(log.map((r) => [r[3], r[9], r[11]]), [["app", "disputed", true], ["sheet", "correct", true], ["app", "incorrect", false]]);
+});
+
+test("a mark pasted over several cells is picked up for every team", () => {
+  const { b, tab } = world();
+  const r1 = tab("Тур 1");
+  [[2, 3], [2, 4], [3, 3]].forEach(([r, c]) => r1.set(r, c, "1"));
+  b.onSheetEdit({ range: r1.getRange(2, 3, 2, 2) });
+  const marks = b.post({ action: "get_state", tid: TID, token: JURY }).marks;
+  assert.deepEqual([marks.A01.slice(0, 2), marks.A02.slice(0, 2)], [[1, 1], [1, ""]]);
+  assert.equal(tab("Log").getLastRow(), 4);
+});
+
+test("a Meta tab from before the known-value columns is upgraded without logging fake edits", () => {
+  const { b, tab } = world();
+  b.post({ action: "record_events", tid: TID, token: JURY, events: [ev({ question: 1 })] });
+  const meta = tab("Meta");
+  for (let c = 8; c <= 13; c++) for (let r = 1; r <= 3; r++) meta.set(r, c, ""); // drop v1…v6
+  const logRows = tab("Log").getLastRow();
+  b.post({ action: "record_events", tid: TID, token: JURY, events: [ev({ team_id: "A02", question: 2 })] });
+  assert.equal(tab("Log").getLastRow(), logRows + 1); // only the new app event
+  assert.equal(meta.get(1, 8), "v1");
+  assert.equal(meta.get(meta.rowOf("A01"), 8), 1);
 });
