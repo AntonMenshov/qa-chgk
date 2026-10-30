@@ -1,6 +1,6 @@
 """One calibration page for a tournament.
 
-Print scale, QR sizes, logo shades and a row of real cards, so the organizer can check a
+Print scale, QR sizes, logo shades and a row of real cards, so the organiser can check a
 printer before printing everything.
 """
 

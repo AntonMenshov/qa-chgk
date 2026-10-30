@@ -20,7 +20,7 @@ tournament = Tournament(
         tournament_logo=None,  # e.g. "cup.png": tournament folder first, then the logos/ library
         fallback_logo="nologo.png",
         logo_grey=0.10,
-        logo_size=1.85,  # inches: about the largest that fits a 3×5 card left of the QR
+        logo_size=1.85,  # inches, centred on the card (a 3×5 card allows up to ~1.96)
     ),
     layout=Layout(cols=3, rows=5, qr_size=0.65),
 )

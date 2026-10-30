@@ -238,7 +238,7 @@ def test_sync_teams_assigns_ids_and_writes_back(folder, backends):
     profiles.add(Profile("personal", URL_A, "tokA"))
     profiles.save()
     state = new_tournament(folder, profiles.active()).state
-    # The organizer adds a team in the Sheet without an ID.
+    # The organiser adds a team in the Sheet without an ID.
     a.tournaments[state.tid]["teams"].append({"team_id": "", "name": "Новые", "city": "Бостон", "logo_file": ""})
 
     teams = sync_teams(folder, Profiles())

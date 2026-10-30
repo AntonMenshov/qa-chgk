@@ -47,8 +47,8 @@ against the user's deployment. The deployment URL is kept out of the repo.
 **Question:** which QR library scans printed cards fastest and most reliably, and
 what resolution do the card photos come out at?
 
-Needs HTTPS, so the page must be served from GitHub Pages (see HANDOVER.md, "Things
-that need the user"). Open `…/spikes/qr_scan/` on the iPhone, print
+Needs HTTPS, so the page must be served from GitHub Pages
+(<https://antonmenshov.github.io/qa-chgk/spikes/qr_scan/>). Open `…/spikes/qr_scan/` on the iPhone, print
 `out/print_test.pdf`, then for each library:
 - scan the five QR sizes;
 - scan the three sample cards quickly one after another.
@@ -80,7 +80,7 @@ tournament's real settings, QR codes and logo.
 
 | Check | Printer | Result |
 |---|---|---|
-| Grey you'd pick for the logo watermark | (user, 2026-10-29) | **3%** |
+| Grey you'd pick for the logo watermark | (user, 2026-10-29) | **3%** (later 12%, chosen from real cards: SPEC §8.2) |
 | QR size | (user, 2026-10-29) | **0.65 in** (between the 0.6 and 0.7 samples) |
 | Rulers measure exactly 2 in | | not reported |
 | Sample cards: enough room to write? | | not reported |

@@ -1,4 +1,4 @@
-"""Tournament configuration, written by the organizer as `tournaments/<slug>/config.py`."""
+"""Tournament configuration, written by the organiser as `tournaments/<slug>/config.py`."""
 
 import importlib.util
 import re

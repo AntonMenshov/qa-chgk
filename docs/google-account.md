@@ -50,9 +50,12 @@ which holds the results Sheet and a `Фото` folder for card photos.
 ## 2. Use it
 
 ```
-uv run chgk new tournaments/<slug>     # Sheet + Drive folder on the active backend; writes state.json + jury sheet
-uv run chgk teams tournaments/<slug>   # after editing the Teams tab (hidden: ☰ list of sheets)
-uv run chgk cards tournaments/<slug>   # cards + jury sheet with the secret access QR
+uv run chgk new tournaments/<slug>         # Sheet + Drive folder on the active backend; writes state.json + jury sheet
+uv run chgk teams tournaments/<slug>       # after editing the Teams tab (hidden: «Все листы» at the bottom left)
+uv run chgk cards tournaments/<slug>       # cards + jury sheet with the secret access QR
+uv run chgk jury-sheet tournaments/<slug>  # the jury sheet alone
+uv run chgk board tournaments/<slug>       # projector board link (adds its token to older tournaments)
+uv run chgk view tournaments/<slug>        # view-only Sheet link (shares older tournaments' Sheets)
 ```
 
 ## 3. Switch to another account
@@ -76,6 +79,10 @@ code. To update:
 2. **Deploy → Manage deployments → ✎ (edit) → Version: New version → Deploy.**
    Editing the existing deployment keeps the same `/exec` URL, so profiles, jury
    sheets and phones keep working. (**New deployment** would create a new URL.)
+3. A script deployed before the speed-up (2026-10-30) also needs **Services (+) →
+   Google Sheets API → Add** (step 1.4) before the new version; `chgk backend check`
+   warns while it is off. Run `chgk view <folder>` once for each older tournament: it
+   shares its Sheet view-only, hides the service tabs and adds «Спорные».
 
 ## 5. Cleaning up Drive
 
