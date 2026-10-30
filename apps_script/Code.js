@@ -5,10 +5,13 @@
 const VERSION = "dev"; // replaced by `chgk backend bundle`
 const ROOT_FOLDER = "ЧГК";
 // Plus one tab per round, «Тур 1» … «Тур N», right after «Итоги» (see logic.js).
-const TABS = { summary: "Итоги", stats: "Stats", teams: "Teams", log: "Log", settings: "Settings", meta: "Meta" };
-// Hidden, so the view-only link (`…/htmlview`) shows only «Итоги», the round tabs and Stats.
+const TABS = {
+  summary: "Итоги", stats: "Статистика", disputed: "Спорные", teams: "Teams", log: "Log", settings: "Settings", meta: "Meta",
+};
+const OLD_STATS = "Stats"; // the name before 2026-10-30, renamed on the next share_view / set_teams / get_results
+// Hidden, so the view-only link (`…/htmlview`) shows only «Итоги», the round tabs and «Статистика».
 // Google hides a tab for everyone: editors open these from the list of sheets (☰).
-const HIDDEN_TABS = [TABS.teams, TABS.log, TABS.settings, TABS.meta];
+const HIDDEN_TABS = [TABS.disputed, TABS.teams, TABS.log, TABS.settings, TABS.meta];
 const TEAMS_HEADER = ["team_id", "name", "city", "logo_file", "reserve"];
 const RESERVE_MARK = "да"; // Teams tab, column «reserve»: a deck for a team that turns up unregistered
 const LOG_HEADER = ["server_time", "client_time", "scan_id", "source", "juror", "device", "team_id", "question",
@@ -96,8 +99,13 @@ function handle_(req) {
     case "share_view":
       requireAdmin_(props, req);
       shareView_(reg.spreadsheet_id);
-      hideServiceTabs_(open_(reg));
-      return { ok: true };
+      return withLock_(() => {
+        const ss = open_(reg);
+        statsTab_(ss); // older Sheets: «Stats» → «Статистика»
+        refreshDisputed_(ss, reg.round_sizes);
+        hideServiceTabs_(ss);
+        return { ok: true };
+      });
   }
   fail("unhandled action");
 }
@@ -230,6 +238,7 @@ function buildTabs_(ss, req) {
   });
 
   const stats = ss.insertSheet(TABS.stats, ss.getSheets().length);
+  ss.insertSheet(TABS.disputed, ss.getSheets().length);
   const rows = statsRows(sizes);
   stats.getRange(1, 1, rows.length, 4).setValues(rows);
   stats.getRange(1, 1, 1, 4).setFontWeight("bold");
@@ -255,6 +264,7 @@ function buildTabs_(ss, req) {
   writeTeams_(ss, req.teams || [], req.reserve || []);
   syncTeamRows_(ss, sizes, req.teams || []); // reserve teams get rows only once used
   ss.setActiveSheet(summary);
+  refreshDisputed_(ss, sizes);
   hideServiceTabs_(ss);
 }
 
@@ -475,8 +485,10 @@ function refreshFormulas_(sheet, firstCol, want) {
 
 function setTeams_(ss, reg, teams) {
   formatSheets_(ss, reg.round_sizes); // also brings Sheets made by older versions up to date
+  statsTab_(ss);
   writeTeams_(ss, teams);
   const counts = syncTeamRows_(ss, reg.round_sizes, teams);
+  refreshDisputed_(ss, reg.round_sizes); // names may have changed
   return { ok: true, appended: counts.appended, renamed: counts.renamed };
 }
 
@@ -590,6 +602,70 @@ function applySheetEdits_(ss, m, user) {
   return rounds;
 }
 
+// ---- «Спорные»: every undecided «?» (user request) ----
+
+/** {"TEAM:Q": mark} from readMarks_. */
+function markValues_(m) {
+  const values = {};
+  Object.keys(m.cells).forEach((key) => { values[key] = m.cells[key].value; });
+  return values;
+}
+
+/** The latest photo (link or file name) logged for each card, "TEAM:Q" → photo. */
+function logPhotos_(ss) {
+  const log = ss.getSheetByName(TABS.log);
+  const n = log.getLastRow() - 1;
+  const photos = {};
+  if (n < 1) return photos;
+  const first = LOG_HEADER.indexOf("team_id") + 1;
+  const width = LOG_HEADER.indexOf("photo") + 1 - first + 1;
+  log.getRange(2, first, n, width).getValues().forEach((r) => {
+    const photo = String(r[width - 1]).trim();
+    if (photo) photos[`${String(r[0]).trim()}:${Number(r[1])}`] = photo;
+  });
+  return photos;
+}
+
+/** Rewrite «Спорные» from the marks in `m` (created, hidden, if missing). */
+function writeDisputed_(ss, m) {
+  let sheet = ss.getSheetByName(TABS.disputed);
+  if (!sheet) {
+    sheet = ss.insertSheet(TABS.disputed, ss.getSheets().length);
+    sheet.hideSheet();
+  }
+  const names = {};
+  m.teams.forEach((t) => { names[t.team_id] = t.name; });
+  const { list, summary } = disputedSheet(m.sizes, names, markValues_(m), logPhotos_(ss));
+  const last = sheet.getLastRow();
+  if (last > 0) sheet.getRange(1, 1, last, 7).clearContent();
+  ensureSize_(sheet, Math.max(list.length, summary.length), 7);
+  // Team names as plain text, or a team called «42» becomes a number.
+  sheet.getRange(1, 3, sheet.getMaxRows(), 1).setNumberFormat("@");
+  sheet.getRange(1, 6, sheet.getMaxRows(), 1).setNumberFormat("@");
+  sheet.getRange(1, 1, list.length, 4).setValues(list);
+  sheet.getRange(1, 6, summary.length, 2).setValues(summary);
+  sheet.getRange(1, 1, 1, 4).setFontWeight("bold");
+  sheet.getRange(1, 6, summary.length, 1).setFontWeight("bold");
+}
+
+/** Rewrite «Спорные» only when the set of «?» marks changed (most requests leave it alone). */
+function updateDisputed_(ss, m, before) {
+  if (disputedKeys(markValues_(m)).join() !== before || !ss.getSheetByName(TABS.disputed)) writeDisputed_(ss, m);
+}
+
+function refreshDisputed_(ss, sizes) {
+  writeDisputed_(ss, readMarks_(ss, { round_sizes: sizes }));
+}
+
+/** «Статистика»; a Sheet made before the rename still has «Stats», renamed here. */
+function statsTab_(ss) {
+  const sheet = ss.getSheetByName(TABS.stats);
+  if (sheet) return sheet;
+  const old = ss.getSheetByName(OLD_STATS);
+  if (!old) fail(`the Sheet has no «${TABS.stats}» tab`);
+  return old.setName(TABS.stats);
+}
+
 function readState_(ss, reg) {
   const m = readMarks_(ss, reg);
   const reserve = readTeams_(ss).filter((t) => t.reserve);
@@ -648,7 +724,7 @@ function readResults_(ss, reg) {
       rounds: r.slice(sl.firstRound - 1, sl.totalCol - 1), total: r[sl.totalCol - 1], place: r[sl.placeCol - 1],
     }));
   const n = totalQuestions(sizes);
-  const stats = ss.getSheetByName(TABS.stats).getRange(2, 1, n, 4).getValues()
+  const stats = statsTab_(ss).getRange(2, 1, n, 4).getValues()
     .map((r) => ({ question: r[0], round: r[1], took: r[2], share: r[3] }));
   return { ok: true, standings, stats };
 }
@@ -661,6 +737,7 @@ function recordEvents_(ss, reg, req) {
     .filter((ev) => ev && reserveIds.has(ev.team_id) && !eventError(ev, new Set([ev.team_id]), reg.round_sizes, nowMs))
     .map((ev) => ev.team_id));
   const m = readMarks_(ss, reg);
+  const disputedBefore = disputedKeys(m.known).join(); // known values: a jury edit is already on the tab
   // Jury edits first, so they get their time before app marks are compared with them.
   const rounds = applySheetEdits_(ss, m, "");
   const cells = m.cells;
@@ -691,6 +768,7 @@ function recordEvents_(ss, reg, req) {
   });
   appendRows_(log, logRows);
   if (rounds.size) sortTabs_(ss, reg.round_sizes, [...rounds], m);
+  updateDisputed_(ss, m, disputedBefore);
   return { ok: true, results: outcomes };
 }
 
@@ -719,11 +797,16 @@ function onSheetEdit(e) {
   const user = e.user && e.user.getEmail ? e.user.getEmail() : "";
 
   withLock_(() => {
-    if (touchesNames) propagateNames_(ss, sizes, name);
+    if (touchesNames) {
+      propagateNames_(ss, sizes, name);
+      refreshDisputed_(ss, sizes);
+    }
     if (touchesMarks) {
       const m = readMarks_(ss, { round_sizes: sizes });
+      const disputedBefore = disputedKeys(m.known).join(); // known values: a jury edit is already on the tab
       const rounds = applySheetEdits_(ss, m, user);
       if (rounds.size) sortTabs_(ss, sizes, [...rounds], m);
+      updateDisputed_(ss, m, disputedBefore);
     }
   });
 }

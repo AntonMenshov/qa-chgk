@@ -133,10 +133,11 @@ Created by `chgk new`. Tabs:
 | **Log** | Apps Script, append-only | `scan_id` (UUID, idempotent), server time, client time, juror, device, team, question, status, photo link, source (`app` / `sheet`) |
 | **Итоги** (first tab) | formulas | standings: each team's round sums, Итого, Место. A shared place reads «2-3» (user request), a single one is a number. Rows sorted by Итого; on a tie the better last round is higher, then the round before, …, then team ID (user rule; the place stays shared). Round sums are looked up by team ID, so sorting a round tab is harmless. Round columns share their round's colour. Team names are plain text, left-aligned (a team called «42» must not become a number) |
 | **Тур 1 … Тур N** | Apps Script + jury edits | one tab per round (user request): teams × that round's questions (continuous numbers) and «Сумма», sorted by «Сумма» (equal sums in team ID order). Narrow question columns; tab and header coloured, alternating by round |
-| **Stats** | formulas | per question: number of teams that took it, % |
+| **Статистика** (was «Stats», renamed on older Sheets) | formulas | per question: number of teams that took it, % |
+| **Спорные** (hidden) | Apps Script | user request: every undecided «?» — Тур, Вопрос, Команда, Фото (link or file name from Log, once photos exist) — by question, then team ID; to the right: total «?», per round, per team (teams with none left out). Rewritten only when the set of «?» marks (or a name) changes |
 
-Only «Итоги», the round tabs and Stats are visible (user request): Settings, Teams, Log
-and Meta are hidden, so the view-only link (§8.6) shows just the results. Google hides a
+Only «Итоги», the round tabs and «Статистика» are visible (user request): «Спорные»,
+Settings, Teams, Log and Meta are hidden, so the view-only link (§8.6) shows just the results. Google hides a
 tab for everyone, so editors open these from the list of sheets (☰). Hiding is not
 access control (a viewer could still export a hidden tab); nothing secret is kept there.
 
@@ -369,7 +370,8 @@ The Claude API does not output raster images, but it can write SVG.
 | Output | v1 | Later |
 |---|---|---|
 | «Итоги» + per-round tabs (standings, round sums, place) | ✓ | |
-| Stats tab (teams taking each question) | ✓ | |
+| «Статистика» tab (teams taking each question) | ✓ | |
+| «Спорные» tab (every undecided «?», with counts) | ✓ | |
 | Projector board (§10.1) | ✓ | |
 | rating.chgk.info export | | after the core is done |
 | Question-rating tiebreak | | not requested |

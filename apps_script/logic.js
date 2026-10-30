@@ -357,6 +357,37 @@ function statsRows(roundSizes) {
   return rows;
 }
 
+/** "TEAM:Q" keys of every «?» mark, in a stable order: compare two of these to see if «Спорные» must change. */
+function disputedKeys(values) {
+  return Object.keys(values).filter((key) => values[key] === "?").sort();
+}
+
+/**
+ * The «Спорные» tab (user request): every undecided «?» — round, question, team, photo of
+ * the card when there is one — by question, then team ID; and how many there are overall,
+ * per round and per team (teams with none left out, most first).
+ * @param values {"TEAM:Q": mark}   @param names {team_id: name}   @param photos {"TEAM:Q": link or file name}
+ * @returns {{list: any[][], summary: any[][]}}  list goes to A1 (4 columns), summary to F1 (2 columns)
+ */
+function disputedSheet(roundSizes, names, values, photos) {
+  const items = disputedKeys(values).map((key) => {
+    const [teamId, q] = key.split(":");
+    return { teamId, q: Number(q), round: questionCell(roundSizes, Number(q)).round, photo: (photos || {})[key] || "" };
+  }).sort((a, b) => a.q - b.q || (a.teamId < b.teamId ? -1 : a.teamId > b.teamId ? 1 : 0));
+  const name = (id) => names[id] || id;
+  const list = [["Тур", "Вопрос", "Команда", "Фото"]]
+    .concat(items.map((it) => [it.round, it.q, name(it.teamId), it.photo]));
+  const perRound = roundSizes.map((_, i) => items.filter((it) => it.round === i + 1).length);
+  const perTeam = {};
+  items.forEach((it) => { perTeam[it.teamId] = (perTeam[it.teamId] || 0) + 1; });
+  const teams = Object.keys(perTeam).sort((a, b) => perTeam[b] - perTeam[a] || (a < b ? -1 : a > b ? 1 : 0));
+  const summary = [["Всего «?»", items.length], ["", ""], ["Тур", "«?»"]]
+    .concat(perRound.map((n, i) => [`Тур ${i + 1}`, n]))
+    .concat([["", ""], ["Команда", "«?»"]])
+    .concat(teams.length ? teams.map((id) => [name(id), perTeam[id]]) : [["—", 0]]);
+  return { list, summary };
+}
+
 /** Which teams need new rows on a tab and which names changed, given the IDs already there. */
 function planTeamRows(existingRows, teams) {
   const byId = new Map(existingRows.map((r) => [r.team_id, r.name]));
@@ -370,6 +401,6 @@ if (typeof module !== "undefined") {
     STATUSES, STATUS_VALUE, RequestError, tokensEqual, colLetter, totalQuestions, validateRequest,
     eventError, mergeCell, applyEvents, normalizeCellInput, roundSheetName, roundLayout, roundRow, questionCell,
     questionAt, summaryLayout, summaryRow, placeFormula, placeLabels, standings, compareStandings, summarySortSpec,
-    roundSortSpec, roundOrder, summaryOrder, metaLayout, sheetEdits, statsRows, planTeamRows, validateReserve, reservePlaceholder, nameEdits,
+    roundSortSpec, roundOrder, summaryOrder, metaLayout, sheetEdits, statsRows, disputedKeys, disputedSheet, planTeamRows, validateReserve, reservePlaceholder, nameEdits,
   };
 }

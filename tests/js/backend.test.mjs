@@ -67,7 +67,7 @@ test("doGet is a health check; bad JSON and bad tokens are refused", () => {
 test("create_tournament builds every tab and is idempotent for the same jury token", () => {
   const { b, admin, ss, tab } = world();
   assert.deepEqual(ss.getSheets().map((s) => s.getName()),
-    ["Итоги", "Тур 1", "Тур 2", "Stats", "Teams", "Log", "Settings", "Meta"]);
+    ["Итоги", "Тур 1", "Тур 2", "Статистика", "Спорные", "Teams", "Log", "Settings", "Meta"]);
   assert.equal(tab("Meta").hidden, true);
   assert.deepEqual(tab("Итоги").row(1, 6), ["ID", "Команда", "Тур 1", "Тур 2", "Итого", "Место"]);
   assert.deepEqual(tab("Итоги").row(3, 6), ["A02", "Фиаско",
@@ -80,8 +80,9 @@ test("create_tournament builds every tab and is idempotent for the same jury tok
   assert.deepEqual(tab("Meta").row(1, 7), ["team_id", 1, 2, 3, 4, 5, 6]);
   assert.deepEqual(tab("Meta").row(3, 1), ["A02"]);
   assert.deepEqual(tab("Teams").row(3, 4), ["A02", "Фиаско", "Бостон", ""]);
-  assert.equal(tab("Stats").getLastRow(), 7);
-  assert.deepEqual(tab("Stats").row(5, 3), [4, 2, "=COUNTIF('Тур 2'!C$2:C,1)"]);
+  assert.equal(tab("Статистика").getLastRow(), 7);
+  assert.deepEqual(tab("Статистика").row(5, 3), [4, 2, "=COUNTIF('Тур 2'!C$2:C,1)"]);
+  assert.deepEqual(tab("Спорные").row(1, 7), ["Тур", "Вопрос", "Команда", "Фото", "", "Всего «?»", 0]);
   assert.deepEqual(b.$.triggers, ["onSheetEdit"]);
   assert.equal(b.$.root.children[0].name, "ЧГК");
 
@@ -469,18 +470,71 @@ test("the Sheet is view-only for anyone with the link: at creation, and share_vi
   assert.equal(b.$.sharing.get(id), "ANYONE_WITH_LINK:VIEW");
 });
 
-test("only «Итоги», the round tabs and Stats are visible (the view-only link shows visible tabs only)", () => {
+test("only «Итоги», the round tabs and «Статистика» are visible (the view-only link shows visible tabs only)", () => {
   const { b, admin } = world();
   const ss = b.$.spreadsheets.get(JSON.parse(b.$.props.get(`t:${TID}`)).spreadsheet_id);
   const visible = () => ss.getSheets().filter((s) => !s.isSheetHidden()).map((s) => s.getName());
-  assert.deepEqual(visible(), ["Итоги", "Тур 1", "Тур 2", "Stats"]);
+  assert.deepEqual(visible(), ["Итоги", "Тур 1", "Тур 2", "Статистика"]);
   // A tournament created before: share_view hides them too; the backend still works with hidden tabs.
   for (const s of ss.getSheets()) s.hidden = false;
   assert.equal(b.post({ action: "share_view", tid: TID, token: admin }).ok, true);
-  assert.deepEqual(visible(), ["Итоги", "Тур 1", "Тур 2", "Stats"]);
+  assert.deepEqual(visible(), ["Итоги", "Тур 1", "Тур 2", "Статистика"]);
   assert.equal(b.post({ action: "record_events", tid: TID, token: JURY, events: [ev({ question: 1 })] }).ok, true);
   assert.equal(b.post({ action: "set_teams", tid: TID, token: admin, teams: TEAMS }).ok, true);
   assert.ok(ss.getSheetByName("Log").getLastRow() > 1);
+});
+
+test("«Спорные» lists every «?» with its round, question, team and photo, and the counts; it follows the marks", () => {
+  const { b, tab } = world();
+  const post = (events) => assert.equal(b.post({ action: "record_events", tid: TID, token: JURY, events }).ok, true);
+  post([ev({ team_id: "A02", question: 5, status: "disputed", photo: "https://drive.example/card-a02-5.jpg" }),
+    ev({ team_id: "A01", question: 2, status: "disputed" }), ev({ team_id: "A01", question: 5, status: "disputed" }),
+    ev({ team_id: "A02", question: 1, status: "correct" })]);
+  const d = tab("Спорные");
+  assert.equal(d.hidden, true); // not on the view-only link
+  const list = () => Array.from({ length: d.getLastRow() }, (_, i) => d.row(i + 1, 4)).filter((r) => r[0] !== "");
+  assert.deepEqual(list(), [["Тур", "Вопрос", "Команда", "Фото"], [1, 2, "42", ""], [2, 5, "42", ""],
+    [2, 5, "Фиаско", "https://drive.example/card-a02-5.jpg"]]);
+  const summary = () => Array.from({ length: d.getLastRow() }, (_, i) => [d.get(i + 1, 6), d.get(i + 1, 7)]).filter((r) => r[0] !== "");
+  assert.deepEqual(summary(), [["Всего «?»", 3], ["Тур", "«?»"], ["Тур 1", 1], ["Тур 2", 2], ["Команда", "«?»"], ["42", 2], ["Фиаско", 1]]);
+
+  // The jury decides one in the Sheet (trigger): it leaves the list and the counts.
+  const r2 = tab("Тур 2");
+  r2.set(r2.rowOf("A01"), 4, "1");
+  b.onSheetEdit({ range: r2.getRange(r2.rowOf("A01"), 4) });
+  assert.deepEqual(list().slice(1), [[1, 2, "42", ""], [2, 5, "Фиаско", "https://drive.example/card-a02-5.jpg"]]);
+  assert.deepEqual(summary()[0], ["Всего «?»", 2]);
+  // ... and from the phone: the last one in round 1 goes, no stale rows stay behind.
+  post([ev({ team_id: "A01", question: 2, status: "incorrect" })]);
+  assert.deepEqual(list().slice(1), [[2, 5, "Фиаско", "https://drive.example/card-a02-5.jpg"]]);
+  assert.deepEqual(summary(), [["Всего «?»", 1], ["Тур", "«?»"], ["Тур 1", 0], ["Тур 2", 1], ["Команда", "«?»"], ["Фиаско", 1]]);
+  // A renamed team is renamed there too.
+  const summaryTab = tab("Итоги");
+  summaryTab.set(summaryTab.rowOf("A02"), 2, "Фиаско-2");
+  b.onSheetEdit({ range: summaryTab.getRange(summaryTab.rowOf("A02"), 2) });
+  assert.equal(list()[1][2], "Фиаско-2");
+});
+
+test("a request that changes no «?» leaves «Спорные» untouched", () => {
+  const { b, tab } = world();
+  b.post({ action: "record_events", tid: TID, token: JURY, events: [ev({ team_id: "A02", question: 3, status: "disputed" })] });
+  const d = tab("Спорные");
+  d.set(30, 1, "marker"); // would be cleared by a rewrite
+  b.post({ action: "record_events", tid: TID, token: JURY, events: [ev({ question: 1, status: "correct" })] });
+  assert.equal(d.get(30, 1), "marker");
+});
+
+test("an older Sheet: share_view renames «Stats» to «Статистика» and adds «Спорные»", () => {
+  const { b, admin, ss, tab } = world();
+  b.post({ action: "record_events", tid: TID, token: JURY, events: [ev({ question: 4, status: "disputed" })] });
+  tab("Статистика").setName("Stats");
+  ss.sheets.splice(ss.sheets.indexOf(tab("Спорные")), 1);
+  assert.match(b.post({ action: "get_results", tid: TID, token: JURY }).ok ? "ok" : "", /ok/); // still readable
+  assert.equal(b.post({ action: "share_view", tid: TID, token: admin }).ok, true);
+  assert.equal(tab("Stats"), null);
+  assert.ok(tab("Статистика"));
+  assert.deepEqual(tab("Спорные").row(2, 3), [2, 4, "42"]);
+  assert.equal(tab("Спорные").hidden, true);
 });
 
 test("set_board_token gives an older tournament a board link (admin only); a weak token is refused", () => {

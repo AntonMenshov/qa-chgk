@@ -162,7 +162,7 @@ test("standings: only 1 counts; 0, ?, R and blanks don't", () => {
 
 test("evaluator: the functions and operators the backend uses", () => {
   const { ss, tab } = world([2], teamList(1));
-  const s = tab("Stats");
+  const s = tab("Статистика");
   const put = (r, c, v) => s.set(r, c, v);
   [[1, 3], [2, 5], [3, 5], [4, "R"], [5, ""]].forEach(([r, v]) => put(20 + r, 10, v));
   const cases = {

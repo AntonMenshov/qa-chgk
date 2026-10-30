@@ -166,9 +166,15 @@ checks that the decks come out in order.
 
 1. **User checks:** the scanner on an iPhone with the example cards (incl. «Чья
    карточка?»); the two Sheet-trigger checks under "Things that need the user".
-2. **Backend latency:** ~3.3–4.8 s per request regardless of work. Add a timing
-   breakdown to the reply, then optimise the biggest part (background-only for the
-   juror, but it delays the board and the Sheet).
+2. **Backend latency** — profiled 2026-10-30 from outside (throwaway tournament HVTXT,
+   30 teams × 3×12, medians): ping 0.96 s (Apps Script floor; redirect hop 0.1 s);
+   get_board 2.6 s; get_state 2.8 s; record_events: duplicate (reads only) 3.2 s,
+   1 mark no sort 4.3 s, 1 mark + sort 5.0 s, 15 marks 5.9 s; a 1000-row Log changes
+   little (+0.3 s). So: ~1 s platform, ~1.5–2 s opening + reading (≈8 separate range
+   reads), ~1 s writes (3 single-cell writes per mark), ~0.7 s sort + formula refresh.
+   Proposals given to the user (not implemented): timing breakdown in the reply; one
+   batched read/write via the Sheets API; CacheService snapshot for get_board/get_state;
+   row-independent formulas so sorting needs no refresh.
 3. **Phase 4 — card photos** (PLAN.md). Until then the jury sheet must not promise
    photos (it doesn't since a9268c5+1).
 4. **Phase 6 — logos:** SVG input, Claude-drawn SVG, image-API generation.
@@ -182,6 +188,12 @@ checks that the decks come out in order.
 - Board (user decisions, SPEC §10.1): revealed by hand after each round; full grid up to
   5 teams, else total + last round's grid; «Взяли» row. Read-only board token
   (`get_board`); `chgk board` adds one to tournaments created before Phase 5.
+
+- «Спорные» (user request): hidden tab listing every «?» (Тур, Вопрос, Команда, Фото from
+  Log) with totals overall / per round / per team. Written by the backend only when the
+  set of «?» changes — compared with Meta's known values, since a jury edit is already on
+  the tab when the trigger reads it (a test caught this). «Stats» renamed «Статистика»
+  (older Sheets renamed by share_view / set_teams / get_results). Backend 913ed7912c2d.
 
 - Cards: no date unless `CardFields(date=True)` (user: "I never asked for it"; it had
   been on by default since Phase 1). Reserve decks print their ID (R1, …) small and bold
@@ -313,7 +325,7 @@ checks that the decks come out in order.
   «R1 · впишите название», and a mark edit on a round tab (`+` → `1`, row moves, Log row).
 - Backend a90ec10bb671 deployed: Teams, Log, Settings, Meta hidden at creation and by
   `share_view` (user request). `chgk view` applied it to QHZJ8; checked without a Google
-  login: the view-only link shows only Итоги, Тур 1-3, Stats.
+  login: the view-only link shows only Итоги, Тур 1-3, Stats (now «Статистика»).
 - Delete the old example folder `ЧГК/… (5R547)` (single Results layout) from Drive.
 - A real print of the cards.
 - Delete `spike.jpg` from the root of their Google Drive (left by spike 1).

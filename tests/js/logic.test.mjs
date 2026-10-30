@@ -140,6 +140,31 @@ test("statsRows", () => {
   assert.deepEqual(rows[3], [3, 2, "=COUNTIF('Тур 2'!C$2:C,1)", "=IFERROR(C4/COUNTA('Тур 2'!$A$2:$A),0)"]);
 });
 
+test("disputedSheet: every «?» by question then team, with totals overall, per round and per team", () => {
+  const values = { "A02:5": "?", "A01:5": "?", "A01:1": "?", "A01:2": 1, "A03:4": "R", "B07:2": "?" };
+  const names = { A01: "Синие", A02: "42", B07: "Фиаско" };
+  const { list, summary } = L.disputedSheet([3, 3], names, values, { "A01:5": "https://drive/photo-1" });
+  assert.deepEqual(list, [
+    ["Тур", "Вопрос", "Команда", "Фото"],
+    [1, 1, "Синие", ""],
+    [1, 2, "Фиаско", ""],
+    [2, 5, "Синие", "https://drive/photo-1"],
+    [2, 5, "42", ""],
+  ]);
+  assert.deepEqual(summary, [
+    ["Всего «?»", 4], ["", ""], ["Тур", "«?»"], ["Тур 1", 2], ["Тур 2", 2],
+    ["", ""], ["Команда", "«?»"], ["Синие", 2], ["42", 1], ["Фиаско", 1],
+  ]);
+  assert.deepEqual(L.disputedKeys(values), ["A01:1", "A01:5", "A02:5", "B07:2"]);
+});
+
+test("disputedSheet with no «?»: an empty list and zeros", () => {
+  const { list, summary } = L.disputedSheet([2, 2], {}, { "A01:1": 1, "A01:2": "R" }, {});
+  assert.deepEqual(list, [["Тур", "Вопрос", "Команда", "Фото"]]);
+  assert.deepEqual(summary.slice(0, 5), [["Всего «?»", 0], ["", ""], ["Тур", "«?»"], ["Тур 1", 0], ["Тур 2", 0]]);
+  assert.deepEqual(summary.slice(-2), [["Команда", "«?»"], ["—", 0]]);
+});
+
 test("planTeamRows", () => {
   const plan = L.planTeamRows(
     [{ team_id: "A01", name: "Старое" }, { team_id: "A02", name: "Same" }],
