@@ -24,7 +24,7 @@ Full design: [SPEC.md](SPEC.md). Build order: [PLAN.md](PLAN.md).
 | 2 — Apps Script backend + Sheet | ✅ deployed under the user's Gmail and checked live (sums, places, order, reserve teams, IDs); two Sheet-trigger checks still to be confirmed by the user |
 | 3 — Scanner web app | 🔶 built and tested (unit + integration + headless-Chrome end-to-end with a fake camera); waiting for the live and iPhone checks |
 | 4 — Card photos | not started |
-| 5 — Projector board + stats | 🔶 built and tested (logic vs logic.js on random data, backend, headless Chrome); waiting for the backend redeploy and a live check |
+| 5 — Projector board + stats | ✅ built, tested and checked live (version 6db9ad957009, example QHZJ8) |
 | 6 — Logos | partly done: PNG/JPG → pale greyscale, shared private library, fallback owl. Left: SVG, Claude-drawn SVG, image-API generation |
 
 ### Repository layout
@@ -285,6 +285,10 @@ checks that the decks come out in order.
   not the order changes, so the sort was not the main cost; it is fixed per-request
   overhead. Background-only for the juror. Next backend update: add a timing breakdown to
   the reply, then optimise the biggest part.
+  2026-10-30 board live check: version 6db9ad957009 deployed, `chgk board` gave QHZJ8 a
+  board token, jury.pdf regenerated (board QR on page 1). Headless Chrome on the Pages
+  board against the real backend: title screen, then → reveals Тур 1 and Тур 2 (grid, 4
+  teams, all «1-4» with no marks yet), no page errors.
   **Still to confirm by the user (needs the edit trigger):** typing a name over
   «R1 · впишите название», and a mark edit on a round tab (`+` → `1`, row moves, Log row).
 - Delete the old example folder `ЧГК/… (5R547)` (single Results layout) from Drive.
