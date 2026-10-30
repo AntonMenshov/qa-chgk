@@ -210,7 +210,14 @@ checks that the decks come out in order.
   get_state 2.8 → 1.8 s, 1 mark 4.3 → 2.0 s, 1 mark + sort 5.0 → 2.9 s, duplicate
   3.2 → 2.0 s, 15 marks 5.9 → 4.4 s; ping ~1.0-1.2 s is the platform floor.
   Every successful reply now has `timing` (ms per step: access, lock, open, read/write or
-  read_fallback/write_fallback, sort_formulas, sort_range, notes, reserve, rest, total). #2 (cache) kept for later, #4 (ARRAYFORMULA) rejected, #1 (timings) next.
+  read_fallback/write_fallback, sort_formulas, sort_range, notes, reserve, rest, total).
+  Live per-step medians (890a366d62b5, HVTXT): Google outside the script ~1.0 s on every
+  request (ping 0.93 s); access 0.03; open 0.29 (every request, inside the lock for
+  marks); read 0.21-0.36; write 0.19-0.30; rest 0.17 (1 mark) to 0.38 (15 marks: logTime_
+  per row); a re-sort adds sort_formulas 0.33 + sort_range 0.13 + ~0.2 in rest (ID read,
+  getSheetByName). Lock: 2nd simultaneous phone waits 1.1-1.4 s, 3rd ~2.0 s. Proposals
+  to the user: skip openById on the fast path; sort + formula rewrite in one API call
+  (sheet IDs cached); time zone once per request and «Итоги» order from the batch read. #2 (cache) kept for later, #4 (ARRAYFORMULA) rejected, #1 (timings) next.
 
 - «Спорные» (user request): hidden tab listing every «?» (Тур, Вопрос, Команда, Фото from
   Log) with totals overall / per round / per team. Written by the backend only when the
