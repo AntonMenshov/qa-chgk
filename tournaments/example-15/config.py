@@ -22,5 +22,5 @@ tournament = Tournament(
         logo_grey=0.10,
         logo_size=1.85,  # inches, centred on the card (a 3×4 card allows up to ~2.48)
     ),
-    layout=Layout(cols=3, rows=4, qr_size=0.65),
+    layout=Layout(cols=3, rows=4, qr_size=0.85),
 )

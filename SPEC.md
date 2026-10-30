@@ -146,7 +146,7 @@ tournament = Tournament(
         logo_size=None,  # inches; None fits the writing area (§9)
         logo_grey=0.12,
     ),
-    layout=Layout(cols=3, rows=4, qr_size=0.65),  # 12 cards per Letter page
+    layout=Layout(cols=3, rows=4, qr_size=0.85),  # 12 cards per Letter page
 )
 ```
 
@@ -213,8 +213,8 @@ A missing card scores as incorrect, but the sheet always shows whether a card wa
   - `TID`: random 5-char tournament code; `TEAM`: `team_id`; `Q`: question number,
     or `S1…Sn` for spare cards.
   - Example: `…/s/#K7M2Q.A07.27`. This is short enough for a small, robust QR
-    (error correction M, quiet zone 4 modules). Printed at **0.65″** including the
-    quiet zone (user's choice from the test print; configurable).
+    (error correction M, quiet zone 4 modules). Printed at **0.85″** including the
+    quiet zone (configurable; the test print chose 0.65″, later raised by ~30% on request).
 - The QR contains no secret. Submitting a mark requires the jury token (§7.4).
 - A numbered card's mark always goes to the question in its QR code. Only when a
   **spare card** is scanned (no number in its QR) does the app ask the juror, right

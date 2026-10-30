@@ -18,7 +18,7 @@ from chgk.ids import CardId, encode_payload
 from chgk.logos import pale
 from chgk.teams import Team
 
-QR_SIZES = [0.55, 0.6, 0.65, 0.7, 0.8]
+QR_SIZES = [0.55, 0.65, 0.75, 0.85, 0.95]
 GREYS = [0.03, 0.05, 0.08, 0.12, 0.16, 0.20]
 
 

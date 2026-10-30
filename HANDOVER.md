@@ -184,7 +184,7 @@ checks that the decks come out in order.
   Latin renaming, `share_view`) were removed after the example (QHZJ8) had been upgraded.
   A tournament made by an older version must be created again.
 - **QR:** a URL, `…/s/#<TID>.<TEAM>.<Q>`; spare cards use `S1…Sn`. Printed at
-  **0.65 in** including the quiet zone, error correction M, vector.
+  **0.85 in** including the quiet zone (was 0.65; user asked for ~30% bigger), error correction M, vector.
 - **Team IDs** are the organiser's (e.g. rating numbers such as 58746) or assigned
   A01…; 1-8 of `[0-9A-Z]`, which keeps the QR at version 4-M.
 - **Mark cells (round tabs):**

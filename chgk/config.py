@@ -52,7 +52,7 @@ class Layout:
 
     cols: int = 3
     rows: int = 4
-    qr_size: float = 0.65  # including the quiet zone
+    qr_size: float = 0.85  # including the quiet zone
     margin: float = 0.25
 
     def __post_init__(self) -> None:
