@@ -355,9 +355,26 @@ The Claude API does not output raster images, but it can write SVG.
 |---|---|---|
 | «Итоги» + per-round tabs (standings, round sums, place) | ✓ | |
 | Stats tab (teams taking each question) | ✓ | |
-| Projector board (web page, live standings, read-only token) | ✓ | |
+| Projector board (§10.1) | ✓ | |
 | rating.chgk.info export | | after the core is done |
 | Question-rating tiebreak | | not requested |
+
+### 10.1 Projector board (user decisions)
+- A web page next to the scanner (`…/b/`), opened on the projector laptop from the board
+  link (QR on page 1 of the jury sheet, or `chgk board`). Read-only: its board token can
+  read teams and marks but nothing else, and is separate from the jury token.
+- **Shown only after each round.** Nothing appears until the person at the projector
+  presses → (or space, or «Показать тур N»); each press reveals the next round, ← takes
+  the last one back. Totals, order and places use only the revealed rounds, so marks
+  already coming in for the next round never leak. The page refreshes every 15 s, so
+  appeal corrections in revealed rounds appear on their own.
+- **Up to `board_grid_max_teams` teams (default 5):** the full grid of every revealed
+  round (+ / − per question, «Σ» per round), then Итого and Место. **More teams:** Место,
+  Команда, Итого and the grid of the last revealed round. G switches views; F fullscreen.
+- A «Взяли» row under the grid: how many teams took each question.
+- Order and places as in «Итоги»: Итого, then the last revealed round, the round before,
+  …, then team ID; shared places «2-3». `?` and `R` show as «?» and count as 0; a
+  missing card is «−».
 
 ## 11. Testing (required for every phase)
 
@@ -402,12 +419,12 @@ uv run chgk logos tournaments/<slug>        # process/generate logos → pale PN
 uv run chgk cards tournaments/<slug> [--mode team-pages|cut-stack|scissors] [--teams A01,A07]
 uv run chgk test-page tournaments/<slug>
 uv run chgk jury-sheet tournaments/<slug>   # jury printout (also written by `cards`)
-uv run chgk board-link tournaments/<slug>   # projector URL
+uv run chgk board tournaments/<slug>        # projector board link (creates its token for older tournaments)
 ```
 
 ## 14. Open items (non-blocking; defaults in brackets)
 
 1. How many spare cards per team [3]?
-2. Projector board: freeze standings during the last round [no]?
+2. ~~Projector board: freeze standings~~ decided: shown only after each round, revealed by hand (§10.1).
 3. Card photos: how long to keep them in Drive [forever]?
 4. Fill empty slots on the last `team-pages` page with extra spares [yes]?

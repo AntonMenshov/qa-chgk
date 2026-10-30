@@ -123,9 +123,13 @@ class BackendClient:
         return self.call("ping")
 
     def create_tournament(self, tid: str, name: str, date: str, round_sizes: list[int], jury_token: str,
-                          teams: list[dict], reserve: list[str] = ()) -> dict:
+                          teams: list[dict], reserve: list[str] = (), board_token: str | None = None) -> dict:
+        extra = {"board_token": board_token} if board_token else {}
         return self.call("create_tournament", tid=tid, name=name, date=date, round_sizes=round_sizes,
-                         jury_token=jury_token, teams=teams, reserve=list(reserve))
+                         jury_token=jury_token, teams=teams, reserve=list(reserve), **extra)
+
+    def set_board_token(self, tid: str, board_token: str) -> dict:
+        return self.call("set_board_token", tid=tid, board_token=board_token)
 
     def get_teams(self, tid: str) -> list[dict]:
         return self.call("get_teams", tid=tid)["teams"]

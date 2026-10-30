@@ -23,7 +23,7 @@ from reportlab.platypus import (
 from chgk.cards.geometry import INCH, PAGE_H, PAGE_W, Rect
 from chgk.cards.render import FONT, FONT_BOLD, _fonts, draw_qr, fit_text, printable
 from chgk.config import Tournament
-from chgk.ids import encode_jury_link
+from chgk.ids import encode_board_link, encode_jury_link
 from chgk.state import State
 from chgk.teams import Team
 
@@ -57,6 +57,14 @@ APPEALS_HOWTO = [
     "Чтобы решить «?» или апелляцию, впишите в клетку 1 или 0. Изменение попадёт в "
     "журнал (лист «Log»); всегда действует последнее изменение.",
     "Лист «Log» вручную не правьте: это журнал всех отметок.",
+]
+
+BOARD_HOWTO = [
+    "Откройте QR «Табло для проектора» (стр. 1) на компьютере у проектора; F — во весь экран.",
+    "Табло ничего не показывает, пока не нажать стрелку вправо (или пробел): каждое нажатие "
+    "открывает следующий тур, стрелка влево убирает последний. Места считаются только по "
+    "открытым турам.",
+    "Исправления после апелляций в открытых турах появятся сами (табло обновляется каждые 15 с).",
 ]
 
 RESERVE_HOWTO = [
@@ -101,6 +109,11 @@ def _link(url: str) -> str:
     return f'<a href="{escape(url, {chr(34): "&quot;"})}" color="#1a4fa0">{escape(url)}</a>'
 
 
+def board_link(t: Tournament, state: State) -> str | None:
+    access = state.board_access
+    return encode_board_link(t.scanner_url, access, t.board_grid_max_teams) if access else None
+
+
 def _qr_panels(t: Tournament, state: State) -> list[tuple[str, str, str | None, bool]]:
     """(title, hint, payload or None, secret) for every QR code the jury needs."""
     access = state.jury_access
@@ -111,7 +124,8 @@ def _qr_panels(t: Tournament, state: State) -> list[tuple[str, str, str | None, 
          encode_jury_link(t.scanner_url, access) if access else None, True),
         ("Сканер", "Открыть приложение жюри (без доступа к турниру).", t.scanner_url, False),
         ("Таблица результатов", "Google Sheet: «Итоги», листы туров.", state.spreadsheet_url or None, False),
-        ("Табло для проектора", "Открыть на компьютере у проектора.", state.board_url or None, False),
+        ("Табло для проектора", "На компьютере у проектора. После тура: стрелка вправо.",
+         board_link(t, state), False),
     ]
 
 
@@ -189,7 +203,7 @@ def _links_table(t: Tournament, state: State, s) -> Table:
     rows = [
         ("Сканер жюри", _link(t.scanner_url)),
         ("Таблица результатов", _link(state.spreadsheet_url) if state.spreadsheet_url else NOT_YET),
-        ("Табло для проектора", _link(state.board_url) if state.board_url else NOT_YET),
+        ("Табло для проектора", _link(board_link(t, state)) if state.board_access else NOT_YET),
         ("Бэкенд (Google-аккаунт)", backend),
     ]
     data = [[Paragraph(name, s["cell"]), Paragraph(value, s["small"])] for name, value in rows]
@@ -283,6 +297,8 @@ def render_jury_sheet(tournament: Tournament, state: State, teams: list[Team], o
         *_numbered(JUROR_HOWTO, s),
         Paragraph("Спорные ответы («?») и апелляции", s["h2"]),
         *_numbered(APPEALS_HOWTO, s),
+        Paragraph("Табло", s["h2"]),
+        *_numbered(BOARD_HOWTO, s),
     ]
     if reserve:
         story += [Paragraph("Команда без регистрации", s["h2"]), *_numbered(RESERVE_HOWTO, s)]

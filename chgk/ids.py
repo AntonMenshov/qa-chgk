@@ -11,6 +11,7 @@ the QR code at the same size (version 4-M) as A01.
 import re
 import secrets
 from dataclasses import dataclass
+from urllib.parse import urljoin
 
 # No 0/O or 1/I/L, so a TID can be read aloud or typed without mistakes.
 TID_ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ"
@@ -129,3 +130,37 @@ def decode_jury_link(link: str) -> JuryAccess:
     if not m:
         raise PayloadError(f"not a jury setup link: {link!r}")
     return JuryAccess(m["tid"], m["token"], f"https://script.google.com/macros/s/{m['dep']}/exec")
+
+
+# Projector board link: `<board_url>?grid=<N>#board=<TID>.<BOARD_TOKEN>.<DEPLOYMENT_ID>`.
+# The board token is read-only (marks and teams), separate from the jury token. `grid`:
+# up to this many teams the board shows the full grid of every round.
+_BOARD_RE = re.compile(
+    rf"^board=(?P<tid>[{TID_ALPHABET}]{{{TID_LENGTH}}})\.(?P<token>[A-Za-z0-9_-]{{16,}})\.(?P<dep>[A-Za-z0-9_-]{{10,}})$"
+)
+
+
+@dataclass(frozen=True)
+class BoardAccess:
+    tid: str
+    board_token: str
+    backend_url: str
+
+
+def board_page_url(scanner_url: str) -> str:
+    """The board lives next to the scanner: …/qa-chgk/s/ → …/qa-chgk/b/."""
+    return urljoin(scanner_url, "../b/")
+
+
+def encode_board_link(scanner_url: str, access: BoardAccess, grid_max_teams: int) -> str:
+    m = BACKEND_URL_RE.match(access.backend_url)
+    if not m:
+        raise ValueError(f"not an Apps Script web app URL: {access.backend_url!r}")
+    return f"{board_page_url(scanner_url)}?grid={grid_max_teams}#board={access.tid}.{access.board_token}.{m['id']}"
+
+
+def decode_board_link(link: str) -> BoardAccess:
+    m = _BOARD_RE.match(link.rsplit("#", 1)[-1])
+    if not m:
+        raise PayloadError(f"not a board link: {link!r}")
+    return BoardAccess(m["tid"], m["token"], f"https://script.google.com/macros/s/{m['dep']}/exec")

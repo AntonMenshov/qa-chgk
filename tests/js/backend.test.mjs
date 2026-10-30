@@ -434,3 +434,35 @@ test("a trashed «ЧГК» folder is not reused: new tournaments go to a fresh o
   assert.equal(first.children.length, 1);
   assert.equal(b.$.root.children[1].children[0].name, "2026-11-16 Кубок (Z2345)");
 });
+
+// ---------- projector board: read-only token ----------
+
+test("get_board: the board token reads teams and marks but can't write; unused reserves are left out", () => {
+  const b = loadBackend();
+  b.setup();
+  const admin = b.$.props.get("ADMIN_TOKEN");
+  const BOARD = "board-token-0123456789";
+  b.post({ action: "create_tournament", token: admin, tid: TID, name: "Кубок", date: "2026-11-15", round_sizes: [3, 3],
+    jury_token: JURY, board_token: BOARD, teams: TEAMS, reserve: ["R1", "R2"] });
+  b.post({ action: "record_events", tid: TID, token: JURY, events: [ev({ question: 2 }), ev({ team_id: "R1", question: 1 })] });
+  const board = b.post({ action: "get_board", tid: TID, token: BOARD });
+  assert.equal(board.ok, true, JSON.stringify(board));
+  assert.deepEqual(board.tournament, { name: "Кубок", date: "2026-11-15", round_sizes: [3, 3] });
+  assert.deepEqual(board.teams.map((t) => t.team_id), ["A01", "A02", "R1"]); // R2 never played
+  assert.deepEqual(board.marks.A01, ["", 1, "", "", "", ""]);
+  assert.equal(b.post({ action: "get_board", tid: TID, token: JURY }).ok, true);
+  assert.match(b.post({ action: "get_board", tid: TID, token: "board-token-WRONG-0000" }).error, /forbidden/);
+  // Read-only: the board token is refused everywhere else.
+  assert.match(b.post({ action: "record_events", tid: TID, token: BOARD, events: [ev()] }).error, /forbidden/);
+  assert.match(b.post({ action: "get_state", tid: TID, token: BOARD }).error, /forbidden/);
+  assert.match(b.post({ action: "set_board_token", tid: TID, token: BOARD, board_token: "x".repeat(20) }).error, /forbidden/);
+});
+
+test("set_board_token gives an older tournament a board link (admin only); a weak token is refused", () => {
+  const { b, admin } = world();
+  const NEW = "new-board-token-abcdefgh";
+  assert.match(b.post({ action: "get_board", tid: TID, token: NEW }).error, /forbidden/);
+  assert.match(b.post({ action: "set_board_token", tid: TID, token: admin, board_token: "short" }).error, /16/);
+  assert.equal(b.post({ action: "set_board_token", tid: TID, token: admin, board_token: NEW }).ok, true);
+  assert.equal(b.post({ action: "get_board", tid: TID, token: NEW }).ok, true);
+});

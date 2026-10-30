@@ -65,6 +65,9 @@ class FakeBackend:
         if action == "set_teams":
             self.tournaments[req["tid"]]["teams"] = req["teams"]
             return httpx.Response(200, json={"ok": True, "appended": 0, "renamed": 0})
+        if action == "set_board_token":
+            self.tournaments[req["tid"]]["board_token"] = req["board_token"]
+            return httpx.Response(200, json={"ok": True})
         return httpx.Response(200, json={"ok": False, "error": "unknown action"})
 
 
@@ -172,6 +175,8 @@ def test_new_tournament_records_its_backend(folder, backends):
     assert [t["team_id"] for t in req["teams"]] == ["A01", "A02", "A03"]
     assert req["jury_token"] == s.jury_token and len(s.jury_token) >= 16
     assert req["reserve"] == ["R1", "R2"]  # reserve decks, config default
+    assert req["board_token"] == s.board_token and len(s.board_token) >= 16 and s.board_token != s.jury_token
+    assert s.board_access.backend_url == URL_A
     assert load_or_create_state(folder) == s
 
 
@@ -315,3 +320,30 @@ def test_cli_new_and_teams(folder, backends):
 def test_cli_new_without_profile_explains(folder):
     result = runner.invoke(app, ["new", str(folder)])
     assert result.exit_code == 1 and "google-account.md" in result.output
+
+
+# ---- projector board ----
+
+
+def test_cli_board_gives_an_older_tournament_a_board_link(folder, backends):
+    a, _ = backends
+    runner.invoke(app, ["backend", "add", "personal", "--url", URL_A, "--token", "tokA"])
+    runner.invoke(app, ["new", str(folder)])
+    # A tournament created before the board existed: no board token yet.
+    state = json.loads((folder / "state.json").read_text())
+    state.pop("board_token")
+    (folder / "state.json").write_text(json.dumps(state))
+    result = runner.invoke(app, ["board", str(folder)])
+    assert result.exit_code == 0, result.output
+    link = next(line for line in result.output.splitlines() if "#board=" in line)
+    assert link.startswith("https://example.github.io/qa-chgk/b/?grid=5#board=")
+    token = load_or_create_state(folder).board_token
+    assert a.tournaments[state["tid"]]["board_token"] == token and token in link
+    # Running it again keeps the same link.
+    assert link in runner.invoke(app, ["board", str(folder)]).output
+    assert sum(c["action"] == "set_board_token" for c in a.calls) == 1
+
+
+def test_cli_board_needs_a_backend(folder):
+    result = runner.invoke(app, ["board", str(folder)])
+    assert result.exit_code == 1 and "chgk new" in result.output

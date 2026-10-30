@@ -24,7 +24,7 @@ Full design: [SPEC.md](SPEC.md). Build order: [PLAN.md](PLAN.md).
 | 2 — Apps Script backend + Sheet | ✅ deployed under the user's Gmail and checked live (sums, places, order, reserve teams, IDs); two Sheet-trigger checks still to be confirmed by the user |
 | 3 — Scanner web app | 🔶 built and tested (unit + integration + headless-Chrome end-to-end with a fake camera); waiting for the live and iPhone checks |
 | 4 — Card photos | not started |
-| 5 — Projector board + stats | not started |
+| 5 — Projector board + stats | 🔶 built and tested (logic vs logic.js on random data, backend, headless Chrome); waiting for the backend redeploy and a live check |
 | 6 — Logos | partly done: PNG/JPG → pale greyscale, shared private library, fallback owl. Left: SVG, Claude-drawn SVG, image-API generation |
 
 ### Repository layout
@@ -57,7 +57,8 @@ tests/js/fake_apps_script.mjs  in-memory Sheets/Drive/properties to run Code.js 
 tests/js/sheet_formulas.mjs   evaluator for the Sheets formulas the backend writes
 tests/js/calculations.test.mjs  sums, places («2-3»), Stats vs logic.js reference; random tournaments
 tests/js/scanner.test.mjs     scanner lib: vectors, session, queue, camera; phone ↔ fake backend
-tests/js/fake_backend_server.mjs  the fake backend over HTTP (for the browser test)
+tests/js/fake_backend_server.mjs  the fake backend over HTTP (for the browser tests)
+tests/js/board.test.mjs       board logic and link; places/order agree with logic.js on random data
 tests/test_scanner_e2e.py     headless Chrome: fake camera shows real cut-out cards; skipped without Chrome/Node
 tests/vectors/        shared JSON test vectors (qr_payloads, jury_links, merge_cases) for Python and JS
 docs/google-account.md  deploying the backend under any Gmail account; switching; updating
@@ -67,6 +68,8 @@ web/                  GitHub Pages site
 web/s/                scanner app (no build step): index.html, app.css, app.js (wiring only), sw.js (offline),
                       manifest + icons; lib/ = payload, marks, session, queue, api, storage, camera;
                       vendor/zxing-wasm-3.1.4 (QR reader, vendored: no CDN at the venue)
+web/b/                projector board: index.html, board.css, board.js; lib/board.js = what to show
+                      (rounds revealed by hand, places from revealed rounds only, grid vs compact)
 .github/workflows/    tests.yml (pytest + npm test), pages.yml (deploys web/ + spike pages)
 package.json          only for `npm test` (no npm dependencies)
 ```
@@ -173,6 +176,10 @@ checks that the decks come out in order.
    offline queue, batches of marks).
 
 ## Lessons learned
+
+- Board (user decisions, SPEC §10.1): revealed by hand after each round; full grid up to
+  5 teams, else total + last round's grid; «Взяли» row. Read-only board token
+  (`get_board`); `chgk board` adds one to tournaments created before Phase 5.
 
 - Scanner: a link to the open page only changes `#…` (no reload) — handle `hashchange`
   (found by the screenshot run, now in the e2e test). The camera keeps decoding while a

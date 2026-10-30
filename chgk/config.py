@@ -76,6 +76,9 @@ class Tournament:
     spares_per_team: int = 3
     # Full decks R1, R2, … (no name, generic logo) for teams that turn up unregistered.
     reserve_teams: int = 2
+    # Projector board: up to this many teams it shows the full grid of every round;
+    # with more, the total plus the last round's grid.
+    board_grid_max_teams: int = 5
     card: CardFields = field(default_factory=CardFields)
     layout: Layout = field(default_factory=Layout)
 
@@ -95,6 +98,8 @@ class Tournament:
             raise ConfigError(f"spares_per_team must be ≥ 0, got {self.spares_per_team}")
         if not 0 <= self.reserve_teams <= 9:
             raise ConfigError(f"reserve_teams must be 0–9, got {self.reserve_teams}")
+        if not 0 <= self.board_grid_max_teams <= 100:
+            raise ConfigError(f"board_grid_max_teams must be 0–100, got {self.board_grid_max_teams}")
         if not self.scanner_url.startswith("https://") or not self.scanner_url.endswith("/"):
             raise ConfigError(f"scanner_url must start with https:// and end with /, got {self.scanner_url!r}")
 

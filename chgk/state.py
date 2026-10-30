@@ -8,7 +8,7 @@ import json
 from dataclasses import asdict, dataclass, fields
 from pathlib import Path
 
-from chgk.ids import JuryAccess, generate_tid
+from chgk.ids import BoardAccess, JuryAccess, generate_tid
 
 STATE_FILE = "state.json"
 
@@ -21,11 +21,17 @@ class State:
     backend_account: str | None = None  # label only, e.g. "chgk.club@gmail.com"
     spreadsheet_id: str | None = None
     jury_token: str | None = None
-    board_url: str | None = None  # projector view (Phase 5)
+    board_token: str | None = None  # read-only token for the projector board
 
     @property
     def spreadsheet_url(self) -> str | None:
         return f"https://docs.google.com/spreadsheets/d/{self.spreadsheet_id}/edit" if self.spreadsheet_id else None
+
+    @property
+    def board_access(self) -> BoardAccess | None:
+        if self.backend_url and self.board_token:
+            return BoardAccess(self.tid, self.board_token, self.backend_url)
+        return None
 
     @property
     def jury_access(self) -> JuryAccess | None:

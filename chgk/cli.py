@@ -16,7 +16,9 @@ from chgk.backend import (
 )
 from chgk.cards.build import INSTRUCTIONS, build_cards, build_jury_sheet, build_test_page
 from chgk.cards.impose import Mode
-from chgk.remote import new_tournament, sync_teams
+from chgk.config import load_config
+from chgk.ids import encode_board_link
+from chgk.remote import ensure_board, new_tournament, sync_teams
 
 app = typer.Typer(help="ЧГК answer cards and jury scanning.", no_args_is_help=True)
 backend_app = typer.Typer(help="Google backends: one named profile per Google account.", no_args_is_help=True)
@@ -236,3 +238,18 @@ def teams_cmd(folder: Path = typer.Argument(..., help="Tournament folder")) -> N
     except (ValueError, BackendError) as err:
         raise _fail(err) from err
     typer.echo(f"{len(teams)} teams synced to {Path(folder) / 'teams.py'}.")
+
+
+@app.command("board")
+def board_cmd(folder: Path = typer.Argument(..., help="Tournament folder")) -> None:
+    """Print the projector board link (creating its read-only token if the tournament has none)."""
+    try:
+        state = ensure_board(folder, Profiles())
+        tournament = load_config(folder)
+    except (ValueError, BackendError) as err:
+        raise _fail(err) from err
+    link = encode_board_link(tournament.scanner_url, state.board_access, tournament.board_grid_max_teams)
+    typer.echo("Open on the projector laptop (read-only; → shows the next round):")
+    typer.echo(link)
+    typer.echo("Its QR code is on page 1 of the jury sheet: run `chgk jury-sheet` (or `chgk cards`) to refresh it.")
+

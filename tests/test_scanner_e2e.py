@@ -37,6 +37,7 @@ pytestmark = pytest.mark.skipif(not (CHROME and shutil.which("node")), reason="n
 
 BACKEND = "https://script.google.com/macros/s/AKfycbE2E_TEST_DEPLOYMENT_0001/exec"
 JURY_TOKEN = "e2eJuryToken_0123456789ab"
+BOARD_TOKEN = "e2eBoardToken_0123456789a"
 DPI = 150
 FPS_FRAMES_CARD, FPS_FRAMES_GAP = 40, 25
 
@@ -79,7 +80,7 @@ def backend_server(folder):
         "tid": state.tid, "name": "Осенний кубок", "date": "2026-11-15", "round_sizes": [3, 3], "jury_token": JURY_TOKEN,
         "teams": [{"team_id": "A01", "name": "Синие зайцы"}, {"team_id": "A02", "name": "Команда с очень-очень длинным названием «Правило трёх буравчиков»"},
                   {"team_id": "A03", "name": "Думать быстро"}],
-        "reserve": ["R1", "R2"],
+        "reserve": ["R1", "R2"], "board_token": BOARD_TOKEN,
     }
     proc = subprocess.Popen(["node", str(ROOT / "tests/js/fake_backend_server.mjs"), json.dumps(create, ensure_ascii=False)],
                             stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
@@ -209,3 +210,58 @@ def test_jury_scans_cards_and_marks_reach_the_backend(folder, tmp_path, backend_
     assert [(r["team_id"], r["total"], r["place"]) for r in standings] == [
         ("A01", 1, "1-2"), ("R1", 1, "1-2"), ("A02", 0, "3-4"), ("A03", 0, "3-4")]  # 1 and 1, both in round 1: ID order
     assert not [line for line in console if "pageerror" in line], console
+
+
+def test_projector_board_reveals_round_by_round(folder, tmp_path, backend_server, web_server):
+    """The board shows nothing until → is pressed; then each round, with places from revealed rounds only."""
+    tid, backend_url, call = backend_server
+    marks = {  # rounds of 3 questions: (team, question) → status
+        ("A01", 1): "correct", ("A01", 2): "correct", ("A02", 1): "correct", ("A03", 3): "incorrect",
+        ("A03", 4): "correct", ("A03", 5): "correct", ("A03", 6): "correct", ("A02", 4): "disputed",
+    }
+    events = [{"scan_id": f"e{i}", "team_id": t, "question": q, "status": st, "client_ts": 1_700_000_000_000 + i}
+              for i, ((t, q), st) in enumerate(marks.items())]
+    assert call("record_events", tid=tid, token=JURY_TOKEN, events=events)["ok"]
+
+    link = f"{web_server}/b/?grid=5#board={tid}.{BOARD_TOKEN}.AKfycbE2E_TEST_DEPLOYMENT_0001"
+    with playwright.sync_playwright() as p:
+        browser = p.chromium.launch(executable_path=CHROME, headless=True)
+        page = browser.new_context(viewport={"width": 1280, "height": 720}).new_page()
+        errors = []
+        page.on("pageerror", lambda e: errors.append(str(e)))
+
+        def to_backend(route):
+            with urllib.request.urlopen(urllib.request.Request(backend_url, data=route.request.post_data.encode(), method="POST")) as r:
+                route.fulfill(status=200, body=r.read(), headers={"Content-Type": "application/json", "Access-Control-Allow-Origin": "*"})
+
+        page.route("https://script.google.com/**", to_backend)
+        page.goto(link)
+        page.wait_for_selector("text=Результаты появятся после первого тура")
+
+        def rows():
+            return [[td.inner_text() for td in tr.query_selector_all("td.place, td.team, td.total")]
+                    for tr in page.query_selector_all("tbody tr")]
+
+        page.keyboard.press("ArrowRight")
+        page.wait_for_selector("text=после 1-го тура из 2")
+        # Round 1 only: A01 2, A02 1, A03 0 (its round-2 points stay hidden).
+        assert [r[:2] + [r[2]] for r in rows()] == [["1", "Синие зайцы", "2"], ["2", "Команда с очень-очень длинным названием «Правило трёх буравчиков»", "1"],
+                                                    ["3", "Думать быстро", "0"]]
+        assert page.inner_text("tfoot") .split()[:4] == ["Взяли", "2", "1", "0"]
+
+        page.keyboard.press(" ")
+        page.wait_for_selector("text=после 2 туров из 2")
+        # A03 now 3 and first; A01 2; A02 1 (its «?» shows as ? and doesn't count).
+        assert [r[0] + " " + r[2] for r in rows()] == ["1 3", "2 2", "3 1"]
+        assert "?" in page.inner_text("tbody")
+        assert page.is_disabled("#next")
+
+        page.keyboard.press("g")  # compact: only the last round's grid
+        assert page.inner_text("thead").count("Тур") == 1 and "Тур 2" in page.inner_text("thead")
+        page.reload()  # the revealed round and the view survive a reload
+        page.wait_for_selector("text=после 2 туров из 2")
+        assert page.inner_text("thead").count("Тур") == 1
+        page.keyboard.press("ArrowLeft")
+        page.wait_for_selector("text=после 1-го тура из 2")
+        browser.close()
+    assert not errors, errors

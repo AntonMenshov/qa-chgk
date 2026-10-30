@@ -12,8 +12,8 @@ from chgk.cards.impose import Mode
 from chgk.cards.render import missing_glyphs
 from chgk.cli import app
 from chgk.config import Tournament
-from chgk.ids import decode_jury_link
-from chgk.jury import APPEALS_HOWTO, FORMS_NOTE, FORMS_RESERVE_NOTE, GRID_LEGEND, JUROR_HOWTO, NOT_YET, RESERVE_HOWTO, _questions_line
+from chgk.ids import decode_board_link, decode_jury_link
+from chgk.jury import APPEALS_HOWTO, BOARD_HOWTO, FORMS_NOTE, FORMS_RESERVE_NOTE, GRID_LEGEND, JUROR_HOWTO, NOT_YET, RESERVE_HOWTO, _questions_line
 from chgk.state import load_or_create_state
 
 BACKEND = "https://script.google.com/macros/s/AKfycbTEST_deployment_0000000/exec"
@@ -24,7 +24,7 @@ def with_backend(folder):
     state = json.loads((folder / "state.json").read_text()) if (folder / "state.json").exists() else {}
     state.setdefault("tid", load_or_create_state(folder).tid)
     state.update(backend_url=BACKEND, backend_profile="club", backend_account="club@gmail.com",
-                 spreadsheet_id="SHEET123", jury_token="secretTOKEN_0123456789ab")
+                 spreadsheet_id="SHEET123", jury_token="secretTOKEN_0123456789ab", board_token="boardTOKEN_0123456789ab")
     (folder / "state.json").write_text(json.dumps(state))
     return state
 
@@ -71,7 +71,9 @@ def test_all_qr_codes_on_page_one_far_apart(folder, tmp_path):
     assert len(setup) == 1
     access = decode_jury_link(setup[0])
     assert (access.tid, access.jury_token, access.backend_url) == (state["tid"], state["jury_token"], BACKEND)
-    assert set(qrs) == {setup[0], "https://example.github.io/qa-chgk/s/", "https://docs.google.com/spreadsheets/d/SHEET123/edit"}
+    board = "https://example.github.io/qa-chgk/b/?grid=5#board=" + state["tid"] + ".boardTOKEN_0123456789ab.AKfycbTEST_deployment_0000000"
+    assert set(qrs) == {setup[0], "https://example.github.io/qa-chgk/s/", "https://docs.google.com/spreadsheets/d/SHEET123/edit", board}
+    assert decode_board_link(board).board_token == "boardTOKEN_0123456789ab"
     # Spread out: every pair of codes is at least 3 inches apart (centre to centre).
     points = list(qrs.values())
     for i, (x1, y1) in enumerate(points):
@@ -133,7 +135,7 @@ def test_backup_grid_has_every_round_and_totals(folder, tmp_path):
 
 
 def test_static_text_is_printable():
-    everything = "".join(JUROR_HOWTO + APPEALS_HOWTO + RESERVE_HOWTO) + GRID_LEGEND + NOT_YET + FORMS_NOTE + FORMS_RESERVE_NOTE
+    everything = "".join(JUROR_HOWTO + APPEALS_HOWTO + RESERVE_HOWTO + BOARD_HOWTO) + GRID_LEGEND + NOT_YET + FORMS_NOTE + FORMS_RESERVE_NOTE
     assert missing_glyphs(everything) == set()
 
 
@@ -172,6 +174,6 @@ def test_links_are_clickable_with_the_full_address(folder, tmp_path):
     page1 = link_targets(out, 0)
     for url in (setup, sheet, scanner):
         assert page1.count(url) >= 2, url  # the QR code and the text under it
-    assert set(page1) == {setup, sheet, scanner}
+    assert set(page1) == {setup, sheet, scanner, next(u for u in page1 if "#board=" in u)}
     assert decode_jury_link(setup).jury_token == state["jury_token"]
     assert {sheet, scanner} <= set(link_targets(out, 1))  # page 2 links table

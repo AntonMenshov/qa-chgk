@@ -37,14 +37,15 @@ def new_tournament(folder: Path, profile: Profile, client: BackendClient | None 
     teams = read_teams(teams_file) if teams_file.is_file() else []
     reserve = reserve_teams(tournament.reserve_teams, teams)
     jury_token = state.jury_token or generate_jury_token()
-    # Save the token first, so a retry after a timeout reuses it and the backend recognises the retry.
-    state = replace(state, jury_token=jury_token)
+    board_token = state.board_token or generate_jury_token()
+    # Save the tokens first, so a retry after a timeout reuses them and the backend recognises the retry.
+    state = replace(state, jury_token=jury_token, board_token=board_token)
     save_state(folder, state)
 
     reply = client.create_tournament(
         tid=state.tid, name=tournament.name, date=tournament.date.isoformat(),
         round_sizes=tournament.round_sizes, jury_token=jury_token, teams=_team_dicts(teams),
-        reserve=[t.team_id for t in reserve],
+        reserve=[t.team_id for t in reserve], board_token=board_token,
     )
     state = replace(
         state, backend_url=profile.url, backend_profile=profile.name, backend_account=account,
@@ -85,3 +86,16 @@ def sync_teams(folder: Path, profiles: Profiles, client: BackendClient | None = 
     write_teams(folder / TEAMS_FILE, teams)
     client.set_teams(state.tid, _team_dicts(teams))  # writes assigned IDs back and adds rows on every tab
     return teams
+
+
+def ensure_board(folder: Path, profiles: Profiles, client: BackendClient | None = None) -> State:
+    """Give the tournament a read-only board token (tournaments created before Phase 5 have none)."""
+    folder = Path(folder)
+    state, default_client = tournament_client(folder, profiles)
+    if state.board_token:
+        return state
+    client = client or default_client
+    state = replace(state, board_token=generate_jury_token())
+    client.set_board_token(state.tid, state.board_token)
+    save_state(folder, state)
+    return state

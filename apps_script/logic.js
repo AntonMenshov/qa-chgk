@@ -76,6 +76,10 @@ function nameEdits(source, truth) {
     .map((id) => ({ team_id: id, name: String(source[id]).trim() }));
 }
 
+function validateToken(token, name) {
+  if (typeof token !== "string" || !/^[A-Za-z0-9_-]{16,}$/.test(token)) fail(`${name} must be at least 16 URL-safe characters`);
+}
+
 /** Check the shape of a request body; returns it, or throws RequestError. */
 function validateRequest(body) {
   if (!body || typeof body !== "object") fail("request must be a JSON object");
@@ -90,10 +94,15 @@ function validateRequest(body) {
       if (typeof body.jury_token !== "string" || body.jury_token.length < 16) fail("jury_token must be at least 16 characters");
       validateTeams(body.teams || []);
       validateReserve(body.reserve || [], body.teams || []);
+      if (body.board_token !== undefined) validateToken(body.board_token, "board_token");
       return body;
     case "get_teams":
     case "get_state":
     case "get_results":
+    case "get_board":
+      return body;
+    case "set_board_token":
+      validateToken(body.board_token, "board_token");
       return body;
     case "set_teams":
       validateTeams(body.teams);

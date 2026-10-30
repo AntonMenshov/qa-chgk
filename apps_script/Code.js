@@ -80,6 +80,16 @@ function handle_(req) {
     case "record_events":
       requireJury_(props, reg, req);
       return withLock_(() => recordEvents_(open_(reg), reg, req));
+    case "get_board":
+      requireBoard_(props, reg, req);
+      return readBoard_(open_(reg), reg);
+    case "set_board_token":
+      requireAdmin_(props, req);
+      return withLock_(() => {
+        reg.board_token = req.board_token;
+        props.setProperty("t:" + req.tid, JSON.stringify(reg));
+        return { ok: true };
+      });
   }
   fail("unhandled action");
 }
@@ -103,6 +113,14 @@ function requireAdmin_(props, req) {
 function requireJury_(props, reg, req) {
   if (!tokensEqual(req.token, reg.jury_token) && !tokensEqual(req.token, props.getProperty("ADMIN_TOKEN"))) {
     fail("forbidden: jury token required");
+  }
+}
+
+/** The projector board's read-only token; the jury and admin tokens work too. */
+function requireBoard_(props, reg, req) {
+  if (reg.board_token && tokensEqual(req.token, reg.board_token)) return;
+  if (!tokensEqual(req.token, reg.jury_token) && !tokensEqual(req.token, props.getProperty("ADMIN_TOKEN"))) {
+    fail("forbidden: board token required");
   }
 }
 
@@ -171,7 +189,7 @@ function createTournament_(props, req) {
 
   const reg = {
     spreadsheet_id: ss.getId(), folder_id: folder.getId(), photos_folder_id: photos.getId(),
-    jury_token: req.jury_token, round_sizes: req.round_sizes, name: req.name, date: req.date,
+    jury_token: req.jury_token, board_token: req.board_token || null, round_sizes: req.round_sizes, name: req.name, date: req.date,
   };
   props.setProperty("t:" + req.tid, JSON.stringify(reg));
   return { ok: true, existed: false, spreadsheet_id: reg.spreadsheet_id, folder_id: reg.folder_id };
@@ -572,6 +590,27 @@ function readState_(ss, reg) {
     tournament: { name: reg.name, date: reg.date, round_sizes: reg.round_sizes },
     teams: teams,
     marks: marks,
+  };
+}
+
+/**
+ * What the projector board needs: the teams on the tabs (not unused reserves) and every
+ * mark. The board decides which rounds to show and computes places from those alone.
+ */
+function readBoard_(ss, reg) {
+  const m = readMarks_(ss, reg);
+  const marks = {};
+  m.teams.forEach((t) => {
+    marks[t.team_id] = Array.from({ length: m.n }, (_, k) => {
+      const cell = m.cells[`${t.team_id}:${k + 1}`];
+      return cell ? cell.value : "";
+    });
+  });
+  return {
+    ok: true,
+    tournament: { name: reg.name, date: reg.date, round_sizes: reg.round_sizes },
+    teams: m.teams,
+    marks,
   };
 }
 

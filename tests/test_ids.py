@@ -6,12 +6,16 @@ import pytest
 from chgk.ids import (
     TID_ALPHABET,
     TID_LENGTH,
+    BoardAccess,
     CardId,
     JuryAccess,
     PayloadError,
     assign_team_ids,
+    board_page_url,
+    decode_board_link,
     decode_jury_link,
     decode_payload,
+    encode_board_link,
     encode_jury_link,
     encode_payload,
     generate_jury_token,
@@ -113,3 +117,24 @@ def test_generated_jury_token_round_trips():
 def test_jury_link_rejects_non_apps_script_backend():
     with pytest.raises(ValueError):
         encode_jury_link("https://e.github.io/qa-chgk/s/", JuryAccess("K7M2Q", generate_jury_token(), "https://evil.example/exec"))
+
+
+BOARD = json.loads((Path(__file__).parent / "vectors" / "board_links.json").read_text(encoding="utf-8"))
+
+
+@pytest.mark.parametrize("case", [c for c in BOARD["cases"] if c["valid"]], ids=lambda c: c["link"][-30:])
+def test_board_links_decode(case):
+    access = decode_board_link(case["link"])
+    assert access == BoardAccess(case["tid"], case["board_token"], case["backend_url"])
+    if case["grid"] is not None:
+        assert encode_board_link("https://example.github.io/qa-chgk/s/", access, case["grid"]) == case["link"]
+
+
+@pytest.mark.parametrize("case", [c for c in BOARD["cases"] if not c["valid"]], ids=lambda c: c["note"])
+def test_invalid_board_links(case):
+    with pytest.raises(PayloadError):
+        decode_board_link(case["link"])
+
+
+def test_board_page_sits_next_to_the_scanner():
+    assert board_page_url("https://antonmenshov.github.io/qa-chgk/s/") == "https://antonmenshov.github.io/qa-chgk/b/"
