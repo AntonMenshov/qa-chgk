@@ -164,17 +164,18 @@ checks that the decks come out in order.
 
 ## Next steps
 
-1. **Finish Phase 2:**
-   - The user deploys the bundle under their Gmail (docs/google-account.md), runs
-     `setup`, and runs the printed `chgk backend add` command.
-   - Then run the live end-to-end check: `chgk backend check`,
-     `chgk new tournaments/example`, post a few events with the jury token (scratch
-     script, no commit), look at the Sheet, try a jury edit on a round tab, and
-     `chgk teams`.
-   - Fix whatever the real Sheets service does differently from the fakes in
-     `tests/js/fake_apps_script.mjs`.
-2. **Phase 3:** the scanner web app in `web/s/` (zxing-wasm, setup via the jury link,
-   offline queue, batches of marks).
+1. **User checks:** the scanner on an iPhone with the example cards (incl. «Чья
+   карточка?»); the two Sheet-trigger checks under "Things that need the user".
+2. **Backend latency:** ~3.3–4.8 s per request regardless of work. Add a timing
+   breakdown to the reply, then optimise the biggest part (background-only for the
+   juror, but it delays the board and the Sheet).
+3. **Phase 4 — card photos** (PLAN.md). Until then the jury sheet must not promise
+   photos (it doesn't since a9268c5+1).
+4. **Phase 6 — logos:** SVG input, Claude-drawn SVG, image-API generation.
+5. **Housekeeping:** remove the spike pages from Pages/`spikes/`, organiser README
+   (end-to-end: config → teams → `chgk new` → cards → print → game day).
+6. **Later** (PLAN.md): rating.chgk.info export, multi-juror UI, Google sign-in,
+   freeze-standings option, token rotation, moving a tournament to another account.
 
 ## Lessons learned
 
