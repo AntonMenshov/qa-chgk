@@ -4,8 +4,10 @@ The backend is one Apps Script web app. It can live under **any** Gmail account,
 you can have several, one per account. Each tournament remembers which one it was
 created on (SPEC §3.1). Nothing in the repo names an account.
 
-Where the data goes: the account's Google Drive, folder `ЧГК/<date> <name> (<TID>)`,
-which holds the results Sheet and a `Фото` folder for card photos.
+Where the data goes: the account's Google Drive, folder `CHGK/<date> <name> (<TID>)`,
+which holds the results Sheet and a `Photos` folder for card photos. Drive names are
+Latin only: the tournament name is transliterated («Осенний кубок» → `Osenniy kubok`);
+the tabs inside the Sheet stay Russian.
 
 ## 1. Deploy the script under an account (once per account)
 
@@ -82,11 +84,12 @@ code. To update:
 3. A script deployed before the speed-up (2026-10-30) also needs **Services (+) →
    Google Sheets API → Add** (step 1.4) before the new version; `chgk backend check`
    warns while it is off. Run `chgk view <folder>` once for each older tournament: it
-   shares its Sheet view-only, hides the service tabs and adds «Спорные».
+   shares its Sheet view-only, hides the service tabs, adds «Спорные», and gives its
+   Drive folder, photos folder and Sheet Latin names (an old «ЧГК» folder becomes `CHGK`).
 
 ## 5. Cleaning up Drive
 
-Each tournament lives in `ЧГК/<date> <name> (<TID>)`. The TID is printed on the jury
+Each tournament lives in `CHGK/<date> <name> (<TID>)`. The TID is printed on the jury
 sheet (page 3), so you can tell which folder is current. Delete only folders of
 tournaments you no longer need: a running tournament's cards, jury link and phones all
 point to its own Sheet. If you trash the current one by mistake, restore it from the

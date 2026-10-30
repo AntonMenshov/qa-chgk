@@ -161,7 +161,7 @@ class BackendClient:
         return self.call("set_board_token", tid=tid, board_token=board_token)
 
     def share_view(self, tid: str) -> dict:
-        """Anyone with the link may view the tournament's Sheet."""
+        """Anyone with the link may view the tournament's Sheet; also renames its Drive items to Latin."""
         return self.call("share_view", tid=tid)
 
     def get_teams(self, tid: str) -> list[dict]:

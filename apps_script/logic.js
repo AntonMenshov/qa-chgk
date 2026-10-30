@@ -88,6 +88,82 @@ function validateReserve(reserve, teams) {
   }
 }
 
+// ---- Drive names: Latin only (user rule, 2026-10-30) ----
+
+const CYRILLIC_TO_LATIN = {
+  а: 'a',
+  б: 'b',
+  в: 'v',
+  г: 'g',
+  д: 'd',
+  е: 'e',
+  ё: 'e',
+  ж: 'zh',
+  з: 'z',
+  и: 'i',
+  й: 'y',
+  к: 'k',
+  л: 'l',
+  м: 'm',
+  н: 'n',
+  о: 'o',
+  п: 'p',
+  р: 'r',
+  с: 's',
+  т: 't',
+  у: 'u',
+  ф: 'f',
+  х: 'kh',
+  ц: 'ts',
+  ч: 'ch',
+  ш: 'sh',
+  щ: 'shch',
+  ъ: '',
+  ы: 'y',
+  ь: '',
+  э: 'e',
+  ю: 'yu',
+  я: 'ya',
+  і: 'i',
+  ї: 'yi',
+  є: 'ye',
+  ґ: 'g',
+  ў: 'u',
+};
+
+/**
+ * A name in Latin letters for Drive: Cyrillic transliterated («Осенний кубок» → «Osenniy
+ * kubok»), accents dropped, «№» → «No»; anything else but letters, digits, spaces and
+ * . , _ - ( ) is left out. Never empty.
+ */
+function latinName(text) {
+  const out = [...String(text || '')]
+    .map((ch) => {
+      const lower = ch.toLowerCase();
+      if (lower in CYRILLIC_TO_LATIN) {
+        const latin = CYRILLIC_TO_LATIN[lower];
+        return ch === lower ? latin : latin.charAt(0).toUpperCase() + latin.slice(1);
+      }
+      return ch === '№' ? 'No' : ch.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    })
+    .join('')
+    .replace(/[^A-Za-z0-9 .,_()-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return out || 'tournament';
+}
+
+/** Drive names of a tournament's folder, its photos folder and its Sheet, all Latin. */
+function driveNames(tid, name, date) {
+  const latin = latinName(name);
+  return {
+    root: 'CHGK',
+    folder: `${date} ${latin} (${tid})`,
+    photos: 'Photos',
+    spreadsheet: `${latin} ${date} (${tid})`,
+  };
+}
+
 /** Name shown for a reserve team from its first scan until the jury types the real one. */
 function reservePlaceholder(teamId) {
   return `${teamId} · впишите название`;
@@ -562,6 +638,8 @@ if (typeof module !== 'undefined') {
     planTeamRows,
     validateReserve,
     reservePlaceholder,
+    latinName,
+    driveNames,
     nameEdits,
   };
 }

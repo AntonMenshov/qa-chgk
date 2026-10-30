@@ -161,6 +161,9 @@ checks that the decks come out in order.
   question; «Чья карточка?» reads a card without recording anything.
 - **Board (SPEC §10.1):** revealed by hand after each round; full grid up to 5 teams,
   else total + last round's grid; «Взяли» row. Read-only board token (`get_board`).
+- **Drive names are Latin** (user rule, SPEC §3.3): `CHGK/<date> <name> (<TID>)` with
+  the Sheet and `Photos` inside; names transliterated by `latinName` (logic.js). `chgk view`
+  renames older tournaments' items and prints what Drive reports back.
 - **View-only link:** the Sheet is shared "anyone with the link can view" at creation (or
   by `chgk view`); the QR opens `…/htmlview`.
 - **QR:** a URL, `…/s/#<TID>.<TEAM>.<Q>`; spare cards use `S1…Sn`. Printed at

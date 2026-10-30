@@ -304,3 +304,31 @@ test('planTeamRows', () => {
     ['A01'],
   );
 });
+
+test('latinName: Cyrillic transliterated, accents and symbols dropped, never empty', () => {
+  const cases = [
+    ['Осенний кубок', 'Osenniy kubok'],
+    ['Щука и Ёжик', 'Shchuka i Ezhik'],
+    ['ЖЖ Чайка Шум Цирк Хор Юла Яма', 'ZhZh Chayka Shum Tsirk Khor Yula Yama'],
+    ['Подъезд Объём Мышь', 'Podezd Obem Mysh'],
+    ['Кубок «Звёзды» №3', 'Kubok Zvezdy No3'],
+    ['Їжак і Ґава, Євген', 'Yizhak i Gava, Yevgen'],
+    ['Café Ölmühle', 'Cafe Olmuhle'],
+    ['42', '42'],
+    ['Кубок 🏆 2026!', 'Kubok 2026'],
+    ['«»', 'tournament'],
+    ['', 'tournament'],
+  ];
+  for (const [input, want] of cases) {
+    assert.equal(L.latinName(input), want, input);
+  }
+});
+
+test('driveNames: everything Latin, the TID and date kept', () => {
+  assert.deepEqual(L.driveNames('QHZJ8', 'Осенний кубок', '2026-11-15'), {
+    root: 'CHGK',
+    folder: '2026-11-15 Osenniy kubok (QHZJ8)',
+    photos: 'Photos',
+    spreadsheet: 'Osenniy kubok 2026-11-15 (QHZJ8)',
+  });
+});

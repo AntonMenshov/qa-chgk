@@ -107,7 +107,7 @@ test('create_tournament builds every tab and is idempotent for the same jury tok
   assert.deepEqual(tab('Статистика').row(5, 3), [4, 2, "=COUNTIF('Тур 2'!C$2:C,1)"]);
   assert.deepEqual(tab('Спорные').row(1, 7), ['Тур', 'Вопрос', 'Команда', 'Фото', '', 'Всего «?»', 0]);
   assert.deepEqual(b.$.triggers, ['onSheetEdit']);
-  assert.equal(b.$.root.children[0].name, 'ЧГК');
+  assert.equal(b.$.root.children[0].name, 'CHGK');
 
   const again = b.post({
     action: 'create_tournament',
@@ -633,7 +633,7 @@ test('reserve IDs are checked', () => {
   assert.match(create('R1').error, /list/);
 });
 
-test('a trashed «ЧГК» folder is not reused: new tournaments go to a fresh one', () => {
+test('a trashed CHGK folder is not reused: new tournaments go to a fresh one', () => {
   const {b, admin} = world();
   const first = b.$.root.children[0];
   assert.equal(first.children.length, 1);
@@ -651,7 +651,75 @@ test('a trashed «ЧГК» folder is not reused: new tournaments go to a fresh o
   assert.equal(res.ok, true);
   assert.equal(b.$.root.children.length, 2);
   assert.equal(first.children.length, 1);
-  assert.equal(b.$.root.children[1].children[0].name, '2026-11-16 Кубок (Z2345)');
+  assert.equal(b.$.root.children[1].children[0].name, '2026-11-16 Kubok (Z2345)');
+});
+
+// ---------- Drive names: Latin only ----------
+
+const ascii = (name) => /^[\x20-\x7E]+$/.test(name);
+
+test('Drive gets Latin names only: CHGK / <date> <name> (<TID>) with Photos and the Sheet; tabs stay Russian', () => {
+  const {b, ss, tab} = world();
+  const root = b.$.root.children[0];
+  const folder = root.children[0];
+  assert.deepEqual(
+    [root.name, folder.name, folder.children.map((f) => f.name), folder.files.map((f) => f.name)],
+    ['CHGK', '2026-11-15 Kubok (K7M2Q)', ['Photos'], ['Kubok 2026-11-15 (K7M2Q)']],
+  );
+  assert.ok([root.name, folder.name, folder.children[0].name, ss.name].every(ascii));
+  assert.ok(tab('Итоги') && tab('Тур 1') && tab('Статистика'));
+});
+
+test('an old «ЧГК» root folder is renamed CHGK and reused, with what is in it', () => {
+  const {b, admin} = world();
+  const root = b.$.root.children[0];
+  root.name = 'ЧГК'; // made by an older version
+  const res = b.post({
+    action: 'create_tournament',
+    token: admin,
+    tid: 'Z2345',
+    name: 'Осенний кубок',
+    date: '2026-11-16',
+    round_sizes: [3],
+    jury_token: JURY,
+    teams: TEAMS,
+  });
+  assert.equal(res.ok, true);
+  assert.equal(b.$.root.children.length, 1);
+  assert.equal(root.name, 'CHGK');
+  assert.deepEqual(
+    root.children.map((f) => f.name),
+    ['2026-11-15 Kubok (K7M2Q)', '2026-11-16 Osenniy kubok (Z2345)'],
+  );
+});
+
+test('share_view (chgk view) gives an older tournament Latin Drive names and reports what Drive has', () => {
+  const {b, admin, ss} = world();
+  const root = b.$.root.children[0];
+  const folder = root.children[0];
+  // As an older version made them.
+  root.name = 'ЧГК';
+  folder.name = '2026-11-15 Кубок (K7M2Q)';
+  folder.children[0].name = 'Фото';
+  ss.name = 'Кубок 2026-11-15 (K7M2Q)';
+  const res = b.post({action: 'share_view', tid: TID, token: admin});
+  assert.equal(res.ok, true, JSON.stringify(res));
+  assert.deepEqual(Object.assign({}, res.drive), {
+    root: 'CHGK',
+    folder: '2026-11-15 Kubok (K7M2Q)',
+    photos: 'Photos',
+    spreadsheet: 'Kubok 2026-11-15 (K7M2Q)',
+  });
+  assert.deepEqual([root.name, folder.name, folder.children[0].name, ss.name].map(ascii), [true, true, true, true]);
+  // Safe to repeat; an item deleted by hand is reported as missing, not an error.
+  b.$.spreadsheets.delete(ss.id);
+  const again = b.post({action: 'share_view', tid: TID, token: admin});
+  assert.equal(again.ok, false); // the Sheet itself is gone: nothing to share
+  b.$.spreadsheets.set(ss.id, ss);
+  folder.children[0].registry.delete(folder.children[0].id);
+  const third = b.post({action: 'share_view', tid: TID, token: admin});
+  assert.equal(third.ok, true);
+  assert.equal(third.drive.photos, null);
 });
 
 // ---------- projector board: read-only token ----------

@@ -3,7 +3,7 @@
 // which shares this file's global scope (the bundle puts both into one Code.gs).
 
 const VERSION = 'dev'; // replaced by `chgk backend bundle`
-const ROOT_FOLDER = 'ЧГК';
+const OLD_ROOT_FOLDER = 'ЧГК'; // before Drive names went Latin (2026-10-30); renamed when found
 // Plus one tab per round, «Тур 1» … «Тур N», right after «Итоги» (see logic.js).
 const TABS = {
   summary: 'Итоги',
@@ -161,7 +161,7 @@ function handle_(req) {
         statsTab_(ss); // older Sheets: «Stats» → «Статистика»
         refreshDisputed_(ss, reg.round_sizes);
         hideServiceTabs_(ss);
-        return {ok: true};
+        return {ok: true, drive: latinDriveNames_(reg)};
       });
   }
   fail('unhandled action');
@@ -267,14 +267,49 @@ function json_(obj) {
 
 /** The «ЧГК» folder in My Drive. A trashed one is skipped: Drive still finds it by name. */
 function rootFolder_() {
-  const it = DriveApp.getRootFolder().getFoldersByName(ROOT_FOLDER);
-  while (it.hasNext()) {
-    const folder = it.next();
-    if (!folder.isTrashed()) {
-      return folder;
+  const root = driveNames('', '', '').root;
+  const find = (name) => {
+    const it = DriveApp.getRootFolder().getFoldersByName(name);
+    while (it.hasNext()) {
+      const folder = it.next();
+      if (!folder.isTrashed()) {
+        return folder;
+      }
     }
+    return null;
+  };
+  const current = find(root);
+  if (current) {
+    return current;
   }
-  return DriveApp.getRootFolder().createFolder(ROOT_FOLDER);
+  const old = find(OLD_ROOT_FOLDER);
+  return old ? old.setName(root) : DriveApp.getRootFolder().createFolder(root);
+}
+
+/**
+ * Give an existing tournament's Drive items their Latin names (older tournaments had
+ * Cyrillic ones); returns the names Drive reports afterwards. An item that is gone
+ * (deleted by hand) is reported as null instead of failing.
+ */
+function latinDriveNames_(reg) {
+  const names = driveNames(reg.tid, reg.name, reg.date);
+  const rename = (get, name) => {
+    try {
+      const item = get();
+      if (item.getName() !== name) {
+        item.setName(name);
+      }
+      return item.getName();
+    } catch {
+      return null;
+    }
+  };
+  return {
+    root: rename(() => rootFolder_(), names.root),
+    folder: rename(() => DriveApp.getFolderById(reg.folder_id), names.folder),
+    photos: rename(() => DriveApp.getFolderById(reg.photos_folder_id), names.photos),
+    spreadsheet: rename(() => DriveApp.getFileById(reg.spreadsheet_id), names.spreadsheet),
+  };
 }
 
 function createTournament_(props, req) {
@@ -286,9 +321,11 @@ function createTournament_(props, req) {
     }
     return {ok: true, existed: true, spreadsheet_id: reg.spreadsheet_id, folder_id: reg.folder_id};
   }
-  const folder = rootFolder_().createFolder(`${req.date} ${req.name} (${req.tid})`);
-  const photos = folder.createFolder('Фото');
-  const ss = SpreadsheetApp.create(`${req.name} ${req.date} (${req.tid})`);
+  // Latin names in Drive (user rule); the tabs inside the Sheet stay Russian.
+  const names = driveNames(req.tid, req.name, req.date);
+  const folder = rootFolder_().createFolder(names.folder);
+  const photos = folder.createFolder(names.photos);
+  const ss = SpreadsheetApp.create(names.spreadsheet);
   DriveApp.getFileById(ss.getId()).moveTo(folder);
   buildTabs_(ss, req);
   shareView_(ss.getId());

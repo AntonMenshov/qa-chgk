@@ -109,6 +109,15 @@ every request before and after the script runs, so the script does as little as 
   that re-sorts ~1.7–2.2 s, 15 marks ~1.4 s; a third phone sending at the same moment
   waits ~1.1 s for the lock.
 
+### 3.3 Drive names are Latin (user rule, 2026-10-30)
+
+Everything the backend creates in Drive has a Latin name: the root folder `CHGK`, one
+folder per tournament `<date> <name> (<TID>)`, inside it the Sheet `<name> <date> (<TID>)`
+and a `Photos` folder. The tournament name is transliterated (`latinName` in logic.js:
+«Осенний кубок» → `Osenniy kubok`; accents and symbols dropped). Tabs inside the Sheet
+stay Russian. Older tournaments are renamed by `chgk view` (an old «ЧГК» root folder is
+renamed when found); it prints the names Drive reports back.
+
 ## 4. Tournament configuration (Python, not YAML)
 
 Each tournament is a folder `tournaments/<slug>/` with a `config.py` written by the
@@ -495,7 +504,8 @@ Decided (user, 2026-10-30):
 - Spare cards: at least 2 per team, more where the layout has free slots, never an
   extra page (§8.4).
 - Projector board: shown only after each round, revealed by hand (§10.1); no freeze.
-- Card photos (Phase 4): kept forever, inside the tournament's own Drive folder.
+- Card photos (Phase 4): kept forever, inside the tournament's own Drive folder (`Photos`),
+  with Latin file names (§3.3).
 - Empty slots on a team's last page become extra spares.
 
 Nothing is open right now.

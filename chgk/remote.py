@@ -110,14 +110,16 @@ def ensure_board(folder: Path, profiles: Profiles, client: BackendClient | None 
     return state
 
 
-def ensure_view(folder: Path, profiles: Profiles, client: BackendClient | None = None) -> State:
-    """Share the Sheet view-only with anyone who has the link and hide the service tabs.
+def ensure_view(folder: Path, profiles: Profiles, client: BackendClient | None = None) -> tuple[State, dict]:
+    """Bring an older tournament up to date; returns its state and its Drive names.
 
-    New tournaments get both at creation; this is for older ones. Safe to repeat.
+    Shares the Sheet view-only with anyone who has the link, hides the service tabs, adds
+    «Спорные», and gives the Drive folder, photos folder and Sheet their Latin names. New
+    tournaments get all of it at creation. Safe to repeat.
     """
     folder = Path(folder)
     state, default_client = tournament_client(folder, profiles)
-    (client or default_client).share_view(state.tid)
+    reply = (client or default_client).share_view(state.tid)
     state = replace(state, view_shared=True)
     save_state(folder, state)
-    return state
+    return state, reply.get("drive") or {}

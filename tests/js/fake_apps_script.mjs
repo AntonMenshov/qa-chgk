@@ -308,9 +308,20 @@ class FakeSpreadsheet {
   setActiveSheet() {}
 }
 
+let folderCount = 0;
+
 class FakeFolder {
-  constructor(name) {
-    Object.assign(this, {name, children: [], id: `folder-${name}`, trashed: false});
+  /** `registry` (id → folder) is one backend world's, for DriveApp.getFolderById. */
+  constructor(name, registry) {
+    Object.assign(this, {name, registry, children: [], files: [], id: `folder-${++folderCount}`, trashed: false});
+    registry.set(this.id, this);
+  }
+  getName() {
+    return this.name;
+  }
+  setName(name) {
+    this.name = name;
+    return this;
   }
   isTrashed() {
     return this.trashed;
@@ -319,7 +330,7 @@ class FakeFolder {
     return this.id;
   }
   createFolder(name) {
-    const f = new FakeFolder(name);
+    const f = new FakeFolder(name, this.registry);
     this.children.push(f);
     return f;
   }
@@ -524,7 +535,8 @@ export function loadBackend({
 } = {}) {
   const props = new Map();
   const spreadsheets = new Map();
-  const root = new FakeFolder('root');
+  const folders = new Map();
+  const root = new FakeFolder('root', folders);
   const triggers = [];
   const sharing = new Map(); // spreadsheet id → "ACCESS:PERMISSION"
   const api = {
@@ -579,12 +591,31 @@ export function loadBackend({
     },
     DriveApp: {
       getRootFolder: () => root,
-      getFileById: (id) => ({
-        moveTo() {},
-        setSharing(access, permission) {
-          sharing.set(id, `${access}:${permission}`);
-        },
-      }),
+      getFolderById: (id) => {
+        if (!folders.has(id)) {
+          throw new Error(`No item with the given ID could be found: ${id}`);
+        }
+        return folders.get(id);
+      },
+      getFileById: (id) => {
+        const ss = spreadsheets.get(id);
+        if (!ss) {
+          throw new Error(`No item with the given ID could be found: ${id}`);
+        }
+        return {
+          getName: () => ss.name,
+          setName(name) {
+            ss.name = name;
+            return this;
+          },
+          moveTo(folder) {
+            folder.files.push(ss);
+          },
+          setSharing(access, permission) {
+            sharing.set(id, `${access}:${permission}`);
+          },
+        };
+      },
       Access: {ANYONE_WITH_LINK: 'ANYONE_WITH_LINK'},
       Permission: {VIEW: 'VIEW'},
     },

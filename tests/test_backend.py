@@ -79,7 +79,13 @@ class FakeBackend:
             return httpx.Response(200, json={"ok": True})
         if action == "share_view":
             self.tournaments[req["tid"]]["view_shared"] = True
-            return httpx.Response(200, json={"ok": True})
+            drive = {
+                "root": "CHGK",
+                "folder": f"2026-11-15 Osenniy kubok ({req['tid']})",
+                "photos": "Photos",
+                "spreadsheet": f"Osenniy kubok 2026-11-15 ({req['tid']})",
+            }
+            return httpx.Response(200, json={"ok": True, "drive": drive})
         return httpx.Response(200, json={"ok": False, "error": "unknown action"})
 
 
@@ -394,6 +400,7 @@ def test_cli_view_shares_an_older_tournament(folder, backends):
     result = runner.invoke(app, ["view", str(folder)])
     assert result.exit_code == 0, result.output
     assert f"https://docs.google.com/spreadsheets/d/{state['spreadsheet_id']}/htmlview" in result.output
+    assert f"Drive: CHGK/2026-11-15 Osenniy kubok ({state['tid']})" in result.output  # names Drive reports back
     assert a.tournaments[state["tid"]]["view_shared"] is True
     # Safe to repeat (it also hides the service tabs of tournaments made before that).
     assert runner.invoke(app, ["view", str(folder)]).exit_code == 0

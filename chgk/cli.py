@@ -265,11 +265,19 @@ def board_cmd(folder: Path = typer.Argument(..., help="Tournament folder")) -> N
 
 @app.command("view")
 def view_cmd(folder: Path = typer.Argument(..., help="Tournament folder")) -> None:
-    """Print the Sheet's view-only link (sharing it "anyone with the link can view" if not yet)."""
+    """Print the Sheet's view-only link; brings an older tournament up to date (sharing, tabs, Latin Drive names)."""
     try:
-        state = ensure_view(folder, Profiles())
+        state, drive = ensure_view(folder, Profiles())
     except (ValueError, BackendError) as err:
         raise _fail(err) from err
+    if drive:
+        missing = [part for part in ("folder", "photos", "spreadsheet") if not drive.get(part)]
+        typer.echo(
+            f"Drive: {drive.get('root')}/{drive.get('folder')} (Sheet «{drive.get('spreadsheet')}», "
+            f"photos in {drive.get('photos')}/)"
+        )
+        if missing:
+            typer.secho(f"Not found in Drive (deleted?): {', '.join(missing)}", fg="yellow")
     typer.echo("Results, view-only for anyone with the link (marks appear as the jury enters them):")
     typer.echo(state.view_url)
     typer.echo("Its QR code is on page 2 of the jury sheet: run `chgk jury-sheet` (or `chgk cards`) to refresh it.")
