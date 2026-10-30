@@ -169,8 +169,9 @@ A missing card scores as incorrect, but the sheet always shows whether a card wa
     (error correction M, quiet zone 4 modules). Printed at **0.65″** including the
     quiet zone (user's choice from the test print; configurable).
 - The QR contains no secret. Submitting a mark requires the jury token (§7.4).
-- When a **spare card** is scanned, the app assumes the current question and asks for
-  one-tap confirmation, or lets the juror pick another question.
+- A numbered card's mark always goes to the question in its QR code. When a **spare
+  card** is scanned (no number in its QR), the app offers the current question (§7.1)
+  for one-tap confirmation, or lets the juror pick the number the team wrote in the box.
 
 ## 7. Scanner web app (iPhone, GitHub Pages)
 
@@ -178,12 +179,17 @@ Static HTML/JS (ES modules, no build step), installable to the Home Screen. Came
 access needs HTTPS, which GitHub Pages provides.
 
 ### 7.1 Flow (the only mode in v1)
-1. The juror sets the **current question** (big ◀ 27 ▶ control).
+1. The **current question follows the scans** (user decision, replacing a manual
+   picker): the first numbered card of a later question makes it current, shown in big
+   digits at the top. The juror never has to set it; ◀ ▶ can still change it by hand.
+   It is used only for spare cards, the "missing" list and the warnings below; every
+   numbered card is marked for the question in its own QR code.
 2. The camera scans continuously. When a card is detected:
    - a full-resolution **photo of the frame is captured** (every card);
    - the team name is shown in large type and a `received` event is recorded;
-   - **warning** (colour + vibration) if the card's question ≠ current question,
-     or if this team already has a mark for this question.
+   - **warning** (colour + vibration) if the card is from an earlier question than the
+     current one («Карточка вопроса 5 (идёт 7) — отмечено для 5»; the mark still goes
+     to 5), or if this team already has a mark for this question.
 3. The juror taps **✓ / ✗ / ?**. The status event is recorded and the app returns to
    scanning.
 4. **"Missing: n teams ▸"** lists teams with no card for the current question
