@@ -677,7 +677,7 @@ test('the Sheet is view-only for anyone with the link from its creation', () => 
   const {b} = world();
   const id = JSON.parse(b.$.props.get(`t:${TID}`)).spreadsheet_id;
   assert.equal(b.$.sharing.get(id), 'ANYONE_WITH_LINK:VIEW');
-  assert.match(b.post({action: 'share_view', tid: TID, token: JURY}).error, /unknown action/); // gone with the migrations
+  assert.match(b.post({action: 'share_view', tid: TID, token: JURY}).error, /unknown action/); // no such action: sharing is part of create_tournament
 });
 
 test('only «Итоги», the round tabs and «Статистика» are visible (the view-only link shows visible tabs only)', () => {
@@ -695,7 +695,7 @@ test('only «Итоги», the round tabs and «Статистика» are visib
   assert.ok(ss.getSheetByName('Log').getLastRow() > 1);
 });
 
-test('the board token is set only at creation: set_board_token is gone (older tournaments are re-created)', () => {
+test('set_board_token is gone: the board token is set at creation and changed only by replace_token', () => {
   const {b, admin} = world();
   const NEW = 'new-board-token-abcdefgh';
   assert.match(b.post({action: 'set_board_token', tid: TID, token: admin, board_token: NEW}).error, /unknown action/);

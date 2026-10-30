@@ -218,10 +218,10 @@ function validateToken(token, name) {
   }
 }
 
-/** Check the shape of a request body; returns it, or throws RequestError. */
 /** The tokens `replace_token` can replace: a leaked jury or board link. */
 export const TOKEN_KINDS = ['jury', 'board'];
 
+/** Check the shape of a request body; returns it, or throws RequestError. */
 export function validateRequest(body) {
   if (!body || typeof body !== 'object') {
     fail('request must be a JSON object');
@@ -360,9 +360,10 @@ export function normalizeCellInput(raw) {
   if (v === '?') {
     return 'disputed';
   }
+  // Latin or Cyrillic R
   if (v === 'r' || v === 'р') {
     return 'received';
-  } // Latin or Cyrillic
+  }
   return null;
 }
 

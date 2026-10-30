@@ -1,5 +1,5 @@
 {
-  "description": "Last-write-wins for one Results cell. Used by the Apps Script backend and by the scanner's local state. ts are client timestamps in ms.",
+  "description": "Last-write-wins for one mark cell. Used by the Apps Script backend and by the scanner's local state. ts are client timestamps in ms.",
   "cases": [
     {"note": "first scan marks the card received", "before": {"value": "", "ts": 0}, "status": "received", "ts": 100, "after": {"value": "R", "ts": 100}},
     {"note": "judging a received card", "before": {"value": "R", "ts": 100}, "status": "correct", "ts": 110, "after": {"value": 1, "ts": 110}},

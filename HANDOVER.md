@@ -1,7 +1,8 @@
 # Handover
 
 Read this first when picking the project up, whether that's a new Claude session or
-another person. It is updated at the end of every work session and every phase.
+another person (CLAUDE.md points here). It is updated at the end of every work session and
+every phase. On another laptop, see «On a new machine» below.
 
 Last updated: 2026-10-30
 
@@ -25,18 +26,18 @@ Full design: [SPEC.md](SPEC.md). Build order: [PLAN.md](PLAN.md).
 | 3 — Scanner web app | ✅ built and tested (unit + integration + headless-Chrome end-to-end with a fake camera), checked live on Pages against the real backend; the iPhone check is in Phase 7 |
 | 4 — Card photos | ✅ built, tested (phone queue, backend `upload_photo`, headless-Chrome check that each photo shows its card) and checked live (API upload to Drive); the iPhone check is in Phase 7 |
 | 5 — Projector board + stats | ✅ built, tested and checked live |
-| 6 — Logos | ✅ built and tested (SPEC §9.1); tried on the user's 22 teams, in a session and through the API (local test folders, never accepted) |
+| 6 — Logos | ✅ built and tested (SPEC §9.1); tried on the user's 22 teams, in a session and through the API (drafts kept, never accepted: Key decisions, Logos) |
 | 7 — Internal test at home (printouts) | not started: the manual checks (docs/manual-checks.md), a mock game, feedback, bug analysis and fixes, then a docs/comments check |
 | 8 — External test at a tournament | not started: the same loop with real teams |
 | 9 — Next version | the deferred list in PLAN.md |
 
 - **Deployed backend:** version **a5ab214acd1d** (2026-10-30) under the user's Gmail (local
-  profile `personal`), with the «Google Sheets API» service on. `uv run chgk backend check`
+  profile `personal`), with the «Google Sheets API» service on. The code is **44f8934ea10c**:
+  comment fixes only, same behaviour; redeploy pending (the bundle is built). `uv run chgk backend check`
   compares it with the local code, and says when `out/apps_script/Code.gs` is an old bundle.
 - **Example tournament:** `tournaments/example/` (the user's four teams 645 «42», 58746
-  Фиаско, 40400 Совхоз Победа, A01 Звезды сошлись; reserve decks R1, R2), TID **UYDJ7**
-  (re-created 2026-10-30 after the user deleted the old folder) on that backend;
-  `out/example/` holds its cards (team-pages, 3×4, 24 pages) and jury.pdf.
+  Фиаско, 40400 Совхоз Победа, A01 Звезды сошлись; reserve decks R1, R2), TID **UYDJ7** on
+  that backend; `out/example/` holds its cards (team-pages, 3×4, 24 pages) and jury.pdf.
 - **Second example:** `tournaments/example-15/` — the same four teams, 3 rounds of 15
   questions, TID **U9FP4**; `out/example-15/` has its cards (team-pages, 3×4, 24 pages)
   and jury.pdf.
@@ -44,21 +45,23 @@ Full design: [SPEC.md](SPEC.md). Build order: [PLAN.md](PLAN.md).
 ### Repository layout
 ```
 chgk/                 Python package (at repo root, no src/ — user's preference)
-  __init__.py         PROJECT_DIR, the font files, out_dir(): every output under the repo's out/
+  __init__.py         PROJECT_DIR, the font files, out_dir(): every output under the repo's out/;
+                      run_python_file: config.py and teams.py compiled from their current text
   cli/                typer app, one module per group: common.py (app, errors, version), cards.py
                       (cards, test-page, jury-sheet), profiles.py (backend add|use|list|check|remove|bundle),
-                      tournament.py (new, teams, board, view), logos.py (logos)
+                      tournament.py (new, teams, board, view, replace-token), logos.py (logos)
   backend.py          backend profiles (~/.config/chgk/backends.json, CHGK_CONFIG_DIR), HTTP client, Code.gs bundler
-  remote.py           new_tournament / sync_teams (a tournament keeps its own backend)
+  remote.py           new_tournament / sync_teams / replace_token (a tournament keeps its own backend)
   config.py           Tournament / CardFields / Layout / LogoMode dataclasses + load_config
   ids.py              TID, team IDs, QR payload, jury and board links
   teams.py            teams.py loader/writer (keeps given team_ids, assigns + writes back missing ones)
-  state.py            tournaments/<slug>/state.json (TID, backend URL/profile, sheet ID, jury and board tokens)
+  state.py            tournaments/<slug>/state.json (TID, backend URL/profile, sheet ID, jury and board tokens, replacements)
   logos.py            which logo a card uses (logo_chain), loading (warnings, not crashes), pale watermark, logo_report
   svg.py              SVG logos: safety check (check_svg), rendering with PT Sans only (render_svg)
   logo_drafts.py      Claude-drawn drafts: the API request and review loop, draw_drafts (several teams at
                       once), style rules, the no-key brief, accept into logos/
-  jury.py             jury printout (platypus): QR pages, links, how-to, team forms, backup grid
+  jury.py             jury printout (platypus): QR pages, links, how-to, team forms, backup grid; version and
+                      a notice per replaced token
   cards/
     model.py          a team's deck: numbered cards, then spares
     impose.py         team-pages / cut-stack / scissors slot assignment
@@ -111,13 +114,13 @@ README.md             organiser guide (end to end) and contributor commands
 ```
 
 ### How to run
-- Tests: `uv run pytest` (532, incl. 3 browser tests that need Google Chrome + Node) and
-  `npm test` (230, then 78 backend tests again with the Sheets API off).
+- Tests: `uv run pytest` (533, incl. 3 browser tests that need Google Chrome + Node) and
+  `npm test` (230, then 78 backend and calculation tests again with the Sheets API off).
 - Lint and format: `uv run ruff format . && uv run ruff check .`, `npm run format && npm run lint`.
 - Backend: `uv run chgk backend add|use|list|check|remove|bundle` (docs/google-account.md).
 - A tournament: `uv run chgk new <folder>` (Sheet + Drive folder), `uv run chgk teams <folder>`
   (pull the Teams tab), `uv run chgk board <folder>` / `uv run chgk view <folder>` (board and
-  view-only links).
+  view-only links), `uv run chgk replace-token <folder> jury|board` (a leaked link).
 - Cards: `uv run chgk cards tournaments/example [--mode team-pages|cut-stack|scissors] [--teams A01,A02]`
   → `out/<slug>/cards-<mode>.pdf` + `out/<slug>/jury.pdf`. Without `--mode` it asks.
 - Jury sheet alone: `uv run chgk jury-sheet <folder>`; calibration page: `uv run chgk test-page <folder>`.
@@ -148,8 +151,8 @@ checks that the decks come out in order.
 - **Lint and format before committing** (user request, Google style where it applies,
   120 columns; CI checks both):
   - Python: `uv run ruff format . && uv run ruff check .` (pyproject: pycodestyle,
-    pyflakes, isort, naming, bugbear, pyupgrade, Google-convention docstrings; missing
-    docstrings are not errors).
+    pyflakes, isort, naming, bugbear, pyupgrade, simplify, comprehensions, ruff's own rules,
+    Google-convention docstrings; missing docstrings are not errors).
   - JS/HTML/CSS: `npm run format && npm run lint` (Prettier in Google's layout: single
     quotes, `{a, b}` without inner spaces; ESLint recommended + Google's checkable rules,
     braces on every `if`). `chgk backend bundle` looks for `const VERSION = 'dev';`.
@@ -169,20 +172,24 @@ One line each; SPEC has the details. Decisions recorded only here are written ou
 - **No upgrade code for older Sheets** (user, 2026-10-30): migrations and the pre-Phase-5
   board-token upgrade were removed; a tournament made by an older version is created again.
 - **Sheet tabs**, mark cells (blank / `R` / `1` `0` `?`, last write wins), «Спорные» — SPEC §5.
-- **QR and card identity** — SPEC §6; the tournament ID may come from config.py (`tid=`, 1-8
-  digits or letters, e.g. the rating number), otherwise generated; 0.85 in (was 0.65; user: ~30% bigger); team IDs of
-  1-8 `[0-9A-Z]` keep the QR at version 4-M.
+- **QR and card identity** — SPEC §6: QR 0.85 in (was 0.65; user: ~30% bigger); the tournament
+  ID from config.py (`tid=`, e.g. the rating number) or generated (5 characters); it and team IDs
+  are 1-8 `[0-9A-Z]`; the QR is version 4-M except for the longest mix (both 8 characters, a
+  3-digit question), where `chgk cards` warns.
 - **Scanner**, sync, card photos (kept forever), access via the jury link — SPEC §7.
 - **Cards** — SPEC §8: default grid 3×4 (user; was 3×5), edge to edge in every mode (the
   user rejected gutters in scissors mode), the CLI asks the cut mode, no date unless
-  `CardFields(date=True)` (user: "I never asked for it"), `CardFields(no_qr=True)` for a paper-only
+  `CardFields(date=True)` (user), `CardFields(no_qr=True)` for a paper-only
   game (default False; the QR corner stays empty), at least 2 spares and free slots
   as extra spares, reserve decks R1, R2… (§8.7), the jury printout (§8.6).
 - **Logos** — SPEC §9: private library `logos/`, fallback chain, 12% shade; SVG and Claude-drawn
-  drafts §9.1 (always Claude Opus 5.5 at max effort, with a render-and-review loop; the key only
-  from `ANTHROPIC_API_KEY`). Drafts are never deleted or overwritten (user, 2026-10-30).
-  The example tournament has no team name on cards, logo 10%, logo_size 1.85 in (user);
-  elsewhere the defaults stay.
+  drafts §9.1 (always Claude Opus 5.5 at max effort, a 100k task budget, a render-and-review loop;
+  the key only from `ANTHROPIC_API_KEY`). Drafts are never deleted or overwritten (user). The
+  user's test drafts (22 teams each) in `logos/drafts/logo-drafts/` (session) and
+  `logos/drafts/logo-drafts-api/` (API) are never deleted, overwritten or accepted without
+  asking; their tournament folders were deleted, so `chgk logos` can't preview them. The
+  examples have no team name on cards, logo 10%, logo_size 1.85 in (user); elsewhere the
+  defaults stay.
 - **A leaked jury or board link** — `chgk replace-token`, a new jury-v<N>.pdf saying what
   happened; phones keep their waiting marks and photos (SPEC §7.4).
 - **Board** — SPEC §10.1. **Juror view:** no official answer (§7.5). **Jurors:** one at a
@@ -217,6 +224,9 @@ Kept in one place: [SPEC.md §14](SPEC.md) (defaults used unless the user says o
   drawings thought until the 128K output limit and ended with no SVG (~$2.50 each for nothing);
   finished drawings used 107-124k in the drawing round, ~150-175k per logo in all (~$3-3.50).
   Now a 100k task budget plus one retry of a cut-off drawing.
+- **Organiser files are compiled from their text, never imported:** an import reused a stale
+  `.pyc` of a config.py edited within the same second at the same size (seen in a test), and
+  left `__pycache__` in tournament folders (`run_python_file`).
 - **reportlab stores identical images once:** two teams with the same draft gave one image
   in the PDF; tests that count images need different drawings.
 - **Redeploying:** whenever a commit changes `apps_script/`, run `chgk backend bundle` and
@@ -234,7 +244,7 @@ Kept in one place: [SPEC.md §14](SPEC.md) (defaults used unless the user says o
   «Итоги» fell into ID order (totals and places were right). The fake now behaves the
   same, which reproduces it. Check sorting against a reference on the real Sheet after
   any change to it (`get_results` returns what Google computed).
-- **Phantom Micro QR (2026-10-30):** a test failed about once in 100 runs. For some
+- **Phantom Micro QR:** a test failed about once in 100 runs. For some
   tournament IDs (e.g. SP7EM) a real QR's corner plus its neighbouring modules form a
   valid Micro QR, and zxing's "QRCode" format is the whole family (Model 1/2, Micro,
   rMQR). The phone now asks for `QRCodeModel2` only (`READER_OPTIONS`, camera.js), the
@@ -295,6 +305,26 @@ Kept in one place: [SPEC.md §14](SPEC.md) (defaults used unless the user says o
 - After a change to how cards or the jury sheet are drawn, regenerate `out/example/` and
   `out/example-15/` in the mode already used; don't ask (user feedback).
 
+## On a new machine
+
+A clone has the code, docs and history; the deployed backend and GitHub Pages don't depend
+on any laptop. Not in the repo (git-ignored, private or generated), so set up by hand:
+- **Tools:** `uv` then `uv sync`; Node 22 then `npm ci`; Google Chrome for the 3 browser tests
+  (skipped without it). `gh auth login` as AntonMenshov to push; git `user.name` Anton Menshov,
+  `user.email` anton.menshov@gmail.com (commits are authored only as the user).
+- **Backend profile:** copy `~/.config/chgk/backends.json`, or `uv run chgk backend add personal
+  --url <Web app /exec URL> --token <ADMIN_TOKEN>`; the token is in the Apps Script project's
+  Project Settings → Script properties. Then `uv run chgk backend check`.
+- **`tournaments/*/state.json`:** each tournament's ID and jury/board tokens. Copy them; without
+  one, chgk gives that tournament a new ID, so its cards no longer match its Sheet.
+- **Private logos:** `logos/*.png` (the user's team logos; without them cards fall back to the
+  owl, with a warning) and `logos/drafts/` (the logo test drafts).
+- **`ANTHROPIC_API_KEY`** in the shell profile, for `chgk logos --draw`.
+- **Claude's memory** stays on the old machine (`~/.claude/projects/…`); everything in it is in
+  this file, and `CLAUDE.md` points a new session here.
+- `out/` is regenerated: `uv run chgk cards tournaments/example --mode team-pages` (and
+  example-15), `uv run chgk backend bundle`.
+
 ## GitHub
 
 - Repo: <https://github.com/AntonMenshov/qa-chgk> (public). `gh` is logged in as
@@ -306,20 +336,17 @@ Kept in one place: [SPEC.md §14](SPEC.md) (defaults used unless the user says o
 - The repo is public: never commit a Google account, deployment URL or token. The Gmail
   account behind the backend must stay switchable (named local profiles, SPEC §3.1).
 
-## Things that need the user
+## Live checks
 
-- The manual checks ([docs/manual-checks.md](docs/manual-checks.md)): iPhone scanner, the
-  Sheet's edit trigger, a real print. They are the start of Phase 7 (PLAN.md).
-
-Live checks, all against the user's backend. Earlier versions (2026-10-29/30) covered marks,
+All against the user's backend. Earlier versions (2026-10-29/30) covered marks,
 duplicates, stale scans, bad teams and tokens, sums, «2-3» places and tie-break order against
 the logic.js reference, reserve decks, the one-call sort, Latin Drive names, card photos in
 Drive, the board and its QR codes, the view-only link signed out, and each token reaching
 exactly its level. Latest:
 - **2026-10-30, d8a68a3a5e22:** both examples' get_state / get_board; throwaway UAHQT: a re-scan
   keeps the judgement, question 99 and an unknown team refused alone with the batch in, a jury
-  token with `.`/`+` refused, a tournament without a board token refused. The cleared-cell and deleted-row cases need a Sheet edit
-  (docs/manual-checks.md).
+  token with `.`/`+` refused, a tournament without a board token refused. The cleared-cell and
+  deleted-row cases need a Sheet edit (docs/manual-checks.md).
 - **2026-10-30, abab243102b6 (replace-token):** both examples' jury and board access; throwaway
   K3VRW: after `replace_token` jury, the old token is refused with `retry: true` and the same
   waiting mark goes in with the new one; after board, the old board token is refused and the

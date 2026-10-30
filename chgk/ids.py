@@ -7,8 +7,9 @@ QR payload: `<scanner_url>#<TID>.<TEAM>.<Q>` where Q is a question number or
 `S<n>` for the n-th spare card, e.g. `https://u.github.io/qa-chgk/s/#K7M2Q.A07.27`.
 
 A team ID is 1-8 digits or capital Latin letters: the organiser's own (e.g. the team's
-rating.chgk.info number, 58746) or one we assign (A01, A02, …). Eight characters keep
-the QR code at the same size (version 4-M) as A01.
+rating.chgk.info number, 58746) or one we assign (A01, A02, …). With a 5-character TID,
+eight characters keep the QR code at the same size (version 4-M) as A01; a longer TID
+can need a denser code (render.py CHECKED_QR_VERSION warns).
 """
 
 import re

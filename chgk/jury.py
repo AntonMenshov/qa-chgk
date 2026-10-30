@@ -4,6 +4,9 @@ Page 1 (secret, jury only): QR codes for jury access, the editable Sheet and the
 Page 2: QR codes for the projector board and the view-only Sheet. Page 3: details, links,
 how-to. Then one form per team (ID, name, players) in two columns, blank forms for reserve
 teams, and the paper backup grid.
+
+After `chgk replace-token` the sheet carries a version number (sheet_version) and a boxed
+notice of each replacement on page 1 (and a board one on page 2 too).
 """
 
 from datetime import datetime

@@ -341,6 +341,7 @@ def test_api_key_only_from_the_environment(monkeypatch):
         ("???", "team"),
         ("Команда с очень-очень длинным названием", "komanda-s-ochen-ochen-dlinnym-nazvaniem"),
         ("Очень длинное название команды из многих слов", "ochen-dlinnoe-nazvanie-komandy-iz"),
+        ("А" * 50, "a" * 40),  # one long word: cut at 40
     ],
 )
 def test_file_stem_is_latin(name, stem):

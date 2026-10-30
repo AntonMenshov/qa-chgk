@@ -335,7 +335,7 @@ def test_cli_backend_add_list_use_check(backends):
 
 
 def test_cli_backend_check_points_out_an_old_bundle(backends, tmp_path):
-    # The user once pasted a Code.gs left over from before a change (cwd is tmp_path).
+    # A Code.gs left over from before a change, pasted by mistake (out/ is tmp_path/out here).
     runner.invoke(app, ["backend", "add", "personal", "--url", URL_A, "--token", "tokA"])
     check = lambda: " ".join(runner.invoke(app, ["backend", "check"]).output.split())  # noqa: E731
     assert "run `chgk backend bundle` and paste it" in check()  # no bundle yet

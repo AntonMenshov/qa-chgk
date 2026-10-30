@@ -13,9 +13,10 @@ function onSheetEdit(e) {
   if (!isRound && name !== TABS.summary && name !== TABS.teams) {
     return;
   }
+  // The header row only.
   if (e.range.getRow() + e.range.getNumRows() - 1 < 2) {
     return;
-  } // header only
+  }
   const ss = sheet.getParent();
   const settings = ss.getSheetByName(TABS.settings).getRange(1, 1, 6, 2).getValues();
   const sizes = JSON.parse(settings.find((r) => r[0] === 'round_sizes')[1]);

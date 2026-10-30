@@ -59,7 +59,7 @@ test('uploads two at a time, oldest first; the rest wait for a free slot', async
   assert.deepEqual([q.status.pending, q.status.uploading, q.status.sent], [0, 0, 3]);
 });
 
-test('a failed upload is retried after a growing pause; success resets nothing else', async () => {
+test('a failed upload is retried after a growing pause; a success clears the error', async () => {
   let t = 0;
   const {calls, send} = manualSend();
   const q = new PhotoQueue({store: memoryStore(), send, now: () => t});

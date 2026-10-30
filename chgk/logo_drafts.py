@@ -546,7 +546,8 @@ def file_stem(name: str) -> str:
     latin = "".join(CYRILLIC.get(ch, ch) for ch in name.lower())
     stem = re.sub(r"[^a-z0-9]+", "-", latin).strip("-")
     if len(stem) > STEM_LENGTH:
-        stem = stem[: STEM_LENGTH + 1].rsplit("-", 1)[0]  # whole words only
+        cut = stem[: STEM_LENGTH + 1]
+        stem = cut.rsplit("-", 1)[0] if "-" in cut else stem[:STEM_LENGTH]  # whole words where there are any
     return stem or "team"
 
 

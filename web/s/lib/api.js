@@ -28,7 +28,7 @@ const REFUSED = {
     'ссылка табло больше не действует (её заменили): откройте новую по QR на стр. 2 листа жюри',
 };
 
-/** A function (action, payload) => reply for one backend and jury token. */
+/** A function (action, payload) => reply for one backend and token (jury or board). */
 export function backend(url, token, fetchImpl = (...a) => fetch(...a), timeoutMs = REQUEST_TIMEOUT_MS) {
   return async (action, payload = {}) => {
     const abort = new AbortController();

@@ -112,8 +112,9 @@ function doPost(e) {
     return json_(reply);
   } catch (err) {
     const known = err instanceof RequestError;
-    // retry: false — the request itself is wrong, sending it again won't help (the phone's
-    // photo queue then drops it instead of retrying).
+    // retry: false for a RequestError — the request itself is wrong, sending it again won't
+    // help (the phone's photo queue then drops it) — unless it sets retry (a refused token:
+    // see requireToken_).
     return json_({
       ok: false,
       error: known ? err.message : `server error: ${err && err.message ? err.message : err}`,

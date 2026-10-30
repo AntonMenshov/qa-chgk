@@ -90,6 +90,7 @@ export class Session {
    *   {kind: "other"}                  not a ЧГК code
    *   {kind: "foreign", tid}           a card of another tournament: not recorded
    *   {kind: "unknown_team", teamId}   not in this tournament's team list
+   *   {kind: "bad_question", team, question, total}  past the last question: not recorded
    *   {kind: "spare", team, spare}     ask the juror which question, then call card()
    *   {kind: "card", ...}              see card()
    */
