@@ -19,7 +19,7 @@ Full design: [SPEC.md](SPEC.md). Build order: [PLAN.md](PLAN.md).
 | Phase | Status |
 |---|---|
 | Spec and plan | ✅ done, agreed with the user |
-| 0 — Skeleton and spikes | 🔶 skeleton ✅; spike 1 ✅; spike 3 ✅ (user chose 0.65 in QR, 3% grey); spike 2 ready on Pages, waiting for the user's iPhone |
+| 0 — Skeleton and spikes | ✅ spike 1 (laptop) ✅, spike 2 ✅ (all QR sizes scan well; zxing-wasm chosen), spike 3 ✅ (0.65 in QR, 3% grey). Open: spike 1 from iPhone Safari |
 | 1 — Config, identity, card PDF | ✅ done; cards + jury sheet work offline from `teams.csv` |
 | 2 — Apps Script backend + Sheet | next |
 | 3 — Scanner web app | not started |
@@ -135,12 +135,8 @@ checks that the decks come out in order.
 
 ## Next steps
 
-1. **Spike 2** (iPhone QR scan): the user opens
-   <https://antonmenshov.github.io/qa-chgk/spikes/qr_scan/> on the iPhone and scans
-   `out/example/test-page.pdf`, printed or on a screen. Record the results in
-   `docs/spikes.md` and choose the QR library. Also open
-   <https://antonmenshov.github.io/qa-chgk/spikes/apps_script_post/> on the iPhone to
-   confirm spike 1 from real Safari.
+1. Spike 1 from iPhone Safari: the user scans a QR (made locally, not committed) that
+   opens the spike page with `#url=<exec URL>`. Record the result in `docs/spikes.md`.
 2. **Phase 2:** Apps Script backend + Sheet, including switchable Google-account
    backends (SPEC §3.1, PLAN Phase 2). The user already deployed the spike 1 script,
    so they know the deploy flow.
@@ -151,6 +147,7 @@ checks that the decks come out in order.
 - PT Sans glyph gaps: `render.missing_glyphs` guards every drawn string,
   and unknown characters print as `?` with a warning.
 - typer 0.27 no longer depends on click: don't `import click`.
+- Never make a phone user type or paste URLs/tokens: deliver them by QR (spike 2 lesson).
 - Draw cut guides **after** the cards, or the QR's white quiet zone hides them.
 
 ## GitHub
