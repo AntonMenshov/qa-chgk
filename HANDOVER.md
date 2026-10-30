@@ -19,17 +19,18 @@ Full design: [SPEC.md](SPEC.md). Build order: [PLAN.md](PLAN.md).
 | Phase | Status |
 |---|---|
 | Spec and plan | ✅ done, agreed with the user |
-| 0 — Skeleton and spikes | ✅ spike 1 (laptop + iPhone Safari), spike 2 (all QR sizes scan well; zxing-wasm chosen), spike 3 (0.65 in QR; logo shade later changed to 12%) |
+| 0 — Skeleton and spikes | ✅ spike 1 (laptop + iPhone Safari), spike 2 (all QR sizes scan well; zxing-wasm chosen), spike 3 (0.65 in QR, later 0.85; logo shade later changed to 12%) |
 | 1 — Config, identity, card PDF | ✅ done; cards + jury sheet work offline from `teams.py` |
 | 2 — Apps Script backend + Sheet | ✅ deployed under the user's Gmail and checked live (sums, places, order, reserve teams, IDs, view-only link); the Sheet-trigger checks still to be confirmed by the user |
 | 3 — Scanner web app | 🔶 built and tested (unit + integration + headless-Chrome end-to-end with a fake camera), checked live on Pages against the real backend; waiting for the user's iPhone check |
 | 4 — Card photos | ✅ built, tested (phone queue, backend `upload_photo`, headless-Chrome check that each photo shows its card) and checked live (API upload to Drive); the iPhone check is in the user's list |
 | 5 — Projector board + stats | ✅ built, tested and checked live |
-| 6 — Logos | partly done: PNG/JPG → pale greyscale, shared private library, fallback owl. Left: SVG, Claude-drawn SVG, image-API generation |
+| 6 — Logos | planned (PLAN.md), not started: SVG input, `chgk logos`, Claude-drawn drafts, `chgk key`, preview then accept. Done earlier: PNG/JPG → pale greyscale, shared private library, fallback owl. Image-API logos: PLAN «Later» |
 
 - **Deployed backend:** version **e08511993c86** under the user's Gmail (local profile
   `personal`), with the «Google Sheets API» service on. `uv run chgk backend check`
-  compares it with the local code.
+  compares it with the local code. The local code is **a359471f56f1**: only comments differ,
+  so redeploying can wait for the next real backend change.
 - **Example tournament:** `tournaments/example/` (the user's four teams 645 «42», 58746
   Фиаско, 40400 Совхоз Победа, A01 Звезды сошлись; reserve decks R1, R2), TID **UYDJ7** (re-created 2026-10-30 after the user deleted the old folder)
   on that backend; `out/example/` holds its cards (team-pages, 3×4, 24 pages) and jury.pdf.
@@ -64,9 +65,11 @@ apps_script/          backend, one global scope, joined in the order of bundle.j
                       the bundler and the Node fake drop its `export`s, since Apps Script has none
 logos/                shared logo library (team logos git-ignored; nologo.png public)
 tournaments/example/  working example: config.py, teams.py (the user's real teams)
+tournaments/example-15/  the same teams, 3 rounds of 15 questions
 tests/                pytest (tests/test_*.py) and node:test (tests/js/*.test.mjs), e.g.:
-  conftest.py         shared `folder` fixture: a small tournament on disk
-  test_scanner_e2e.py headless Chrome: the scanner (fake camera shows real cut-out cards) and the board; skipped without Chrome/Node
+  conftest.py         shared `folder` fixture: a small tournament on disk (TEST_GRID: 3×5, 0.65 in QR on purpose)
+  node_backend.py     the real backend (js/fake_backend_server.mjs in Node) answering the CLI tests through respx
+  test_scanner_e2e.py headless Chrome: the scanner (fake camera shows real cut-out cards), the board, the phone's decoder vs a phantom Micro QR; skipped without Chrome/Node
   js/fake_apps_script.mjs  in-memory Sheets, Drive, properties and Sheets API to run Code.js in Node:
                       computed values, "42" → 42 unless "@", a formula written in the same API call
                       is not calculated yet for a sortRange (seen live)
@@ -76,7 +79,7 @@ tests/                pytest (tests/test_*.py) and node:test (tests/js/*.test.mj
   js/backend*.test.mjs     the backend by topic (core, photos, «Спорные», Sheets API I/O) on
                            the fake; shared helpers in js/backend_world.mjs
   js/logic.test.mjs, scanner.test.mjs, photos.test.mjs, board.test.mjs, vectors.test.mjs
-  js/fake_backend_server.mjs  the fake backend over HTTP (for the browser tests)
+  js/fake_backend_server.mjs  the fake backend over HTTP (for the browser and CLI tests)
   vectors/            shared JSON test vectors (qr_payloads, jury_links, board_links, merge_cases)
 docs/google-account.md  deploying the backend under any Gmail account; switching; updating
 docs/manual-checks.md   what the tests can't cover: iPhone, printing, the Sheet's edit trigger
@@ -99,8 +102,8 @@ README.md             organiser guide (end to end) and contributor commands
 ```
 
 ### How to run
-- Tests: `uv run pytest` (401, incl. 2 browser tests that need Google Chrome + Node) and
-  `npm test` (213, then 74 backend tests again with the Sheets API off).
+- Tests: `uv run pytest` (405, incl. 3 browser tests that need Google Chrome + Node) and
+  `npm test` (212, then 69 backend tests again with the Sheets API off).
 - Lint and format: `uv run ruff format . && uv run ruff check .`, `npm run format && npm run lint`.
 - Backend: `uv run chgk backend add|use|list|check|remove|bundle` (docs/google-account.md).
 - A tournament: `uv run chgk new <folder>` (Sheet + Drive folder), `uv run chgk teams <folder>`
@@ -166,7 +169,7 @@ checks that the decks come out in order.
     ~0.7–1 s of each is Google outside the script.
 - **Sheet tabs:** «Итоги», «Тур 1…N» (sorted), «Статистика», hidden «Спорные» (every undecided «?» with its card photo's
   link, in A–D; counts overall, per round and per team in G–H, two empty columns away;
-  rewritten only when the set of «?» changes or a «?» card's photo arrives), hidden
+  rewritten only when the set of «?», a name, or a «?» card's photo changes), hidden
   Teams, Log, Settings, Meta. Only the visible ones appear on the view-only link.
 - **Scanner:** static web app on GitHub Pages, public repo **`qa-chgk`**; v1 access via
   a secret jury link. The current question follows the scans; a spare card asks for its
@@ -203,7 +206,7 @@ checks that the decks come out in order.
     rejected gutters in scissors mode as wasteful.
   - Modes: team-pages (light lines + crop marks), cut-stack (same, guillotine order),
     scissors (darker dashed lines, no crop marks). The CLI asks which one; regenerating
-    the example reuses the mode of the existing PDF.
+    the examples reuses the mode of the existing PDF.
   - No date unless `CardFields(date=True)` (user: "I never asked for it").
   - Logo watermark at **12% grey**, measured on the logo's dark parts (SPEC §9). A sized
     logo is centred on the card; its corner may go under the QR, which is drawn on top.
@@ -308,8 +311,8 @@ Kept in one place: [SPEC.md §14](SPEC.md) (defaults used unless the user says o
   the CLI needs the deployment's `/exec` URL.
 - The Apps Script editor's Run button starts on the file's first function. Code.js goes
   first in the bundle and its first function is `setup()` (tested).
-- After a change to how cards or the jury sheet are drawn, regenerate `out/example/` in
-  the mode already used; don't ask (user feedback).
+- After a change to how cards or the jury sheet are drawn, regenerate `out/example/` and
+  `out/example-15/` in the mode already used; don't ask (user feedback).
 
 ## GitHub
 
@@ -339,6 +342,6 @@ a new tournament «Проверка имён «Звёзды» №1» created as 
 No1 (UDHBH)`, marks, reserve team and standings correct, view-only links open);
 card photos (5bee727e1620, throwaway RG3HC: a 66 KB JPEG saved to Drive in ~2 s, a repeat
 upload recognised, a non-JPEG refused) and the board's QR codes on Pages against the real
-backend (decoded = the jury sheet's links). the cleaned-up backend (e08511993c86: split files, migrations removed, photos for unknown
+backend (decoded = the jury sheet's links). The cleaned-up backend (e08511993c86: split files, migrations removed, photos for unknown
 teams refused, `share_view` gone; marks, reserve, standings, photo 3.4 s, board, example OK).
 Throwaway tournaments: the user deletes them.

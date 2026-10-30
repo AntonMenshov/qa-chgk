@@ -48,7 +48,7 @@ that records marks, and delete its Drive folder afterwards (`docs/google-account
 
 ## Printing
 
-- [ ] `uv run chgk test-page <folder>`, printed at 100%: the 1″ ruler measures 1″, the QR
+- [ ] `uv run chgk test-page <folder>`, printed at 100%: both rulers measure 2″, the QR
       codes at every size scan, the chosen logo shade stays pale.
 - [ ] A full card set on the real printer: cut lines line up, cards come apart in order
       in the chosen mode, the number box on spare cards is easy to write in.

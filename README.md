@@ -19,8 +19,8 @@ Needs [uv](https://docs.astral.sh/uv/) and a Gmail account for the results.
    [docs/google-account.md](docs/google-account.md) (about 10 minutes, no Google Cloud
    project). Check with `uv run chgk backend check`.
 2. **A tournament** is a folder `tournaments/<slug>/`: copy `config.py` and `teams.py`
-   from `tournaments/example/` (not its `state.json`, which belongs to the example), then
-   edit them: name, date, rounds and questions; team names (IDs such as rating numbers
+   from `tournaments/example/` (3 rounds of 12; `tournaments/example-15/` has 3 of 15),
+   not `state.json`, which belongs to the example. Then edit them: name, date, rounds and questions; team names (IDs such as rating numbers
    are optional, missing ones are assigned).
 3. **Create its Sheet:** `uv run chgk new tournaments/<slug>`.
 4. **Print:** `uv run chgk cards tournaments/<slug>` writes `out/<slug>/cards-<mode>.pdf`
@@ -37,7 +37,7 @@ Needs [uv](https://docs.astral.sh/uv/) and a Gmail account for the results.
      too; Q hides them);
    - decide «?» and appeals by typing `1` or `0` in the Sheet; all open «?» are on the
      hidden «Спорные» tab, with a link to each card's photo («Все листы» at the bottom left).
-6. **Teams that turn up unregistered** get a spare deck (R1, R2, …) and name themselves
+6. **Teams that turn up unregistered** get a reserve deck (R1, R2, …) and name themselves
    on the Sheet later.
 
 Changed the Teams tab in the Sheet? `uv run chgk teams tournaments/<slug>` pulls it back.

@@ -29,7 +29,7 @@ Tests are written alongside the code, not after it.
 - `chgk.cards`: layout geometry, rendering, the three imposition modes, the
   interactive mode prompt, the test page.
 - Teams come from a local file until Phase 2 (now `teams.py`, Python like config.py).
-- Font bundled under `assets/fonts/` (OFL).
+- Font bundled under `chgk/assets/fonts/` (OFL).
 - **Tests:**
   - config edge cases (1 round; uneven rounds; 0 spares);
   - payload round-trip against the vectors;
@@ -63,7 +63,7 @@ Tests are written alongside the code, not after it.
   - manual check: deploy once and run `chgk new` against it.
 
 ## Phase 3 — Scanner web app
-- `web/s/`: pure modules `payload.js`, `queue.js`, `state.js` (missing teams,
+- `web/s/`: pure modules `payload.js`, `queue.js`, `session.js` (missing teams,
   warnings), plus thin UI and camera glue.
 - Setup via the jury link (or by scanning it in the app); the current question follows
   the scans; ✓/✗/? flow; spare card asks for its question; missing list; sync pill;

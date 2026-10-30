@@ -82,7 +82,7 @@ The spike's script printed `out/print_test.pdf`, to be printed at **100% / Actua
 | Check | Printer | Result |
 |---|---|---|
 | Grey you'd pick for the logo watermark | (user, 2026-10-29) | **3%** (later 12%, chosen from real cards: SPEC §8.2) |
-| QR size | (user, 2026-10-29) | **0.65 in** (between the 0.6 and 0.7 samples) |
+| QR size | (user, 2026-10-29) | **0.65 in** (between the 0.6 and 0.7 samples; later 0.85: SPEC §6) |
 | Rulers measure exactly 2 in | | not reported |
 | Sample cards: enough room to write? | | not reported |
 

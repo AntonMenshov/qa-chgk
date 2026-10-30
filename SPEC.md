@@ -157,7 +157,7 @@ Python like config.py (user request, replacing teams.csv):
 `teams = [team("42", id="645", logo="42.png"), team("Звезды сошлись"), …]`.
 Given team IDs are kept (upper-cased); missing ones are assigned and written back (the
 file is then regenerated). `chgk teams` regenerates it from the Sheet's Teams tab.
-`tournaments/example/` is a working example.
+`tournaments/example/` (3 × 12) and `tournaments/example-15/` (3 × 15) are working examples.
 
 ## 5. Google Sheet (one spreadsheet per tournament)
 
@@ -265,6 +265,8 @@ instead of the card.
   (IndexedDB, so they survive a reload), so a slow photo never delays a result. A failed
   upload is retried with growing pauses; one the backend refuses as wrong (`retry: false`
   in its reply) is dropped. The pill and the «Отправка отметок» panel show how many are waiting.
+- Every request (scanner and board) is cut off after 45 s and retried like any failure
+  (`REQUEST_TIMEOUT_MS`, api.js); marks and photos carry IDs, so nothing counts twice.
 - `upload_photo` (jury token): the backend saves the JPEG in the tournament's `Photos`
   folder as `<TID>_<team>_q<NNN>[_S<n>]_<yyyyMMdd-HHmmss>_<id>.jpg` (Latin, §3.3), outside
   the lock (the Drive save takes ~2 s), then logs it (source `photo`, link in `photo`).
@@ -319,8 +321,8 @@ The app doesn't show it (decided).
   don't show their ID.
 - Characters the font can't draw (e.g. emoji in a team name) print as `?`, with a
   warning.
-- An embedded Unicode TTF font (OFL licence, e.g. PT Sans or Noto Sans) is used for
-  Cyrillic.
+- An embedded Unicode TTF font, PT Sans (OFL licence, in `chgk/assets/fonts/`), is used
+  for Cyrillic.
 - The QR is drawn over the logo with its white quiet zone, so a logo never shows through it.
 - Logo watermark default: **12% grey**, configurable. This is the ink of the logo's
   dark parts (its darkest 10%), not of a single darkest pixel; see §9. The user
@@ -344,8 +346,10 @@ add a page.
 `chgk test-page` prints a calibration page:
 - the logo at several grey shades, so the organiser can pick one that stays pale on
   the actual printer;
-- QR codes at several sizes;
-- a 1″ ruler, to confirm the page printed at 100%.
+- QR codes at several sizes (0.55, 0.65, 0.75, 0.85, 0.95 in), each a real card of the
+  tournament;
+- two 2″ rulers, to confirm the page printed at 100%;
+- a row of sample cards as they will print (first and last numbered card, a spare).
 
 ### 8.6 Jury printout (Russian)
 
@@ -388,6 +392,7 @@ as `chgk jury-sheet <folder>`.
   reserve team on Teams before its first scan adds it too.
 - Any team can be renamed this way; a cleared name cell is put back. `chgk teams`
   leaves reserve teams on the backend (they are not written to teams.py).
+
 ## 9. Logos
 
 **Shared logo library:** `logos/` at the repo root (user decision, 2026-10-29).
@@ -416,8 +421,8 @@ A pale greyscale watermark. The source is chosen per team and per tournament:
 |---|---|
 | none | no logo |
 | provided file | PNG/JPG (SVG later) in the tournament folder or `logos/` → greyscale → flatten → lightened to the chosen shade |
-| Claude-drawn SVG | vector emblem or monogram from a text spec (drawn in a Claude Code session, or via the Claude API with the user's key) |
-| image API | prompt → OpenAI / Google image model (user's API key) → same post-processing |
+| Claude-drawn SVG (Phase 6, planned) | vector emblem or monogram from a text spec (drawn in a Claude Code session, or via the Claude API with the user's key) |
+| image API (later version, PLAN «Later») | prompt → OpenAI / Google image model (user's API key) → same post-processing |
 
 The Claude API does not output raster images, but it can write SVG.
 
@@ -468,12 +473,12 @@ stays a thin layer.
 
 | Layer | Runner | What is unit-tested |
 |---|---|---|
-| Python (`chgk/`) | `uv run pytest` | config validation and question/round numbering; QR payload encode/decode; imposition (every card placed exactly once; simulated cut-and-stack yields sorted decks; page count); layout geometry (everything inside margins, QR ≥ min size, a sized logo centred on the card); logo processing (greyscale, darkest pixel ≤ chosen shade); Apps Script client with mocked HTTP (`respx`) |
+| Python (`chgk/`) | `uv run pytest` | config validation and question/round numbering; QR payload encode/decode; imposition (every card placed exactly once; simulated cut-and-stack yields sorted decks; page count); layout geometry (everything inside margins, QR ≥ min size, a sized logo centred on the card); logo processing (greyscale, darkest pixel ≤ chosen shade); the Apps Script client and the CLI with mocked HTTP (`respx`), answered by the real backend code running in Node on fake Google services (`tests/node_backend.py`) |
 | PDF output | `uv run pytest` | smoke tests: page count; Cyrillic text extractable (`pypdf`); **QR codes decoded back from the rendered PDF** (`pypdfium2` + `zxing-cpp`) and matching the expected payloads |
 | Apps Script logic (`apps_script/`) | `npm test` (node:test) | last-write-wins merge, status → cell mapping, request validation, token check, idempotency by `scan_id`. Pure functions live in a file that runs both in Apps Script and in Node |
 | Backend in Node (`apps_script/*.js`) | `npm test` (node:test) | every action against in-memory fakes of Sheets, Drive and the Sheets API (`tests/js/fake_apps_script.mjs`): tabs, sums and places vs the logic.js reference on random tournaments, sorting (one-call API sort vs the slow sort), «Спорные», `upload_photo`, Latin Drive names; run again with the Sheets API off |
 | Web app logic (`web/`) | `npm test` (node:test) | payload parsing, offline queue (retry, dedupe), missing-teams computation, question-mismatch / duplicate warnings, spare-card handling, «Чья карточка?», the photo queue (two at a time, retry, drop on refusal, survives a reload), the board's model, link encoder and QR drawing |
-| Browser end to end | `uv run pytest` (headless Chrome) | the scanner with a fake camera showing real cut-out cards against the fake backend: verdicts, spare keypad, reserve deck, foreign card, «Чья карточка?», one photo per card whose QR decodes back to that card; the board: rounds revealed by hand, places, its QR codes decoded from screenshots = the jury sheet's links |
+| Browser end to end | `uv run pytest` (headless Chrome) | the scanner with a fake camera showing real cut-out cards against the fake backend: verdicts, spare keypad, reserve deck, foreign card, «Чья карточка?», one photo per card whose QR decodes back to that card; the board: rounds revealed by hand, places, its QR codes decoded from screenshots = the jury sheet's links; the phone's decoder reads the card, not a phantom Micro QR beside it |
 | Cross-language contract | both | shared test vectors in `tests/vectors/*.json` (QR payloads, jury and board links, merge cases), checked by both the Python and JS suites, so the encoder and the decoders can't drift apart |
 
 Not unit-testable, so covered by a manual checklist per release
@@ -514,8 +519,8 @@ uv run chgk new tournaments/<slug> [--backend <profile>]  # Sheet + Drive folder
 uv run chgk teams tournaments/<slug>        # pull the Teams tab into teams.py, assign team_ids
 uv run chgk logos tournaments/<slug>        # logo report, Claude-drawn drafts, preview, accept (Phase 6, planned)
 uv run chgk cards tournaments/<slug> [--mode team-pages|cut-stack|scissors] [--teams A01,A07] [--out file.pdf]
-uv run chgk test-page tournaments/<slug>
-uv run chgk jury-sheet tournaments/<slug>   # jury printout (also written by `cards`)
+uv run chgk test-page tournaments/<slug> [--out file.pdf]
+uv run chgk jury-sheet tournaments/<slug> [--out file.pdf]  # jury printout (also written by `cards`)
 uv run chgk board tournaments/<slug>        # projector board link (creates its token for older tournaments)
 uv run chgk view tournaments/<slug>         # view-only Sheet link
 uv run chgk version
