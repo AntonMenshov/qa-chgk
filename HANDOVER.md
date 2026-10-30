@@ -239,6 +239,14 @@ Kept in one place: [SPEC.md §14](SPEC.md) (defaults used unless the user says o
   «Итоги» fell into ID order (totals and places were right). The fake now behaves the
   same, which reproduces it. Check sorting against a reference on the real Sheet after
   any change to it (`get_results` returns what Google computed).
+- **Phantom Micro QR (2026-10-30):** a test failed about once in 100 runs. For some
+  tournament IDs (e.g. SP7EM) a real QR's corner plus its neighbouring modules form a
+  valid Micro QR, and zxing's "QRCode" format is the whole family (Model 1/2, Micro,
+  rMQR). The phone now asks for `QRCodeModel2` only (`READER_OPTIONS`, camera.js), the
+  tests read the same way (`read_qr` in conftest.py), and three tests guard it: a
+  Micro QR next to a card in the phone's real decoder (browser test), the options
+  themselves (Node), and every card's QR read back at 150 dpi for 12 tournament IDs in
+  every mode. Breaking the filter fails two of them.
 - **Profile before optimising:** the first guess (the sort) was not the main cost; the
   per-step `timing` showed Google's ~1 s per request, ~0.3 s for opening the spreadsheet,
   and many small reads and writes.

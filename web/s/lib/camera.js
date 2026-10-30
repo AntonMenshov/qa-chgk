@@ -5,9 +5,17 @@
 const WASM = 'vendor/zxing-wasm-3.1.4/zxing_reader.wasm';
 const SAME_CODE_GAP_MS = 1500;
 
+/**
+ * Standard QR codes only (what cards and the jury sheet print). zxing's "QRCode" is the
+ * whole QR family, and a real QR's corner plus the modules beside it can form a valid
+ * Micro QR (seen with tournament SP7EM): with one symbol per frame the phone could read
+ * that instead of the card. Tested with this decoder in tests/test_scanner_e2e.py.
+ */
+export const READER_OPTIONS = {formats: ['QRCodeModel2'], maxNumberOfSymbols: 1, tryHarder: false};
+
 let prepared = false;
 
-function prepareReader() {
+export function prepareReader() {
   if (prepared) {
     return;
   }
@@ -103,11 +111,7 @@ export class Camera {
     this.canvas.height = v.videoHeight;
     this.ctx.drawImage(v, 0, 0);
     const image = this.ctx.getImageData(0, 0, this.canvas.width, this.canvas.height);
-    const results = await globalThis.ZXingWASM.readBarcodes(image, {
-      formats: ['QRCode'],
-      maxNumberOfSymbols: 1,
-      tryHarder: false,
-    });
+    const results = await globalThis.ZXingWASM.readBarcodes(image, READER_OPTIONS);
     return results.find((r) => r.isValid)?.text ?? null;
   }
 

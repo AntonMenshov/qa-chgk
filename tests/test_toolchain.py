@@ -8,7 +8,7 @@ import io
 
 import pypdfium2
 import segno
-import zxingcpp
+from conftest import read_qr
 from pypdf import PdfReader
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.units import inch
@@ -41,7 +41,7 @@ def _make_pdf(qr_size_in: float) -> bytes:
 def _decode_qrs(pdf: bytes, dpi: int = 200) -> list[str]:
     page = pypdfium2.PdfDocument(pdf)[0]
     image = page.render(scale=dpi / 72).to_pil()
-    return [r.text for r in zxingcpp.read_barcodes(image)]
+    return [r.text for r in read_qr(image)]
 
 
 def test_cyrillic_text_is_extractable():

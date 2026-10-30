@@ -1,9 +1,10 @@
+import random
 import re
+from dataclasses import replace
 
 import pypdfium2
 import pytest
-import zxingcpp
-from conftest import LONG_NAME, TEAM_ROWS, write_teams_file
+from conftest import LONG_NAME, TEAM_ROWS, read_qr, write_teams_file
 from PIL import Image
 from pypdf import PdfReader
 from reportlab.pdfbase import pdfmetrics
@@ -24,8 +25,8 @@ from chgk.cards.render import (
 )
 from chgk.cli import app
 from chgk.config import CardFields, Layout, LogoMode
-from chgk.ids import CardId, decode_payload
-from chgk.state import load_or_create_state
+from chgk.ids import TID_ALPHABET, CardId, decode_payload
+from chgk.state import load_or_create_state, save_state
 from chgk.teams import Team
 
 DPI = 200
@@ -41,7 +42,7 @@ def decoded_slots(image):
     rects = card_rects(Layout())
     scale = DPI / 72
     found = {}
-    for result in zxingcpp.read_barcodes(image):
+    for result in read_qr(image):
         p = result.position
         cx = (p.top_left.x + p.top_right.x + p.bottom_left.x + p.bottom_right.x) / 4 / scale
         cy = PAGE_H - (p.top_left.y + p.top_right.y + p.bottom_left.y + p.bottom_right.y) / 4 / scale
@@ -86,6 +87,62 @@ def test_cut_stack_pdf_order_matches_the_guillotine_workflow(folder, tmp_path):
     deck = [(q, None) for q in range(1, 7)] + [(None, 1), (None, 2), (None, 3)]  # S3 fills a free slot
     expected = [(team, q, s) for team in ("A01", "A02", "A03", "R1", "R2") for q, s in deck]
     assert [(c.team_id, c.question, c.spare) for c in stacked] == expected
+
+
+def _qr_slots_at(pdf, dpi):
+    """Per page: the card payloads read (QR Code only) at `dpi`, each checked to sit in its own slot."""
+    rects = card_rects(Layout())
+    pages = []
+    for page in pypdfium2.PdfDocument(pdf):
+        image = page.render(scale=dpi / 72).to_pil()
+        slots = {}
+        for r in read_qr(image):
+            p = r.position
+            cx = (p.top_left.x + p.top_right.x + p.bottom_left.x + p.bottom_right.x) / 4 / (dpi / 72)
+            cy = PAGE_H - (p.top_left.y + p.top_right.y + p.bottom_left.y + p.bottom_right.y) / 4 / (dpi / 72)
+            slot = next(i for i, rect in enumerate(rects) if rect.x <= cx <= rect.right and rect.y <= cy <= rect.top)
+            assert slot not in slots, f"two QR codes on card {slot}"
+            slots[slot] = r.text
+        pages.append(slots)
+    return pages
+
+
+def test_phantom_micro_qr_next_to_a_card_is_not_read_as_a_card(folder, tmp_path):
+    """Regression: with TID SP7EM, a QR corner on A03's page also forms a valid Micro QR.
+
+    zxing's default reading found it as a second code on one card. Read like the phone
+    (QR Code only), the page holds exactly its 15 cards, one per slot.
+    """
+    state = load_or_create_state(folder)
+    save_state(folder, replace(state, tid="SP7EM"))
+    out = tmp_path / "out.pdf"
+    build_cards(folder, Mode.SCISSORS, out, ["A03"])
+    [slots] = _qr_slots_at(out, DPI)
+    assert sorted(slots) == list(range(15))
+    assert all(decode_payload(text).team_id == "A03" for text in slots.values())
+
+
+@pytest.mark.parametrize("mode", list(Mode))
+def test_every_card_qr_reads_back_for_many_tournament_ids(folder, tmp_path, mode):
+    """Print robustness: the QR pattern depends on the random TID, so check many of them.
+
+    For each TID (seeded, plus SP7EM) one deck is rendered at 150 dpi, coarser than any
+    printer: every slot's QR code reads back (QR Code only, as on the phone) as exactly
+    the card the imposition put there, and nothing else is read.
+    """
+    rng = random.Random(2026)
+    tids = ["SP7EM"] + ["".join(rng.choice(TID_ALPHABET) for _ in range(5)) for _ in range(11)]
+    decks = ["A01", "A02", "A03", "R1", "R2"]
+    for k, tid in enumerate(tids):
+        save_state(folder, replace(load_or_create_state(folder), tid=tid))
+        out = tmp_path / f"{tid}.pdf"
+        deck = decks[k % len(decks)]
+        result = build_cards(folder, mode, out, [deck])
+        read = [text for slots in _qr_slots_at(out, 150) for text in slots.values()]
+        assert len(read) == result.cards, (tid, deck, len(read), result.cards)
+        cards = [decode_payload(text) for text in read]
+        assert all(c.tid == tid and c.team_id == deck for c in cards), (tid, deck)
+        assert len(set(read)) == len(read), (tid, deck)  # each card once
 
 
 def test_pdf_text_contains_labels_and_cyrillic(folder, tmp_path):
@@ -199,7 +256,7 @@ def test_test_page_has_real_qr_codes_and_marks_chosen_settings(folder, tmp_path)
     tid = load_or_create_state(folder).tid
 
     (image,) = page_images(out)
-    cards = {decode_payload(r.text) for r in zxingcpp.read_barcodes(image)}
+    cards = {decode_payload(r.text) for r in read_qr(image)}
     # 5 QR sizes (questions 1-5) + sample cards: Q1, last question, first spare. A01 has the logo.
     assert cards == {CardId(tid, "A01", question=q) for q in (1, 2, 3, 4, 5, 6)} | {CardId(tid, "A01", spare=1)}
 

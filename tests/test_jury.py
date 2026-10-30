@@ -3,7 +3,7 @@ from datetime import date
 
 import pypdfium2
 import pytest
-import zxingcpp
+from conftest import read_qr
 from pypdf import PdfReader
 from typer.testing import CliRunner
 
@@ -51,7 +51,7 @@ def text_of(pdf):
 
 def qr_texts(pdf, page=0):
     image = pypdfium2.PdfDocument(pdf)[page].render(scale=200 / 72).to_pil()
-    return [r.text for r in zxingcpp.read_barcodes(image)]
+    return [r.text for r in read_qr(image)]
 
 
 def page_texts(pdf):

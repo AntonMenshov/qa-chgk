@@ -14,6 +14,7 @@ import subprocess
 import threading
 import time
 import urllib.request
+from dataclasses import replace
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -22,7 +23,7 @@ from typing import ClassVar
 import pypdfium2
 import pytest
 import segno
-import zxingcpp
+from conftest import read_qr
 from PIL import Image
 
 from chgk.cards.build import build_cards
@@ -30,7 +31,7 @@ from chgk.cards.geometry import PAGE_H, card_rects
 from chgk.cards.impose import Mode
 from chgk.config import Layout
 from chgk.ids import BoardAccess, JuryAccess, encode_board_link, encode_jury_link
-from chgk.state import load_or_create_state
+from chgk.state import load_or_create_state, save_state
 
 ROOT = Path(__file__).resolve().parent.parent
 CHROME = next(
@@ -303,7 +304,7 @@ def test_jury_scans_cards_and_marks_reach_the_backend(folder, tmp_path, backend_
     for p in photos:
         image = Image.open(io.BytesIO(base64.b64decode(p["base64"])))
         assert image.format == "JPEG" and max(image.size) <= 1600, (p["name"], image.size)
-        seen = [r.text for r in zxingcpp.read_barcodes(image)]
+        seen = [r.text for r in read_qr(image)]
         card = p["name"].split("_")[1]
         assert any(f"{tid}.{card}." in text for text in seen), (p["name"], seen)  # the photo shows the card
     log = call("get_state", tid=tid, token=JURY_TOKEN)  # still consistent after the photo rows in Log
@@ -356,7 +357,7 @@ def test_projector_board_reveals_round_by_round(folder, tmp_path, backend_server
         def codes():
             """The QR codes on screen, decoded from a screenshot (as a phone in the hall would)."""
             image = Image.open(io.BytesIO(page.screenshot())).convert("L")
-            return sorted(r.text for r in zxingcpp.read_barcodes(image))
+            return sorted(r.text for r in read_qr(image))
 
         # Title screen: both QR codes, large: the same links as page 2 of the jury sheet.
         assert codes() == sorted([link, view_url])
@@ -398,3 +399,73 @@ def test_projector_board_reveals_round_by_round(folder, tmp_path, backend_server
         page.wait_for_selector("text=после 1-го тура из 2")
         browser.close()
     assert not errors, errors
+
+
+def test_phone_decoder_reads_the_card_not_a_phantom_micro_qr(folder, tmp_path, web_server):
+    """Print robustness with the phone's own decoder (zxing-wasm in Chrome, READER_OPTIONS).
+
+    zxing's "QRCode" format is the whole QR family, and a real QR's corner plus the modules
+    beside it can form a valid Micro QR (zxing-cpp found one on A03's page with tournament
+    ID SP7EM). The phone asks for standard QR codes only: shown a card with a real Micro QR
+    beside it, the QR family reads both, the phone only the card. And the SP7EM page reads
+    as its 15 cards, one at a time.
+    """
+    save_state(folder, replace(load_or_create_state(folder), tid="SP7EM"))
+    pdf = build_cards(folder, Mode.SCISSORS, tmp_path / "cards.pdf", ["A03"]).path
+    cards = [card_image(pdf, 0, slot) for slot in range(15)]  # as the phone sees them: one at a time
+    card = cards[5]
+    trap = Image.new("RGB", (card.width + 260, card.height), "white")
+    trap.paste(card, (0, 0))
+    micro = io.BytesIO()
+    segno.make("091544", micro=True).save(micro, kind="png", scale=8, border=2)
+    trap.paste(Image.open(io.BytesIO(micro.getvalue())).convert("RGB"), (card.width + 40, 40))
+
+    def b64(image):
+        buf = io.BytesIO()
+        image.save(buf, "PNG")
+        return base64.b64encode(buf.getvalue()).decode()
+
+    script = """async ({cards, trap, camera}) => {
+        const cam = await import(camera);
+        cam.prepareReader();
+        const pixels = async (b64) => {
+            const blob = await (await fetch('data:image/png;base64,' + b64)).blob();
+            const bitmap = await createImageBitmap(blob);
+            const canvas = document.createElement('canvas');
+            canvas.width = bitmap.width;
+            canvas.height = bitmap.height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(bitmap, 0, 0);
+            return ctx.getImageData(0, 0, canvas.width, canvas.height);
+        };
+        const read = async (b64, options) =>
+            (await ZXingWASM.readBarcodes(await pixels(b64), options))
+                .filter((r) => r.isValid)
+                .map((r) => ({text: r.text, format: r.format}));
+        return {
+            family: await read(trap, {formats: ['QRCode'], maxNumberOfSymbols: 10}),
+            phoneAll: await read(trap, {...cam.READER_OPTIONS, maxNumberOfSymbols: 10}),
+            phoneOne: await read(trap, cam.READER_OPTIONS),
+            cards: await Promise.all(cards.map((b64) => read(b64, cam.READER_OPTIONS))),
+        };
+    }"""
+    with playwright.sync_playwright() as p:
+        browser = p.chromium.launch(executable_path=CHROME, headless=True)
+        page = browser.new_page()
+        page.goto(f"{web_server}/s/")
+        page.wait_for_function("window.ZXingWASM !== undefined")
+        found = page.evaluate(
+            script, {"cards": [b64(c) for c in cards], "trap": b64(trap), "camera": f"{web_server}/s/lib/camera.js"}
+        )
+        browser.close()
+
+    card_link = "#SP7EM.A03.6"
+    # The trap is in view: the QR family reads the card and the Micro QR.
+    assert sorted(r["text"].split("/s/")[-1] for r in found["family"]) == sorted([card_link, "091544"]), found
+    assert any("Micro" in r["format"] for r in found["family"]), found["family"]
+    # The phone reads only the card, whether it asks for one code or all of them.
+    assert [r["text"].split("/s/")[-1] for r in found["phoneAll"]] == [card_link], found["phoneAll"]
+    assert [r["text"].split("/s/")[-1] for r in found["phoneOne"]] == [card_link], found["phoneOne"]
+    # Every card of the SP7EM page, shown alone, reads as itself.
+    expected = [f"#SP7EM.A03.{q}" for q in range(1, 7)] + [f"#SP7EM.A03.S{n}" for n in range(1, 10)]
+    assert [[r["text"].split("/s/")[-1] for r in one] for one in found["cards"]] == [[e] for e in expected]

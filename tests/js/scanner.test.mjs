@@ -563,3 +563,10 @@ test('camera: a card is reported once while in view; again after it was away; th
   cam.seen('A', 5000); // gone from 2800 to 5000 (no frames): reported again
   assert.deepEqual(reported, ['A', 'B', 'A', 'A']);
 });
+
+test('the phone reads standard QR codes only: a phantom Micro QR next to a card can never count', async () => {
+  // zxing's "QRCode" is the whole family; a real QR corner can form a valid Micro QR (TID SP7EM).
+  const {READER_OPTIONS} = await import('../../web/s/lib/camera.js');
+  assert.deepEqual([...READER_OPTIONS.formats], ['QRCodeModel2']);
+  assert.equal(READER_OPTIONS.maxNumberOfSymbols, 1);
+});
