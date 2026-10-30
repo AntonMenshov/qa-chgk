@@ -165,6 +165,18 @@ class BackendClient:
         return self.call("set_teams", tid=tid, teams=teams)
 
 
+BUNDLE_FILE = Path("out/apps_script/Code.gs")  # `chgk backend bundle` writes it here by default
+
+
+def bundle_version(path: Path = BUNDLE_FILE) -> str | None:
+    """The version inside a bundle written earlier, or None if there is none."""
+    path = Path(path)
+    if not path.is_file():
+        return None
+    match = re.search(r"^const VERSION = '([^']*)';", path.read_text(encoding="utf-8"), re.M)
+    return match.group(1) if match else None
+
+
 def source_version() -> str:
     digest = hashlib.sha256()
     for name in BUNDLE_ORDER:

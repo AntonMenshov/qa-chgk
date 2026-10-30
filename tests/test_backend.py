@@ -14,6 +14,7 @@ from chgk.backend import (
     Profile,
     Profiles,
     bundle_apps_script,
+    bundle_version,
     source_version,
 )
 from chgk.cli import app
@@ -280,6 +281,20 @@ def test_cli_backend_add_list_use_check(backends):
     check = runner.invoke(app, ["backend", "check"])
     assert check.exit_code == 0 and "account a@gmail.com" in check.output
     assert "Local code is version" in check.output  # the test backend runs the unbundled code: version 'dev'
+
+
+def test_cli_backend_check_points_out_an_old_bundle(backends, tmp_path):
+    # The user once pasted a Code.gs left over from before a change (cwd is tmp_path).
+    runner.invoke(app, ["backend", "add", "personal", "--url", URL_A, "--token", "tokA"])
+    check = lambda: " ".join(runner.invoke(app, ["backend", "check"]).output.split())  # noqa: E731
+    assert "run `chgk backend bundle` and paste it" in check()  # no bundle yet
+    old = tmp_path / "out" / "apps_script" / "Code.gs"
+    old.parent.mkdir(parents=True)
+    old.write_text("const VERSION = 'e08511993c86';\n", encoding="utf-8")
+    assert "is an old bundle (version e08511993c86)" in check()
+    assert runner.invoke(app, ["backend", "bundle"]).exit_code == 0
+    assert f"(already version {source_version()})" in check()
+    assert bundle_version(old) == source_version()
 
 
 def test_cli_backend_warns_when_a_permission_is_missing(backends):

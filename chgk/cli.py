@@ -6,6 +6,7 @@ import typer
 
 from chgk import __version__
 from chgk.backend import (
+    BUNDLE_FILE,
     PERMISSIONS_HINT,
     SHEETS_API_HINT,
     BackendClient,
@@ -13,6 +14,7 @@ from chgk.backend import (
     Profile,
     Profiles,
     bundle_apps_script,
+    bundle_version,
     source_version,
 )
 from chgk.cards.build import INSTRUCTIONS, build_cards, build_jury_sheet, build_test_page
@@ -126,7 +128,7 @@ def jury_sheet(
 
 
 @backend_app.command("bundle")
-def backend_bundle(out: Path = typer.Option(Path("out/apps_script/Code.gs"), help="Where to write the bundle")) -> None:
+def backend_bundle(out: Path = typer.Option(BUNDLE_FILE, help="Where to write the bundle")) -> None:
     """Write the single Code.gs to paste into an Apps Script project."""
     path, version = bundle_apps_script(out)
     typer.echo(f"{path}: backend version {version}. Paste it into script.google.com (docs/google-account.md).")
@@ -205,9 +207,15 @@ def backend_check(name: str | None = typer.Argument(None, help="Profile (default
     typer.echo(f"Backend '{profile.name}' OK: account {reply.get('account') or '?'}, version {reply.get('version')}.")
     _warn_permissions(reply)
     if reply.get("version") != local:
+        bundled = bundle_version()
+        if bundled == local:
+            step = f"paste {BUNDLE_FILE} (already version {local}) into the script"
+        elif bundled:
+            step = f"{BUNDLE_FILE} is an old bundle (version {bundled}): run `chgk backend bundle`, then paste it"
+        else:
+            step = "run `chgk backend bundle` and paste it into the script"
         typer.secho(
-            f"Local code is version {local}: run `chgk backend bundle` and paste it into the script, "
-            "then Deploy → Manage deployments → edit → New version.",
+            f"Local code is version {local}: {step}, then Deploy → Manage deployments → edit → New version.",
             fg="yellow",
         )
 
