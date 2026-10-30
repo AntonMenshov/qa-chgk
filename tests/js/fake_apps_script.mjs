@@ -571,6 +571,7 @@ export function loadBackend({
   const root = new FakeFolder('root', folders);
   const triggers = [];
   const sharing = new Map(); // spreadsheet id → "ACCESS:PERMISSION"
+  const options = {allScopes}; // changeable later (the HTTP server's /__options)
   const api = {
     reads: 0,
     writes: 0,
@@ -660,7 +661,7 @@ export function loadBackend({
       getService: () => ({getUrl: () => serviceUrl}),
       AuthMode: {FULL: 'FULL'},
       AuthorizationStatus: {REQUIRED: 'REQUIRED', NOT_REQUIRED: 'NOT_REQUIRED'},
-      getAuthorizationInfo: () => ({getAuthorizationStatus: () => (allScopes ? 'NOT_REQUIRED' : 'REQUIRED')}),
+      getAuthorizationInfo: () => ({getAuthorizationStatus: () => (options.allScopes ? 'NOT_REQUIRED' : 'REQUIRED')}),
       requireAllScopes: (mode) => {
         ctx.$.scopeRequests.push(mode);
       },
@@ -695,7 +696,25 @@ export function loadBackend({
   const {files} = JSON.parse(readFileSync(new URL('bundle.json', dir), 'utf8'));
   const source = files.map((name) => readFileSync(new URL(name, dir), 'utf8')).join('\n');
   vm.runInContext(source, ctx, {filename: 'apps_script bundle'});
-  ctx.$ = {props, spreadsheets, root, triggers, sharing, api, scopeRequests: []};
+  const sheetsService = fakeSheetsApi(spreadsheets, api);
+  ctx.$ = {
+    props,
+    spreadsheets,
+    root,
+    triggers,
+    sharing,
+    api,
+    options,
+    scopeRequests: [],
+    /** Turn the «Google Sheets API» service on or off, as in the script editor. */
+    setSheetsApi(on) {
+      if (on) {
+        ctx.Sheets = sheetsService;
+      } else {
+        delete ctx.Sheets;
+      }
+    },
+  };
   ctx.post = (body) => ctx.doPost({postData: {contents: JSON.stringify(body)}}).json();
   return ctx;
 }

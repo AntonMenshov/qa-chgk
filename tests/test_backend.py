@@ -4,6 +4,7 @@ import re
 import httpx
 import pytest
 import respx
+from node_backend import NODE, NodeBackend
 from typer.testing import CliRunner
 
 from chgk.backend import (
@@ -38,55 +39,24 @@ def body(route_call) -> dict:
     return json.loads(route_call.request.content)
 
 
-class FakeBackend:
-    """A minimal stand-in for the Apps Script web app, served through respx."""
-
-    def __init__(self, url, account, authorized=True):
-        self.url, self.account, self.authorized = url, account, authorized
-        self.sheets_api = True
-        self.tournaments: dict[str, dict] = {}
-        self.calls: list[dict] = []
-
-    def __call__(self, request: httpx.Request) -> httpx.Response:
-        req = json.loads(request.content)
-        self.calls.append(req)
-        assert request.headers["content-type"].startswith("text/plain")
-        action = req["action"]
-        if action == "ping":
-            return httpx.Response(
-                200,
-                json={
-                    "ok": True,
-                    "version": "v1",
-                    "account": self.account,
-                    "authorized": self.authorized,
-                    "sheets_api": self.sheets_api,
-                },
-            )
-        if action == "create_tournament":
-            t = self.tournaments.get(req["tid"])
-            if t:
-                return httpx.Response(200, json={"ok": True, "existed": True, "spreadsheet_id": t["sheet"]})
-            self.tournaments[req["tid"]] = {"sheet": f"SHEET-{req['tid']}", "teams": req["teams"], "req": req}
-            return httpx.Response(200, json={"ok": True, "existed": False, "spreadsheet_id": f"SHEET-{req['tid']}"})
-        if action == "get_teams":
-            return httpx.Response(200, json={"ok": True, "teams": self.tournaments[req["tid"]]["teams"]})
-        if action == "set_teams":
-            self.tournaments[req["tid"]]["teams"] = req["teams"]
-            return httpx.Response(200, json={"ok": True, "appended": 0, "renamed": 0})
-        if action == "set_board_token":
-            self.tournaments[req["tid"]]["board_token"] = req["board_token"]
-            return httpx.Response(200, json={"ok": True})
-        return httpx.Response(200, json={"ok": False, "error": "unknown action"})
-
-
 @pytest.fixture
 def backends():
-    a, b = FakeBackend(URL_A, "a@gmail.com"), FakeBackend(URL_B, "club@gmail.com")
-    with respx.mock(assert_all_called=False) as mock:
-        mock.post(URL_A).mock(side_effect=a)
-        mock.post(URL_B).mock(side_effect=b)
-        yield a, b
+    """Two Google accounts' backends, each the real apps_script/ code (tests/node_backend.py)."""
+    if not NODE:
+        pytest.skip("needs Node")
+    a, b = NodeBackend(URL_A, "a@gmail.com", "tokA"), NodeBackend(URL_B, "club@gmail.com", "tokB")
+    try:
+        with respx.mock(assert_all_called=False) as mock:
+            mock.post(URL_A).mock(side_effect=a)
+            mock.post(URL_B).mock(side_effect=b)
+            yield a, b
+    finally:
+        a.close()
+        b.close()
+
+
+def sent(backend, action):
+    return [c for c in backend.calls if c["action"] == action]
 
 
 # ---- profiles ----
@@ -180,8 +150,8 @@ def test_new_tournament_records_its_backend(folder, backends):
     assert result.created
     s = result.state
     assert (s.backend_url, s.backend_profile, s.backend_account) == (URL_A, "personal", "a@gmail.com")
-    assert s.spreadsheet_id == f"SHEET-{s.tid}"
-    req = a.tournaments[s.tid]["req"]
+    assert s.spreadsheet_id
+    [req] = sent(a, "create_tournament")
     assert req["name"] == "Осенний кубок" and req["date"] == "2026-11-15" and req["round_sizes"] == [3, 3]
     assert [t["team_id"] for t in req["teams"]] == ["A01", "A02", "A03"]
     assert req["jury_token"] == s.jury_token and len(s.jury_token) >= 16
@@ -189,6 +159,9 @@ def test_new_tournament_records_its_backend(folder, backends):
     assert req["board_token"] == s.board_token and len(s.board_token) >= 16 and s.board_token != s.jury_token
     assert s.board_access.backend_url == URL_A
     assert load_or_create_state(folder) == s
+    # What the backend made of it: the teams on the Teams tab, reserves included.
+    teams = a.call("get_teams", tid=s.tid)["teams"]
+    assert [(t["team_id"], t["reserve"]) for t in teams][-2:] == [("R1", True), ("R2", True)]
 
 
 def test_new_tournament_is_idempotent(folder, backends):
@@ -196,7 +169,7 @@ def test_new_tournament_is_idempotent(folder, backends):
     first = new_tournament(folder, Profile("personal", URL_A, "tokA")).state
     again = new_tournament(folder, Profile("personal", URL_A, "tokA"))
     assert not again.created and again.state == first
-    assert sum(c["action"] == "create_tournament" for c in a.calls) == 1
+    assert len(sent(a, "create_tournament")) == 1
 
 
 def test_switching_accounts_keeps_existing_tournaments_on_their_backend(folder, tmp_path, backends, config_dir):
@@ -235,13 +208,15 @@ def test_sync_teams_assigns_ids_and_writes_back(folder, backends):
     profiles.add(Profile("personal", URL_A, "tokA"))
     profiles.save()
     state = new_tournament(folder, profiles.active()).state
-    # The organiser adds a team in the Sheet without an ID.
-    a.tournaments[state.tid]["teams"].append({"team_id": "", "name": "Новые", "city": "Бостон", "logo_file": ""})
+    # The organiser adds a team in the Sheet without an ID: a row after the three teams and R1, R2.
+    for col, value in enumerate(["", "Новые", "Бостон", "", ""], start=1):
+        a.set_cell(state.tid, "Teams", 7, col, value)
 
     teams = sync_teams(folder, Profiles())
     assert [t.team_id for t in teams] == ["A01", "A02", "A03", "A04"]
     assert read_teams(folder / "teams.py")[-1] == Team("A04", "Новые", "Бостон")
-    assert a.tournaments[state.tid]["teams"][-1]["team_id"] == "A04"  # written back
+    on_tab = a.call("get_teams", tid=state.tid)["teams"]
+    assert ("A04", "Новые") in [(t["team_id"], t["name"]) for t in on_tab]  # written back to the Sheet
 
 
 def test_sync_teams_leaves_reserve_teams_on_the_backend(folder, backends):
@@ -250,16 +225,15 @@ def test_sync_teams_leaves_reserve_teams_on_the_backend(folder, backends):
     profiles.add(Profile("personal", URL_A, "tokA"))
     profiles.save()
     state = new_tournament(folder, profiles.active()).state
-    # The jury named reserve team R1 in the Sheet; R2 is still unused.
-    a.tournaments[state.tid]["teams"] += [
-        {"team_id": "R1", "name": "Новенькие", "reserve": True},
-        {"team_id": "R2", "name": "", "reserve": True},
-    ]
+    # The jury named reserve team R1 in the Sheet (row 5, after A01-A03); R2 is still unused.
+    a.set_cell(state.tid, "Teams", 5, 2, "Новенькие")
     teams = sync_teams(folder, Profiles())
     assert [t.team_id for t in teams] == ["A01", "A02", "A03"]
     assert "R1" not in (folder / "teams.py").read_text(encoding="utf-8")
-    sent = [c for c in a.calls if c["action"] == "set_teams"][-1]["teams"]
-    assert [t["team_id"] for t in sent] == ["A01", "A02", "A03"]
+    assert [t["team_id"] for t in sent(a, "set_teams")[-1]["teams"]] == ["A01", "A02", "A03"]
+    # The backend keeps R1 with the name the jury gave it.
+    reserve = [t for t in a.call("get_teams", tid=state.tid)["teams"] if t["reserve"]]
+    assert [(t["team_id"], t["name"]) for t in reserve] == [("R1", "Новенькие"), ("R2", "")]
 
 
 def test_sync_teams_needs_a_backend(folder):
@@ -304,16 +278,16 @@ def test_cli_backend_add_list_use_check(backends):
     assert runner.invoke(app, ["backend", "use", "personal"]).exit_code == 0
     check = runner.invoke(app, ["backend", "check"])
     assert check.exit_code == 0 and "account a@gmail.com" in check.output
-    assert "Local code is version" in check.output  # fake backend reports an old version
+    assert "Local code is version" in check.output  # the test backend runs the unbundled code: version 'dev'
 
 
 def test_cli_backend_warns_when_a_permission_is_missing(backends):
     a, _ = backends
-    a.authorized = False
+    a.options(allScopes=False)
     added = runner.invoke(app, ["backend", "add", "personal", "--url", URL_A, "--token", "tokA"])
     assert added.exit_code == 0 and "Select all" in added.output
     assert "Select all" in runner.invoke(app, ["backend", "check"]).output
-    a.authorized = True
+    a.options(allScopes=True)
     assert "Select all" not in runner.invoke(app, ["backend", "check"]).output
 
 
@@ -321,7 +295,7 @@ def test_cli_backend_check_warns_when_the_sheets_api_service_is_off(backends):
     a, _ = backends
     runner.invoke(app, ["backend", "add", "personal", "--url", URL_A, "--token", "tokA"])
     assert "Google Sheets API" not in runner.invoke(app, ["backend", "check"]).output
-    a.sheets_api = False
+    a.options(sheetsApi=False)
     check = runner.invoke(app, ["backend", "check"])
     assert check.exit_code == 0 and "Services (+) → Google Sheets API → Add" in check.output
 
@@ -339,7 +313,7 @@ def test_cli_new_and_teams(folder, backends):
     result = runner.invoke(app, ["new", str(folder)])
     assert result.exit_code == 0, result.output
     assert "Created on backend 'personal' (a@gmail.com)" in result.output
-    assert "docs.google.com/spreadsheets/d/SHEET-" in result.output
+    assert "docs.google.com/spreadsheets/d/" in result.output
     again = runner.invoke(app, ["new", str(folder)])
     assert "Already created" in again.output
     teams = runner.invoke(app, ["teams", str(folder)])
@@ -367,10 +341,11 @@ def test_cli_board_gives_an_older_tournament_a_board_link(folder, backends):
     link = next(line for line in result.output.splitlines() if "#board=" in line)
     assert link.startswith("https://example.github.io/qa-chgk/b/?grid=5#board=")
     token = load_or_create_state(folder).board_token
-    assert a.tournaments[state["tid"]]["board_token"] == token and token in link
+    assert token in link
+    assert a.call("get_board", tid=state["tid"], token=token)["ok"]  # the backend accepts the new token
     # Running it again keeps the same link.
     assert link in runner.invoke(app, ["board", str(folder)]).output
-    assert sum(c["action"] == "set_board_token" for c in a.calls) == 1
+    assert len(sent(a, "set_board_token")) == 1
 
 
 def test_new_tournament_is_view_only_shared(folder, backends):
