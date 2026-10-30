@@ -18,6 +18,10 @@ that records marks, and delete its Drive folder afterwards (`docs/google-account
 - [ ] Mark a card «?» from the phone, then type `1` over it in the Sheet: it leaves the
       hidden «Спорные» tab, and the counts there go down. While it is there: its photo
       link sits in the wide «Фото» column (cut at the edge), the counts in G–H, clear of it.
+- [ ] Clearing is a decision: scan a card with the phone in airplane mode, clear that cell
+      in the Sheet, then go back online: the cell stays empty.
+- [ ] Delete a team's row on «Тур 2», then scan that team's round-1 and round-2 cards: the
+      round-1 mark arrives; only the round-2 one is refused (nothing stays stuck in the pill).
 
 ## iPhone scanner
 
