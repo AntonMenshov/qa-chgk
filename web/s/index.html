@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Сканер жюри</title>
+<style>
+  body { font: 18px system-ui, sans-serif; margin: 24px; }
+  #card { font-size: 28px; font-weight: 600; margin-top: 16px; }
+</style>
+</head>
+<body>
+<!-- Placeholder until Phase 3: printed QR codes point here, so it shows which card was scanned. -->
+<h1>Сканер жюри</h1>
+<p>Приложение для жюри ещё в разработке.</p>
+<div id="card"></div>
+<script>
+  const show = () => { document.getElementById("card").textContent = location.hash.slice(1); };
+  addEventListener("hashchange", show);
+  show();
+</script>
+</body>
+</html>
