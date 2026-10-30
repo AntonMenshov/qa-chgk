@@ -21,12 +21,12 @@ Full design: [SPEC.md](SPEC.md). Build order: [PLAN.md](PLAN.md).
 | Spec and plan | ✅ done, agreed with the user |
 | 0 — Skeleton and spikes | ✅ spike 1 (laptop + iPhone Safari), spike 2 (all QR sizes scan well; zxing-wasm chosen), spike 3 (0.65 in QR, later 0.85; logo shade later changed to 12%) |
 | 1 — Config, identity, card PDF | ✅ done; cards + jury sheet work offline from `teams.py` |
-| 2 — Apps Script backend + Sheet | ✅ deployed under the user's Gmail and checked live (sums, places, order, reserve teams, IDs, view-only link); the Sheet-trigger checks still to be confirmed by the user |
-| 3 — Scanner web app | 🔶 built and tested (unit + integration + headless-Chrome end-to-end with a fake camera), checked live on Pages against the real backend; waiting for the user's iPhone check |
-| 4 — Card photos | ✅ built, tested (phone queue, backend `upload_photo`, headless-Chrome check that each photo shows its card) and checked live (API upload to Drive); the iPhone check is in the user's list |
+| 2 — Apps Script backend + Sheet | ✅ deployed under the user's Gmail and checked live (sums, places, order, reserve teams, IDs, view-only link); the Sheet-trigger checks are in Phase 7 |
+| 3 — Scanner web app | 🔶 built and tested (unit + integration + headless-Chrome end-to-end with a fake camera), checked live on Pages against the real backend; the iPhone check is in Phase 7 |
+| 4 — Card photos | ✅ built, tested (phone queue, backend `upload_photo`, headless-Chrome check that each photo shows its card) and checked live (API upload to Drive); the iPhone check is in Phase 7 |
 | 5 — Projector board + stats | ✅ built, tested and checked live |
 | 6 — Logos | planned (PLAN.md), not started: SVG input, `chgk logos`, Claude-drawn drafts, `chgk key`, preview then accept. Done earlier: PNG/JPG → pale greyscale, shared private library, fallback owl. Image-API logos: Phase 9. Started only when the user says |
-| 7 — Internal test at home (printouts) | not started: tests, feedback, bug analysis and fixes, then a docs/comments check |
+| 7 — Internal test at home (printouts) | not started: the manual checks (docs/manual-checks.md), a mock game, feedback, bug analysis and fixes, then a docs/comments check |
 | 8 — External test at a tournament | not started: the same loop with real teams |
 | 9 — Next version | the deferred list in PLAN.md |
 
@@ -241,14 +241,14 @@ Kept in one place: [SPEC.md §14](SPEC.md) (defaults used unless the user says o
 
 ## Next steps
 
-1. **User checks:** the scanner on an iPhone with the example cards (incl. «Чья
-   карточка?» and card photos) and the Sheet-trigger checks ([docs/manual-checks.md](docs/manual-checks.md)).
-2. **Phase 6 — logos** (PLAN.md, agreed with the user 2026-10-30), **only when the user
+1. **Phase 6 — logos** (PLAN.md, agreed with the user 2026-10-30), **only when the user
    says**: SVG input and `chgk logos` (report, preview, accept), then Claude-drawn SVG
    drafts (API, or in a session without a key) in the style of the existing logos.
-3. **Phase 7** internal test at home with printouts, then **Phase 8** external test at a
-   tournament: each with feedback entry, bug analysis and fixes, and a docs/comments check.
-4. **Phase 9 — next version:** the deferred list in PLAN.md.
+2. **Phase 7** internal test at home with printouts: it starts with the user's manual
+   checks ([docs/manual-checks.md](docs/manual-checks.md)), then a mock game. Then **Phase 8**,
+   an external test at a tournament. Each with feedback entry, bug analysis and fixes, and a
+   docs/comments check.
+3. **Phase 9 — next version:** the deferred list in PLAN.md.
 
 ## Lessons learned
 
@@ -329,12 +329,8 @@ Kept in one place: [SPEC.md §14](SPEC.md) (defaults used unless the user says o
 
 ## Things that need the user
 
-- The iPhone check of the scanner with the example cards, incl. «Чья карточка?» and card photos
-  ([docs/manual-checks.md](docs/manual-checks.md), "iPhone scanner").
-- The Sheet-trigger checks: typing a name over «R1 · впишите название», a mark edit on a
-  round tab (`+` → `1`, row moves, Log row), and a «?» leaving «Спорные»
-  (docs/manual-checks.md, "The Sheet's edit trigger").
-- A real print of the cards.
+- The manual checks ([docs/manual-checks.md](docs/manual-checks.md)): iPhone scanner, the
+  Sheet's edit trigger, a real print. They are the start of Phase 7 (PLAN.md).
 
 Live checks done so far (2026-10-29/30, all against the user's backend): marks,
 duplicates, stale scans, bad teams and tokens; sums, «2-3» places and tie-break order vs

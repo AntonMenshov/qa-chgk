@@ -1,7 +1,7 @@
 # Manual checks
 
-What the automated tests can't cover (SPEC §11). Run the relevant parts after a release
-that touches them, and before a real game. Use a throwaway tournament for anything
+What the automated tests can't cover (SPEC §11). All of it opens Phase 7 (PLAN.md); after
+that, run the relevant parts after a release that touches them, and before a real game. Use a throwaway tournament for anything
 that records marks, and delete its Drive folder afterwards (`docs/google-account.md` §5).
 
 ## Backend (after every deployment)

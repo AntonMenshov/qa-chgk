@@ -109,8 +109,11 @@ Tests are written alongside the code, not after it.
   calls; key never logged), the no-key brief, preview and accept.
 
 ## Phase 7 — Internal test at home, with printouts
-- Print real card sets and the jury sheet; run a mock game at home with the iPhone
-  scanner, the Sheet, the board and card photos (docs/manual-checks.md and more).
+- Starts with every check in docs/manual-checks.md (the user's manual checks are part
+  of this phase): iPhone scanner incl. «Чья карточка?» and photos, the Sheet's edit
+  trigger, the board, the view-only link, the test page and a full card print.
+- Then a mock game at home with the printed cards and jury sheet: iPhone scanner, the
+  Sheet, the board and card photos together.
 - Write down the feedback as it comes (what failed, what was slow or confusing).
 - Analyse each failure or bug, fix it, with a test that would have caught it.
 - Finish with a thorough check of the docs, comments, memory and HANDOVER.
