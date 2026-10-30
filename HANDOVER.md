@@ -30,7 +30,7 @@ Full design: [SPEC.md](SPEC.md). Build order: [PLAN.md](PLAN.md).
 | 8 — External test at a tournament | not started: the same loop with real teams |
 | 9 — Next version | the deferred list in PLAN.md |
 
-- **Deployed backend:** version **8ec3eeb36149** (2026-10-30) under the user's Gmail (local
+- **Deployed backend:** version **d02647fb3bc0** (2026-10-30) under the user's Gmail (local
   profile `personal`), with the «Google Sheets API» service on. `uv run chgk backend check`
   compares it with the local code, and says when `out/apps_script/Code.gs` is an old bundle.
 - **Example tournament:** `tournaments/example/` (the user's four teams 645 «42», 58746
@@ -326,5 +326,7 @@ Live checks done so far, all against the user's backend:
 - **2026-10-30, 8ec3eeb36149 (review fixes):** both examples' get_state / get_board; throwaway
   UAHQT: a re-scan keeps the judgement, `R`, `?`, question 99 refused alone, the batch in. The
   cleared-cell and deleted-row cases need a Sheet edit: docs/manual-checks.md.
+- **2026-10-30, d02647fb3bc0 (review items):** both examples' get_state / get_board; throwaway
+  UAHQT: marks in, an unknown team refused alone; a jury token with `.`/`+` refused.
 
 Throwaway tournaments: the user deletes them.
