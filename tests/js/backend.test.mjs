@@ -335,6 +335,7 @@ test("a reserve team's first scan puts it on every tab with a placeholder name",
   const res = b.post({ action: "record_events", tid: TID, token: JURY, events: [
     ev({ team_id: "R1", question: 2 }), ev({ team_id: "R2", question: 99 })] }); // R2's event is invalid
   assert.deepEqual(res.results.map((r) => r.applied), [true, false]);
+  assert.equal(res.results[1].error, "invalid question"); // not «unknown team»: R2 is a known reserve
   for (const name of ["Итоги", "Тур 1", "Тур 2", "Meta"]) assert.ok(tab(name).ids().includes("R1"), name);
   for (const name of ["Итоги", "Тур 1"]) assert.ok(!tab(name).ids().includes("R2"), name);
   const t1 = tab("Тур 1");

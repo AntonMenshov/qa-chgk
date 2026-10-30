@@ -241,8 +241,14 @@ checks that the decks come out in order.
   the user may delete it). Latency: one mark per request ≈ 3.6–4.5 s (read all tabs, sort,
   refresh formulas); a 148-mark batch ≈ 10 s. Fine with the background queue, but worth
   optimising in Phase 3 (skip the sort when the order didn't change, fewer reads).
-  **Still to confirm by the user:** how the tabs look, and a jury edit on a round tab
-  (`+` → `1` plus a Log row; `maybe` → note).
+  User confirmed: tab colours, sorting, «42» left-aligned (2026-10-30).
+  2026-10-30, version eb1607f87ed2: example re-created with the user's team IDs (645,
+  58746, 40400; A01 assigned) and reserve decks R1, R2. Live: 270 card QRs decode, jury
+  page 1 holds 3 QRs ≥ 3.7″ apart and no other page has one, R1's first scan put it on the
+  tabs, the unused R2 stays off and out of the places, numbers match the reference.
+  Pending in the next deploy: an unused reserve's invalid event reports the real error.
+  **Still to confirm by the user (needs the edit trigger):** typing a name over
+  «R1 · впишите название», and a mark edit on a round tab (`+` → `1`, row moves, Log row).
 - Delete the old example folder `ЧГК/… (5R547)` (single Results layout) from Drive.
 - A real print of the cards.
 - Delete `spike.jpg` from the root of their Google Drive (left by spike 1).

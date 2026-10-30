@@ -583,8 +583,9 @@ function recordEvents_(ss, reg, req) {
   const log = ss.getSheetByName(TABS.log);
   const nLog = log.getLastRow() - 1;
   const seen = new Set(nLog > 0 ? log.getRange(2, 3, nLog, 1).getValues().map((r) => String(r[0])) : []);
-  // Only teams with rows on the round tabs can be marked.
-  const teamIds = new Set(m.teams.map((t) => t.team_id).filter((id) => m.where[`${id}:1`]));
+  // Teams with rows on the round tabs can be marked. Unused reserve teams count as known,
+  // so their invalid events report the real problem (their valid ones activated them above).
+  const teamIds = new Set(m.teams.map((t) => t.team_id).filter((id) => m.where[`${id}:1`]).concat([...reserveIds]));
 
   const outcomes = applyEvents(cells, seen, req.events, teamIds, reg.round_sizes, Date.now());
 
