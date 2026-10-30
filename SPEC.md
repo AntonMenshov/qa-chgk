@@ -129,7 +129,7 @@ Created by `chgk new`. Tabs:
 | **Settings** | CLI | name, date, rounds, questions per round, IDs |
 | **Teams** | organizer (source of truth) | `team_id` (auto, e.g. `A07`, stable), `name`, `city`, `logo_file`, `logo_prompt` |
 | **Log** | Apps Script, append-only | `scan_id` (UUID, idempotent), server time, client time, juror, device, team, question, status, photo link, source (`app` / `sheet`) |
-| **Итоги** (first tab) | formulas | standings: each team's round sums, Итого, Место. Round sums are looked up by team ID, so sorting a round tab is harmless. Round columns share their round's colour |
+| **Итоги** (first tab) | formulas | standings: each team's round sums, Итого, Место. A shared place reads «2-3» (user request), a single one is a number. Round sums are looked up by team ID, so sorting a round tab is harmless. Round columns share their round's colour. Team names are plain text, left-aligned (a team called «42» must not become a number) |
 | **Тур 1 … Тур N** | Apps Script + jury edits | one tab per round (user request): teams × that round's questions (continuous numbers) and «Сумма». Narrow question columns; tab and header coloured, alternating by round |
 | **Stats** | formulas | per question: number of teams that took it, % |
 

@@ -73,6 +73,9 @@ function handle_(req) {
     case "get_state":
       requireJury_(props, reg, req);
       return readState_(open_(reg), reg);
+    case "get_results":
+      requireJury_(props, reg, req);
+      return readResults_(open_(reg), reg);
     case "record_events":
       requireJury_(props, reg, req);
       return withLock_(() => recordEvents_(open_(reg), reg, req));
@@ -204,9 +207,9 @@ function buildTabs_(ss, req) {
   meta.getRange(1, 1, 1, 1 + n).setValues([["team_id"].concat(Array.from({ length: n }, (_, k) => k + 1))]);
   meta.hideSheet();
 
+  formatSheets_(ss, sizes); // first: names must land in plain-text cells
   writeTeams_(ss, req.teams || []);
   syncTeamRows_(ss, sizes, req.teams || []);
-  formatSheets_(ss, sizes);
   ss.setActiveSheet(summary);
 }
 
@@ -223,6 +226,8 @@ function readTeams_(ss) {
 
 function writeTeams_(ss, teams) {
   const sheet = ss.getSheetByName(TABS.teams);
+  // Plain text, or Sheets turns a team called «42» into a number.
+  sheet.getRange(1, 1, sheet.getMaxRows(), TEAMS_HEADER.length).setNumberFormat("@");
   if (sheet.getLastRow() > 1) sheet.getRange(2, 1, sheet.getLastRow() - 1, TEAMS_HEADER.length).clearContent();
   if (teams.length) {
     sheet.getRange(2, 1, teams.length, TEAMS_HEADER.length)
@@ -240,6 +245,8 @@ function formatSheets_(ss, sizes) {
     sheet.setFrozenColumns(2);
     sheet.setColumnWidth(1, WIDTHS.id);
     sheet.setColumnWidth(2, WIDTHS.name);
+    // Names as plain text, left-aligned: otherwise a team called «42» becomes a number.
+    sheet.getRange(1, 2, sheet.getMaxRows(), 1).setNumberFormat("@").setHorizontalAlignment("left");
     sheet.getRange(1, FIRST_MARK_COL, sheet.getMaxRows(), width - FIRST_MARK_COL + 1).setHorizontalAlignment("center");
   };
 
@@ -274,7 +281,7 @@ function teamRowsOf_(sheet) {
   const n = sheet.getLastRow() - 1;
   if (n < 1) return [];
   return sheet.getRange(2, 1, n, 2).getValues()
-    .map((r, i) => ({ team_id: String(r[0]).trim(), name: String(r[1]), row: i + 2 }))
+    .map((r, i) => ({ team_id: String(r[0]).trim(), name: String(r[1]), rawName: r[1], row: i + 2 }))
     .filter((t) => t.team_id !== "");
 }
 
@@ -293,12 +300,14 @@ function syncTeamRows_(ss, sizes, teams) {
   let counts = null;
   tabs.forEach(([sheet, rowFor]) => {
     const existing = teamRowsOf_(sheet);
-    const plan = planTeamRows(existing, teams);
+    // Compare raw values: a name stored as the number 42 gets rewritten as the text "42".
+    const plan = planTeamRows(existing.map((r) => ({ team_id: r.team_id, name: r.rawName })), teams);
     plan.rename.forEach((t) => sheet.getRange(existing.find((r) => r.team_id === t.team_id).row, 2).setValue(t.name));
     const first = sheet.getLastRow() + 1;
     appendRows_(sheet, plan.append.map((t, i) => rowFor(t, first + i)));
     counts = counts || { appended: plan.append.length, renamed: plan.rename.length };
   });
+  refreshSummaryFormulas_(ss, sizes);
   const meta = ss.getSheetByName(TABS.meta);
   const inMeta = new Set(teamRowsOf_(meta).map((t) => t.team_id));
   const n = totalQuestions(sizes);
@@ -307,10 +316,22 @@ function syncTeamRows_(ss, sizes, teams) {
   return counts;
 }
 
+/** Rewrite «Итоги» formulas that differ from the current ones (e.g. Место from older versions). */
+function refreshSummaryFormulas_(ss, sizes) {
+  const summary = summaryOf_(ss);
+  const sl = summaryLayout(sizes);
+  const width = sl.width - sl.firstRound + 1;
+  teamRowsOf_(summary).forEach((t) => {
+    const range = summary.getRange(t.row, sl.firstRound, 1, width);
+    const want = summaryRow(sizes, t, t.row).slice(sl.firstRound - 1);
+    if (range.getFormulas()[0].some((f, i) => f !== want[i])) range.setValues([want]);
+  });
+}
+
 function setTeams_(ss, reg, teams) {
+  formatSheets_(ss, reg.round_sizes); // also brings Sheets made by older versions up to date
   writeTeams_(ss, teams);
   const counts = syncTeamRows_(ss, reg.round_sizes, teams);
-  formatSheets_(ss, reg.round_sizes);
   return { ok: true, appended: counts.appended, renamed: counts.renamed };
 }
 
@@ -380,6 +401,24 @@ function readState_(ss, reg) {
     teams: m.teams,
     marks: marks,
   };
+}
+
+/** «Итоги» and Stats as Google computed them: for the board, and to check the formulas live. */
+function readResults_(ss, reg) {
+  const sizes = reg.round_sizes;
+  const summary = summaryOf_(ss);
+  const sl = summaryLayout(sizes);
+  const last = summary.getLastRow();
+  const standings = last < 2 ? [] : summary.getRange(2, 1, last - 1, sl.width).getValues()
+    .filter((r) => String(r[0]).trim() !== "")
+    .map((r) => ({
+      team_id: String(r[0]).trim(), name: String(r[1]),
+      rounds: r.slice(sl.firstRound - 1, sl.totalCol - 1), total: r[sl.totalCol - 1], place: r[sl.placeCol - 1],
+    }));
+  const n = totalQuestions(sizes);
+  const stats = ss.getSheetByName(TABS.stats).getRange(2, 1, n, 4).getValues()
+    .map((r) => ({ question: r[0], round: r[1], took: r[2], share: r[3] }));
+  return { ok: true, standings, stats };
 }
 
 function recordEvents_(ss, reg, req) {

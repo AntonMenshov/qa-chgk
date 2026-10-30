@@ -69,6 +69,7 @@ function validateRequest(body) {
       return body;
     case "get_teams":
     case "get_state":
+    case "get_results":
       return body;
     case "set_teams":
       validateTeams(body.teams);
@@ -205,9 +206,46 @@ function summaryRow(roundSizes, team, row) {
     cells.push(`=IFERROR(INDEX(${tab}!$${sum}:$${sum},MATCH($A${row},${tab}!$A:$A,0)),0)`);
   });
   cells.push(`=SUM(${colLetter(L.firstRound)}${row}:${colLetter(L.totalCol - 1)}${row})`);
-  const tc = colLetter(L.totalCol);
-  cells.push(`=RANK(${tc}${row},${tc}$2:${tc})`);
+  cells.push(placeFormula(colLetter(L.totalCol), row));
   return cells;
+}
+
+/**
+ * Место for the total in `col` at `row`: a number, or "2-3" when teams share the place.
+ * Same result as placeLabels(); the tests evaluate both on many tournaments.
+ */
+function placeFormula(col, row) {
+  const all = `${col}$2:${col}`;
+  const me = `${col}${row}`;
+  const rank = `RANK(${me},${all})`;
+  const same = `COUNTIF(${all},${me})`;
+  return `=IF(${same}>1,${rank}&"-"&(${rank}+${same}-1),${rank})`;
+}
+
+/** Places for a list of totals, as «Итоги» shows them: 1, 2, "3-4", "3-4", 5, … */
+function placeLabels(totals) {
+  return totals.map((t) => {
+    const above = totals.filter((x) => x > t).length;
+    const same = totals.filter((x) => x === t).length;
+    return same > 1 ? `${above + 1}-${above + same}` : above + 1;
+  });
+}
+
+/** Reference standings from marks ({team_id: [value per question]}): round sums, total, place. */
+function standings(roundSizes, teamIds, marks) {
+  const rows = teamIds.map((id) => {
+    const values = marks[id] || [];
+    let q = 0;
+    const rounds = roundSizes.map((size) => {
+      let sum = 0;
+      for (let k = 0; k < size; k++, q++) if (values[q] === 1) sum++;
+      return sum;
+    });
+    return { team_id: id, rounds, total: rounds.reduce((a, b) => a + b, 0) };
+  });
+  const places = placeLabels(rows.map((r) => r.total));
+  rows.forEach((r, i) => { r.place = places[i]; });
+  return rows;
 }
 
 /** Stats tab rows: one per question with how many teams took it. */
@@ -235,6 +273,6 @@ if (typeof module !== "undefined") {
   module.exports = {
     STATUSES, STATUS_VALUE, RequestError, tokensEqual, colLetter, totalQuestions, validateRequest,
     eventError, mergeCell, applyEvents, normalizeCellInput, roundSheetName, roundLayout, roundRow, questionCell,
-    questionAt, summaryLayout, summaryRow, statsRows, planTeamRows,
+    questionAt, summaryLayout, summaryRow, placeFormula, placeLabels, standings, statsRows, planTeamRows,
   };
 }

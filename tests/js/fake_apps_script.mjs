@@ -1,8 +1,11 @@
 // In-memory stand-ins for the Apps Script services Code.js uses, so the backend can be
 // exercised in Node. They mimic the behaviour that matters: range bounds (1000 × 26 for
-// a new sheet), getLastRow, values defaulting to "".
+// a new sheet), getLastRow, values defaulting to "", getValues() returning computed
+// formula results, and text that looks like a number turning into a number unless the
+// cell is formatted as plain text ("@").
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
+import { makeEvaluator } from "./sheet_formulas.mjs";
 
 class FakeRange {
   constructor(sheet, row, col, rows, cols) {
@@ -12,16 +15,23 @@ class FakeRange {
     Object.assign(this, { sheet, row, col, rows, cols });
   }
   getValues() {
+    const value = makeEvaluator(this.sheet.ss);
     return Array.from({ length: this.rows }, (_, r) =>
-      Array.from({ length: this.cols }, (_, c) => this.sheet.get(this.row + r, this.col + c)));
+      Array.from({ length: this.cols }, (_, c) => value(this.sheet, this.row + r, this.col + c)));
   }
   setValues(values) {
     if (values.length !== this.rows || values.some((r) => r.length !== this.cols)) throw new Error("setValues: wrong shape");
-    values.forEach((r, i) => r.forEach((v, j) => this.sheet.set(this.row + i, this.col + j, v)));
+    values.forEach((r, i) => r.forEach((v, j) => this.sheet.write(this.row + i, this.col + j, v)));
     return this;
   }
-  getValue() { return this.sheet.get(this.row, this.col); }
-  setValue(v) { this.sheet.set(this.row, this.col, v); return this; }
+  getValue() { return this.getValues()[0][0]; }
+  getFormulas() {
+    return Array.from({ length: this.rows }, (_, r) => Array.from({ length: this.cols }, (_, c) => {
+      const v = this.sheet.get(this.row + r, this.col + c);
+      return typeof v === "string" && v.startsWith("=") ? v : "";
+    }));
+  }
+  setValue(v) { this.sheet.write(this.row, this.col, v); return this; }
   clearContent() { this.setValues(Array.from({ length: this.rows }, () => new Array(this.cols).fill(""))); return this; }
   setNote(n) { this.sheet.notes.set(`${this.row},${this.col}`, n); return this; }
   clearNote() { this.sheet.notes.delete(`${this.row},${this.col}`); return this; }
@@ -29,7 +39,7 @@ class FakeRange {
   getColumn() { return this.col; }
   getSheet() { return this.sheet; }
   setFontWeight() { return this; }
-  setNumberFormat() { return this; }
+  setNumberFormat(f) { this.each((r, c) => this.sheet.formats.set(`${r},${c}`, f)); return this; }
   setBackground(color) { this.each((r, c) => this.sheet.backgrounds.set(`${r},${c}`, color)); return this; }
   setHorizontalAlignment(a) { this.each((r, c) => this.sheet.align.set(`${r},${c}`, a)); return this; }
   setBorder(top, left, bottom, right, vertical, horizontal, color, style) {
@@ -42,10 +52,17 @@ class FakeRange {
 export class FakeSheet {
   constructor(ss, name) {
     Object.assign(this, { ss, name, cells: new Map(), notes: new Map(), maxRows: 1000, maxCols: 26, hidden: false,
-      widths: new Map(), backgrounds: new Map(), align: new Map(), leftBorders: new Map() });
+      widths: new Map(), backgrounds: new Map(), align: new Map(), leftBorders: new Map(), formats: new Map() });
   }
   get(r, c) { return this.cells.has(`${r},${c}`) ? this.cells.get(`${r},${c}`) : ""; }
   set(r, c, v) { if (v === "" || v == null) this.cells.delete(`${r},${c}`); else this.cells.set(`${r},${c}`, v); }
+  /** A write through the Apps Script API: like Sheets, "42" becomes 42 unless the cell is plain text. */
+  write(r, c, v) {
+    const plain = this.formats.get(`${r},${c}`) === "@";
+    this.set(r, c, !plain && typeof v === "string" && /^-?\d+(\.\d+)?$/.test(v.trim()) ? Number(v) : v);
+  }
+  /** Computed value of a cell (formulas evaluated), as the jury sees it. */
+  value(r, c) { return makeEvaluator(this.ss)(this, r, c); }
   getRange(row, col, rows = 1, cols = 1) { return new FakeRange(this, row, col, rows, cols); }
   getLastRow() { let m = 0; for (const k of this.cells.keys()) m = Math.max(m, Number(k.split(",")[0])); return m; }
   getMaxRows() { return this.maxRows; }

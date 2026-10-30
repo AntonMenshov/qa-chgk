@@ -129,7 +129,8 @@ test("summaryLayout and summaryRow", () => {
   assert.deepEqual(lay.header, ["ID", "Команда", "Тур 1", "Тур 2", "Итого", "Место"]);
   assert.deepEqual(L.summaryRow([2, 3], { team_id: "A01", name: "X" }, 4), ["A01", "X",
     "=IFERROR(INDEX('Тур 1'!$E:$E,MATCH($A4,'Тур 1'!$A:$A,0)),0)",
-    "=IFERROR(INDEX('Тур 2'!$F:$F,MATCH($A4,'Тур 2'!$A:$A,0)),0)", "=SUM(C4:D4)", "=RANK(E4,E$2:E)"]);
+    "=IFERROR(INDEX('Тур 2'!$F:$F,MATCH($A4,'Тур 2'!$A:$A,0)),0)", "=SUM(C4:D4)",
+    '=IF(COUNTIF(E$2:E,E4)>1,RANK(E4,E$2:E)&"-"&(RANK(E4,E$2:E)+COUNTIF(E$2:E,E4)-1),RANK(E4,E$2:E))']);
 });
 
 test("statsRows", () => {

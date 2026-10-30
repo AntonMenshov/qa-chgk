@@ -1,6 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { createRequire } from "node:module";
 import { loadBackend } from "./fake_apps_script.mjs";
+
+const L = createRequire(import.meta.url)("../../apps_script/logic.js");
 
 const TID = "K7M2Q";
 const JURY = "jury-token-0123456789";
@@ -69,7 +72,7 @@ test("create_tournament builds every tab and is idempotent for the same jury tok
   assert.deepEqual(tab("Итоги").row(1, 6), ["ID", "Команда", "Тур 1", "Тур 2", "Итого", "Место"]);
   assert.deepEqual(tab("Итоги").row(3, 6), ["A02", "Фиаско",
     "=IFERROR(INDEX('Тур 1'!$F:$F,MATCH($A3,'Тур 1'!$A:$A,0)),0)",
-    "=IFERROR(INDEX('Тур 2'!$F:$F,MATCH($A3,'Тур 2'!$A:$A,0)),0)", "=SUM(C3:D3)", "=RANK(E3,E$2:E)"]);
+    "=IFERROR(INDEX('Тур 2'!$F:$F,MATCH($A3,'Тур 2'!$A:$A,0)),0)", "=SUM(C3:D3)", L.placeFormula("E", 3)]);
   // Round tabs keep the continuous question numbers.
   assert.deepEqual(tab("Тур 1").row(1, 6), ["ID", "Команда", 1, 2, 3, "Сумма"]);
   assert.deepEqual(tab("Тур 2").row(1, 6), ["ID", "Команда", 4, 5, 6, "Сумма"]);

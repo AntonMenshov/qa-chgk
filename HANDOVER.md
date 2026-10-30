@@ -52,7 +52,10 @@ logos/                shared logo library (team logos git-ignored; nologo.png pu
 tournaments/example/  working example: config.py, teams.csv (the user's real teams)
 tests/                pytest (test_*.py) + JS tests in tests/js/*.test.mjs
 tests/conftest.py     shared `folder` fixture: a small tournament on disk
-tests/js/fake_apps_script.mjs  in-memory Sheets/Drive/properties to run Code.js in Node
+tests/js/fake_apps_script.mjs  in-memory Sheets/Drive/properties to run Code.js in Node;
+                      getValues() returns computed values, "42" becomes 42 unless the cell is "@"
+tests/js/sheet_formulas.mjs   evaluator for the Sheets formulas the backend writes
+tests/js/calculations.test.mjs  sums, places («2-3»), Stats vs logic.js reference; random tournaments
 tests/vectors/        shared JSON test vectors (qr_payloads, jury_links, merge_cases) for Python and JS
 docs/google-account.md  deploying the backend under any Gmail account; switching; updating
 spikes/               throwaway Phase 0 experiments (no tests)
@@ -164,6 +167,15 @@ checks that the decks come out in order.
    offline queue, batches of marks).
 
 ## Lessons learned
+
+- Test the numbers, not only formula text: `sheet_formulas.mjs` evaluates the backend's
+  formulas in the fakes, and `calculations.test.mjs` compares them with
+  `standings()`/`placeLabels()` in logic.js. Mutating the place formula is caught by 8 tests.
+  The live `get_results` action reads what Google really computed, for the same check
+  against the real Sheet.
+- Sheets turns text that looks like a number into a number (team «42» was right-aligned).
+  Name columns are formatted `@` before rows are written; `set_teams` rewrites names
+  stored as numbers, and «Итоги» formulas that differ from the current ones.
 
 - PT Sans has no `″ → ✓ ✗ ◀ ▶ ☐ Σ` glyphs: use words («верно», «неверно»), drawn boxes, «Сумма».
 - PT Sans glyph gaps: `render.missing_glyphs` guards every drawn string,
