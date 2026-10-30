@@ -26,6 +26,9 @@ round-trip time and the server's reply.</p>
 <pre id="log"></pre>
 <script>
 const $ = (id) => document.getElementById(id);
+// Opening …/#url=<exec URL> (e.g. from a QR code) fills the field, so nothing has to be typed on a phone.
+const fromLink = new URLSearchParams(location.hash.slice(1)).get("url");
+if (fromLink) localStorage.setItem("spikeUrl", fromLink);
 $("url").value = localStorage.getItem("spikeUrl") || "";
 $("url").addEventListener("change", () => localStorage.setItem("spikeUrl", $("url").value));
 

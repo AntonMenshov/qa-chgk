@@ -51,13 +51,22 @@ that need the user"). Open `…/spikes/qr_scan/` on the iPhone, print
 - scan the five QR sizes;
 - scan the three sample cards quickly one after another.
 
-| Library | Avg / max decode (ms) | Smallest size read reliably | Notes |
-|---|---|---|---|
-| zxing-wasm 3.1.4 | | | |
-| qr-scanner 1.4.2 | | | |
-| BarcodeDetector | | | probably unavailable on iOS |
+User report 2026-10-29: **scanning works well at every size on the test page
+(0.55–0.8 in)**. No per-library timings were reported.
 
-Camera resolution: ____; photo size per card: ____ KB.
+| Library | Result |
+|---|---|
+| zxing-wasm 3.1.4 | good at all sizes |
+| qr-scanner 1.4.2 | good at all sizes |
+| BarcodeDetector | not checked (probably unavailable on iOS) |
+
+**Decision:** zxing-wasm. It reads well, is actively maintained (releases through
+Oct 2026), and its reader is ~1 MB of WASM that can be vendored. qr-scanner's last
+release was 2022.
+
+**Lesson:** pasting a long URL on a phone is painful. Anything a phone needs (backend
+URL, tokens) must arrive **by scanning a QR code**, as the jury access QR already does.
+The spike 1 page now accepts `#url=<exec URL>` for this reason.
 
 ## Spike 3: printed test page
 
