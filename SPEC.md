@@ -129,7 +129,7 @@ Created by `chgk new`. Tabs:
 | Tab | Who writes | Content |
 |---|---|---|
 | **Settings** | CLI | name, date, rounds, questions per round, IDs |
-| **Teams** | organizer (source of truth) | `team_id` (the organiser's own, e.g. the rating.chgk.info number `58746`, used as given; blank → assigned `A01`, `A02`, …; 1-8 digits or capital Latin letters, unique, stable), `name`, `city`, `logo_file`, `logo_prompt` |
+| **Teams** | organizer (source of truth) | `team_id` (the organiser's own, e.g. the rating.chgk.info number `58746`, used as given; blank → assigned `A01`, `A02`, …; 1-8 digits or capital Latin letters, unique, stable), `name`, `city`, `logo_file`, `reserve` (§8.7) |
 | **Log** | Apps Script, append-only | `scan_id` (UUID, idempotent), server time, client time, juror, device, team, question, status, photo link, source (`app` / `sheet`) |
 | **Итоги** (first tab) | formulas | standings: each team's round sums, Итого, Место. A shared place reads «2-3» (user request), a single one is a number. Rows sorted by Итого; on a tie the better last round is higher, then the round before, …, then team ID (user rule; the place stays shared). Round sums are looked up by team ID, so sorting a round tab is harmless. Round columns share their round's colour. Team names are plain text, left-aligned (a team called «42» must not become a number) |
 | **Тур 1 … Тур N** | Apps Script + jury edits | one tab per round (user request): teams × that round's questions (continuous numbers) and «Сумма», sorted by «Сумма» (equal sums in team ID order). Narrow question columns; tab and header coloured, alternating by round |
@@ -228,7 +228,7 @@ missing list is backed by the server. Adding several jurors later needs UI work
 only, not data-model changes.
 
 ### 7.4 Access
-- v1: **secret jury link**. `chgk jury-link` prints a URL and a QR. The link carries
+- v1: **secret jury link**, printed as a QR code on page 1 of the jury sheet (§8.6). The link carries
   the tournament's backend URL, its TID and the jury token. Opening it once stores
   them on the phone, which is what lets a tournament run on any Google account
   (§3.1).
@@ -266,7 +266,7 @@ The app doesn't show it (decided).
   warning.
 - An embedded Unicode TTF font (OFL licence, e.g. PT Sans or Noto Sans) is used for
   Cyrillic.
-- The logo never overlaps the QR quiet zone.
+- The QR is drawn over the logo with its white quiet zone, so a logo never shows through it.
 - Logo watermark default: **12% grey**, configurable. This is the ink of the logo's
   dark parts (its darkest 10%), not of a single darkest pixel; see §9. The user
   first chose 3% from solid swatches, saw the real logos far too faint, and picked
@@ -296,7 +296,7 @@ separate file so the secret never ends up on team cards. It's also available alo
 as `chgk jury-sheet <folder>`.
 
 - **Page 1, jury only** (user request): QR codes for the secret jury access (§7.4,
-  framed, marked secret), the Sheet with edit rights, and the scanner, side by side.
+  framed, marked secret) across the top half, the Sheet with edit rights and the scanner below it.
   Only this page's footer says «секретно».
 - **Page 2, no secrets** (user request): QR codes for the projector board and the
   **view-only Sheet** (`…/htmlview`; the backend shares every new Sheet as "anyone with
@@ -347,9 +347,9 @@ as `chgk jury-sheet <folder>`.
   fallback. A fresh clone without the private logos still prints, with owls.
 - Logos are downscaled to 600 px before embedding, which keeps PDFs small.
 - **Size:** `CardFields.logo_size` (inches). `None` (the default) fits the logo into
-  the writing area. A number makes it a square centred in the full card height, left
-  of the QR column, behind the number and footer text but never behind the QR, and
-  shrunk to fit. On a 3×5 card the maximum is about 1.85 in.
+  the writing area. A number makes it a square centred on the card (user request),
+  behind the number and footer text, and shrunk to fit; its corner may go under the QR,
+  which is drawn on top with its white quiet zone. On a 3×5 card the maximum is about 1.96 in.
 - **Shade:** the darkest 10% of the drawing gets exactly `logo_grey` ink, and anything
   darker is clamped. Scaling by the single darkest pixel printed the user's light-grey
   logos at about a third of the chosen shade (fixed 2026-10-29).
@@ -359,7 +359,7 @@ A pale greyscale watermark. The source is chosen per team and per tournament:
 | Source | How |
 |---|---|
 | none | no logo |
-| provided file | PNG/JPG/SVG in `tournaments/<slug>/logos/` → greyscale → flatten → lightened to the chosen shade |
+| provided file | PNG/JPG (SVG later) in the tournament folder or `logos/` → greyscale → flatten → lightened to the chosen shade |
 | Claude-drawn SVG | vector emblem or monogram from a text spec (drawn in a Claude Code session, or via the Claude API with the user's key) |
 | image API | prompt → OpenAI / Google image model (user's API key) → same post-processing |
 
@@ -412,31 +412,33 @@ Not unit-testable, so covered by a manual checklist per release (`docs/manual-ch
 - print scale and grey shades on real printers;
 - deployed Apps Script quotas and CORS.
 
-CI: a GitHub Actions workflow runs `uv run pytest` and `node --test` on every push,
-once a remote exists.
+CI (`.github/workflows/tests.yml`) runs on every push: `ruff check`, `ruff format --check`,
+`uv run pytest`; `npm run lint`, `npm run format:check`, `npm test`.
 
 ## 12. Tech stack
 
 - **Python ≥ 3.12, uv**:
   - `typer` (CLI), `reportlab` (PDF), `segno` (QR), `Pillow` (logos), `httpx`;
-  - dev: `pytest`, `respx`, `pypdf`, `pypdfium2`, `zxing-cpp`.
+  - dev: `pytest`, `respx`, `pypdf`, `pypdfium2`, `zxing-cpp`, `playwright`, `ruff`.
 - **Apps Script** (`apps_script/`): deployed once as a web app ("execute as me",
   "anyone"). The code is pushed with `clasp` or pasted by hand.
-- **Web** (`web/`): plain HTML/JS with a vendored QR decoding library (`qr-scanner`
-  or `zxing-wasm`, picked in the spike), served by GitHub Pages.
-- **Node** (dev only): its built-in `node --test` runner, no npm dependencies.
+- **Web** (`web/`): plain HTML/JS with a vendored QR decoding library (`zxing-wasm`,
+  picked in spike 2), served by GitHub Pages.
+- **Node** (dev only): its built-in `node --test` runner (`npm test`); npm devDependencies
+  only for ESLint + Prettier.
 
 ## 13. CLI (planned commands)
 
 ```
-uv run chgk backend add|use|list|check       # named Google-account backends (§3.1)
+uv run chgk backend add|use|list|check|remove|bundle  # named Google-account backends (§3.1)
 uv run chgk new tournaments/<slug>          # create Sheet + Drive folder on the active backend, write state.json
 uv run chgk teams tournaments/<slug>        # pull Teams tab, assign team_ids, validate logos
-uv run chgk logos tournaments/<slug>        # process/generate logos → pale PNGs
+uv run chgk logos tournaments/<slug>        # process/generate logos → pale PNGs (Phase 6, not built yet)
 uv run chgk cards tournaments/<slug> [--mode team-pages|cut-stack|scissors] [--teams A01,A07]
 uv run chgk test-page tournaments/<slug>
 uv run chgk jury-sheet tournaments/<slug>   # jury printout (also written by `cards`)
 uv run chgk board tournaments/<slug>        # projector board link (creates its token for older tournaments)
+uv run chgk view tournaments/<slug>         # view-only Sheet link (shares it for older tournaments)
 ```
 
 ## 14. Open items (non-blocking; defaults in brackets)

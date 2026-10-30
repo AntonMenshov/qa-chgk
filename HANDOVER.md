@@ -3,7 +3,7 @@
 Read this first when picking the project up, whether that's a new Claude session or
 another person. It is updated at the end of every work session and every phase.
 
-Last updated: 2026-10-29
+Last updated: 2026-10-30
 
 ## What this project is
 
@@ -22,7 +22,7 @@ Full design: [SPEC.md](SPEC.md). Build order: [PLAN.md](PLAN.md).
 | 0 — Skeleton and spikes | ✅ spike 1 (laptop + iPhone Safari), spike 2 (all QR sizes scan well; zxing-wasm chosen), spike 3 (0.65 in QR; logo shade later changed to 12%) |
 | 1 — Config, identity, card PDF | ✅ done; cards + jury sheet work offline from `teams.py` |
 | 2 — Apps Script backend + Sheet | ✅ deployed under the user's Gmail and checked live (sums, places, order, reserve teams, IDs); two Sheet-trigger checks still to be confirmed by the user |
-| 3 — Scanner web app | 🔶 built and tested (unit + integration + headless-Chrome end-to-end with a fake camera); waiting for the live and iPhone checks |
+| 3 — Scanner web app | 🔶 built and tested (unit + integration + headless-Chrome end-to-end with a fake camera), checked live on Pages against the real backend; waiting for the user's iPhone check |
 | 4 — Card photos | not started |
 | 5 — Projector board + stats | ✅ built, tested and checked live (version 6db9ad957009, example QHZJ8) |
 | 6 — Logos | partly done: PNG/JPG → pale greyscale, shared private library, fallback owl. Left: SVG, Claude-drawn SVG, image-API generation |
@@ -30,15 +30,15 @@ Full design: [SPEC.md](SPEC.md). Build order: [PLAN.md](PLAN.md).
 ### Repository layout
 ```
 chgk/                 Python package (at repo root, no src/ — user's preference)
-  cli.py              typer app: version, cards, test-page, jury-sheet, new, teams, backend add|use|list|check|remove|bundle
+  cli.py              typer app: version, cards, test-page, jury-sheet, new, teams, board, view, backend add|use|list|check|remove|bundle
   backend.py          backend profiles (~/.config/chgk/backends.json, CHGK_CONFIG_DIR), HTTP client, Code.gs bundler
-  remote.py           new_tournament / sync_teams (tournament keeps its own backend)
+  remote.py           new_tournament / sync_teams / ensure_board / ensure_view (tournament keeps its own backend)
   config.py           Tournament / CardFields / Layout / LogoMode dataclasses + load_config
   ids.py              TID, team IDs, QR payload encode/decode
   teams.py            teams.py loader/writer (keeps given team_ids, assigns + writes back missing ones)
   state.py            tournaments/<slug>/state.json (TID, backend URL/profile, sheet ID, jury token)
   logos.py            image → pale greyscale watermark
-  jury.py             jury printout (platypus): QR page, links, how-to, team forms, backup grid
+  jury.py             jury printout (platypus): QR pages, links, how-to, team forms, backup grid
   cards/
     model.py          a team's deck: numbered cards, then spares
     impose.py         team-pages / cut-stack / scissors slot assignment
@@ -55,12 +55,12 @@ tests/conftest.py     shared `folder` fixture: a small tournament on disk
 tests/js/fake_apps_script.mjs  in-memory Sheets/Drive/properties to run Code.js in Node;
                       getValues() returns computed values, "42" becomes 42 unless the cell is "@"
 tests/js/sheet_formulas.mjs   evaluator for the Sheets formulas the backend writes
-tests/js/calculations.test.mjs  sums, places («2-3»), Stats vs logic.js reference; random tournaments
+tests/js/calculations.test.mjs  sums, places («2-3»), «Статистика» vs logic.js reference; random tournaments
 tests/js/scanner.test.mjs     scanner lib: vectors, session, queue, camera; phone ↔ fake backend
 tests/js/fake_backend_server.mjs  the fake backend over HTTP (for the browser tests)
 tests/js/board.test.mjs       board logic and link; places/order agree with logic.js on random data
 tests/test_scanner_e2e.py     headless Chrome: fake camera shows real cut-out cards; skipped without Chrome/Node
-tests/vectors/        shared JSON test vectors (qr_payloads, jury_links, merge_cases) for Python and JS
+tests/vectors/        shared JSON test vectors (qr_payloads, jury_links, board_links, merge_cases) for Python and JS
 docs/google-account.md  deploying the backend under any Gmail account; switching; updating
 spikes/               throwaway Phase 0 experiments (no tests)
 docs/spikes.md        spike instructions and results
@@ -71,8 +71,8 @@ web/s/                scanner app (no build step): index.html, app.css, app.js (
                       vendor/zxing-wasm-3.1.4 (QR reader, vendored: no CDN at the venue)
 web/b/                projector board: index.html, board.css, board.js; lib/board.js = what to show
                       (rounds revealed by hand, places from revealed rounds only, grid vs compact)
-.github/workflows/    tests.yml (pytest + npm test), pages.yml (deploys web/ + spike pages)
-package.json          only for `npm test` (no npm dependencies)
+.github/workflows/    tests.yml (ruff + pytest; ESLint + Prettier + npm test), pages.yml (deploys web/ + spike pages)
+package.json          `npm test`, lint, format (devDependencies: ESLint + Prettier only)
 ```
 
 ### How to run
@@ -155,10 +155,10 @@ checks that the decks come out in order.
 - **Juror view:** the app doesn't show the official answer.
 - **Jury printout** (user request, SPEC §8.6), in Russian, written with every
   `cards` run:
-  - secret access QR;
+  - page 1 (secret): jury access, editable Sheet, scanner; page 2: board + view-only Sheet;
   - details and links;
   - juror how-to and «?»/appeals how-to;
-  - team roster with a "handed out" checkbox;
+  - team forms (ID, name, 8 player lines), two per row;
   - paper backup grid.
 - **Jury link:** `<scanner_url>#setup=<TID>.<TOKEN>.<DEPLOYMENT_ID>`.
 - **Jurors:** one at a time for now; the data model is ready for several.
@@ -174,6 +174,8 @@ checks that the decks come out in order.
 
 ## Next steps
 
+0. **Docs:** open items from the 2026-10-30 audit are in [docs/docs-todo.md](docs/docs-todo.md).
+
 1. **User checks:** the scanner on an iPhone with the example cards (incl. «Чья
    карточка?»); the two Sheet-trigger checks under "Things that need the user".
 2. **Backend latency** — profiled 2026-10-30 from outside (throwaway tournament HVTXT,
@@ -182,11 +184,11 @@ checks that the decks come out in order.
    1 mark no sort 4.3 s, 1 mark + sort 5.0 s, 15 marks 5.9 s; a 1000-row Log changes
    little (+0.3 s). So: ~1 s platform, ~1.5–2 s opening + reading (≈8 separate range
    reads), ~1 s writes (3 single-cell writes per mark), ~0.7 s sort + formula refresh.
-   Proposals given to the user (not implemented): timing breakdown in the reply; one
-   batched read/write via the Sheets API; CacheService snapshot for get_board/get_state;
-   row-independent formulas so sorting needs no refresh.
+   Proposals given to the user: timing breakdown in the reply; one batched read/write
+   via the Sheets API; CacheService snapshot for get_board/get_state; row-independent
+   formulas so sorting needs no refresh. The first two are done (Lessons, «Backend speed»).
 3. **Phase 4 — card photos** (PLAN.md). Until then the jury sheet must not promise
-   photos (it doesn't since a9268c5+1).
+   photos (it doesn't since 1877764).
 4. **Phase 6 — logos:** SVG input, Claude-drawn SVG, image-API generation.
 5. **Housekeeping:** remove the spike pages from Pages/`spikes/`, organiser README
    (end-to-end: config → teams → `chgk new` → cards → print → game day).
@@ -194,6 +196,14 @@ checks that the decks come out in order.
    freeze-standings option, token rotation, moving a tournament to another account.
 
 ## Lessons learned
+
+- Backend 271296487de6 (built, not yet deployed): the spreadsheet is opened only when needed
+  ( returns a lazy wrapper); a re-sort is one Sheets API spreadsheets.batchUpdate per
+  request (per tab: updateCells formulas, sortRange, updateCells formulas; formulas depend
+  only on the row number). Tab IDs cached in the registry (); stale ID, quota,
+  gaps in team rows or a Sheet unknown to the registry → the old SpreadsheetApp sort.
+  tests/js/sort_api.test.mjs holds it to the slow sort (random parity) and logic.js; 7
+  hand mutations of sortWithApi_ were all caught.
 
 - Board (user decisions, SPEC §10.1): revealed by hand after each round; full grid up to
   5 teams, else total + last round's grid; «Взяли» row. Read-only board token
@@ -217,7 +227,7 @@ checks that the decks come out in order.
   per row); a re-sort adds sort_formulas 0.33 + sort_range 0.13 + ~0.2 in rest (ID read,
   getSheetByName). Lock: 2nd simultaneous phone waits 1.1-1.4 s, 3rd ~2.0 s. Proposals
   to the user: skip openById on the fast path; sort + formula rewrite in one API call
-  (sheet IDs cached); time zone once per request and «Итоги» order from the batch read. #2 (cache) kept for later, #4 (ARRAYFORMULA) rejected, #1 (timings) next.
+  (sheet IDs cached); time zone once per request and «Итоги» order from the batch read. #2 (cache) kept for later, #4 (ARRAYFORMULA) rejected, #1 (timings) done.
 
 - «Спорные» (user request): hidden tab listing every «?» (Тур, Вопрос, Команда, Фото from
   Log) with totals overall / per round / per team. Written by the backend only when the

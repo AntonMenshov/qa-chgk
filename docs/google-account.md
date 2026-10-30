@@ -80,7 +80,7 @@ code. To update:
 ## 5. Cleaning up Drive
 
 Each tournament lives in `ЧГК/<date> <name> (<TID>)`. The TID is printed on the jury
-sheet (page 2), so you can tell which folder is current. Delete only folders of
+sheet (page 3), so you can tell which folder is current. Delete only folders of
 tournaments you no longer need: a running tournament's cards, jury link and phones all
 point to its own Sheet. If you trash the current one by mistake, restore it from the
 Drive Trash (right-click → Restore); everything keeps working.
