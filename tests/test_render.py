@@ -1,0 +1,231 @@
+import io
+import textwrap
+
+import pypdfium2
+import pytest
+import zxingcpp
+from PIL import Image, ImageDraw
+from pypdf import PdfReader
+from typer.testing import CliRunner
+
+from chgk.cards.build import build_cards
+from chgk.cards.geometry import PAGE_H, card_rects
+from chgk.cards.impose import Mode
+from chgk.cards.model import Card
+from chgk.cards.render import (
+    ELLIPSIS,
+    FONT,
+    SPARE_LABEL,
+    SPARE_NUMBER_LABEL,
+    fit_text,
+    logo_key,
+    missing_glyphs,
+    printable,
+)
+from chgk.cli import app
+from chgk.config import CardFields, Layout, LogoMode
+from chgk.ids import CardId, decode_payload
+from chgk.state import load_or_create_state
+from chgk.teams import Team
+from reportlab.pdfbase import pdfmetrics
+
+DPI = 200
+SCANNER = "https://example.github.io/qa-chgk/s/"
+LONG_NAME = "Команда с очень-очень длинным названием «Правило трёх буравчиков»"
+
+
+@pytest.fixture
+def folder(tmp_path):
+    """A small tournament: 2 rounds × 3 questions, 2 spares, three teams."""
+    (tmp_path / "config.py").write_text(
+        textwrap.dedent(
+            f"""
+            from datetime import date
+            from chgk.config import CardFields, Layout, LogoMode, Tournament
+            tournament = Tournament(
+                slug="test-cup", name="Осенний кубок", date=date(2026, 11, 15), rounds=2,
+                questions_per_round=3, scanner_url="{SCANNER}", spares_per_team=2,
+                card=CardFields(logo=LogoMode.TEAM_ELSE_TOURNAMENT, tournament_logo="t.png"),
+                layout=Layout(cols=3, rows=5, qr_size=0.65),
+            )
+            """
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "teams.csv").write_text(
+        f"team_id,name,city,logo_file\nA01,Синие зайцы,Бостон,z.png\nA02,{LONG_NAME},,\nA03,Думать быстро,,\n",
+        encoding="utf-8",
+    )
+    for name in ("t.png", "z.png"):
+        img = Image.new("RGB", (200, 200), "white")
+        ImageDraw.Draw(img).ellipse((20, 20, 180, 180), fill="black")
+        img.save(tmp_path / name)
+    return tmp_path
+
+
+def page_images(pdf_path):
+    doc = pypdfium2.PdfDocument(pdf_path)
+    return [page.render(scale=DPI / 72).to_pil() for page in doc]
+
+
+def decoded_slots(image):
+    """{slot index: payload} for every QR on a rendered page, located by its centre."""
+    rects = card_rects(Layout())
+    scale = DPI / 72
+    found = {}
+    for result in zxingcpp.read_barcodes(image):
+        p = result.position
+        cx = (p.top_left.x + p.top_right.x + p.bottom_left.x + p.bottom_right.x) / 4 / scale
+        cy = PAGE_H - (p.top_left.y + p.top_right.y + p.bottom_left.y + p.bottom_right.y) / 4 / scale
+        slot = next(i for i, r in enumerate(rects) if r.x <= cx <= r.right and r.y <= cy <= r.top)
+        assert slot not in found, "two QR codes on one card"
+        found[slot] = result.text
+    return found
+
+
+@pytest.mark.parametrize("mode", list(Mode))
+def test_every_qr_decodes_from_the_pdf_and_sits_in_its_slot(folder, mode, tmp_path):
+    out = tmp_path / "out.pdf"
+    result = build_cards(folder, mode, out)
+    tid = load_or_create_state(folder).tid
+
+    seen = []
+    for image in page_images(out):
+        slots = decoded_slots(image)
+        seen += [decode_payload(payload) for _, payload in sorted(slots.items())]
+    assert len(seen) == result.cards
+    assert all(card.tid == tid for card in seen)
+
+    expected_numbered = {CardId(tid, team, question=q) for team in ("A01", "A02", "A03") for q in range(1, 7)}
+    assert expected_numbered <= set(seen)
+    if mode is Mode.CUT_STACK:
+        assert result.cards == 3 * (6 + 2) and result.pages == 2
+    else:
+        assert result.cards == 3 * 15 and result.pages == 3  # free slots became extra spares
+
+
+def test_cut_stack_pdf_order_matches_the_guillotine_workflow(folder, tmp_path):
+    out = tmp_path / "out.pdf"
+    build_cards(folder, Mode.CUT_STACK, out)
+    pages = [decoded_slots(image) for image in page_images(out)]
+    piles = [[page[s] for page in pages if s in page] for s in range(15)]
+    stacked = [decode_payload(p) for pile in piles for p in pile]
+    deck = [(q, None) for q in range(1, 7)] + [(None, 1), (None, 2)]
+    expected = [(team, q, s) for team in ("A01", "A02", "A03") for q, s in deck]
+    assert [(c.team_id, c.question, c.spare) for c in stacked] == expected
+
+
+def test_pdf_text_contains_labels_and_cyrillic(folder, tmp_path):
+    out = tmp_path / "out.pdf"
+    build_cards(folder, Mode.TEAM_PAGES, out)
+    text = "\n".join(page.extract_text() for page in PdfReader(out).pages)
+    for expected in ("Синие зайцы", "Думать быстро", "Осенний кубок · 15.11.2026", "Тур 1", "Тур 2", SPARE_LABEL):
+        assert expected in text
+    assert "Вопрос" not in text  # the user asked for no «Вопрос» label
+
+
+def test_team_filter_and_unknown_team(folder, tmp_path):
+    result = build_cards(folder, Mode.CUT_STACK, tmp_path / "a.pdf", ["A03"])
+    assert result.teams == 1 and result.cards == 8
+    with pytest.raises(ValueError, match="Z99"):
+        build_cards(folder, Mode.CUT_STACK, tmp_path / "b.pdf", ["Z99"])
+
+
+def test_unprintable_characters_warn_and_still_render(folder, tmp_path):
+    csv = folder / "teams.csv"
+    csv.write_text(csv.read_text(encoding="utf-8") + "A04,Звёзды ★,,\n", encoding="utf-8")
+    result = build_cards(folder, Mode.CUT_STACK, tmp_path / "out.pdf")
+    assert any("★" in w for w in result.warnings)
+
+
+def test_all_fixed_labels_have_glyphs():
+    labels = [SPARE_LABEL, SPARE_NUMBER_LABEL, "Тур 0123456789", " · ", ELLIPSIS, "«»—.,-!?ёЁ"]
+    assert missing_glyphs("".join(labels)) == set()
+    assert missing_glyphs("АБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдежзийклмнопрстуфхцчшщъыьэюя") == set()
+    assert missing_glyphs("″→★") == {"″", "→", "★"}  # the gaps found in Phase 0
+
+
+def test_printable_replaces_and_reports():
+    warnings = []
+    assert printable("Звёзды ★", warnings) == "Звёзды ?"
+    assert len(warnings) == 1
+    assert printable("Синие зайцы", warnings) == "Синие зайцы" and len(warnings) == 1
+
+
+def test_fit_text():
+    missing_glyphs("")  # registers the fonts
+    assert fit_text("Короткое", FONT, 8, 200, 5) == ("Короткое", 8)
+    text, size = fit_text(LONG_NAME, FONT, 8, 150, 5.5)
+    assert size == 5.5 and text.endswith(ELLIPSIS)
+    assert pdfmetrics.stringWidth(text, FONT, size) <= 150
+    text, size = fit_text("Средней длины название", FONT, 8, 75, 5)
+    assert 5 <= size < 8 and not text.endswith(ELLIPSIS)
+
+
+@pytest.mark.parametrize(
+    "mode,has_team_logo,tournament_logo,expected",
+    [
+        (LogoMode.NONE, True, "t.png", None),
+        (LogoMode.TEAM, True, None, "A01"),
+        (LogoMode.TEAM, False, None, None),
+        (LogoMode.TOURNAMENT, True, "t.png", "tournament"),
+        (LogoMode.TEAM_ELSE_TOURNAMENT, True, "t.png", "A01"),
+        (LogoMode.TEAM_ELSE_TOURNAMENT, False, "t.png", "tournament"),
+        (LogoMode.TEAM_ELSE_TOURNAMENT, False, None, None),
+    ],
+)
+def test_logo_key(mode, has_team_logo, tournament_logo, expected):
+    team = Team("A01", "X")
+    card = Card(team, CardId("K7M2Q", "A01", question=1), 1)
+    logos = {"A01": Image.new("L", (1, 1))} if has_team_logo else {}
+    assert logo_key(card, CardFields(logo=mode, tournament_logo=tournament_logo), logos) == expected
+
+
+runner = CliRunner()
+
+
+def test_cli_cards_with_mode(folder, tmp_path):
+    out = tmp_path / "cli.pdf"
+    result = runner.invoke(app, ["cards", str(folder), "--mode", "cut-stack", "--out", str(out)])
+    assert result.exit_code == 0, result.output
+    assert "3 teams, 24 cards, 2 pages (cut-stack)" in result.output
+    assert out.read_bytes().startswith(b"%PDF")
+
+
+def test_cli_cards_asks_for_mode_and_reprompts(folder, tmp_path):
+    out = tmp_path / "cli.pdf"
+    result = runner.invoke(app, ["cards", str(folder), "--out", str(out)], input="9\n3\n")
+    assert result.exit_code == 0, result.output
+    assert "How will the cards be cut?" in result.output
+    assert "Please enter a number from 1 to 3." in result.output
+    assert "(scissors)" in result.output
+
+
+def test_cli_cards_reports_errors(folder, tmp_path):
+    result = runner.invoke(app, ["cards", str(folder), "--mode", "scissors", "--teams", "Z99", "--out", str(tmp_path / "x.pdf")])
+    assert result.exit_code == 1
+    assert "Z99" in result.output
+
+
+@pytest.mark.parametrize("mode,dashed", [(Mode.SCISSORS, True), (Mode.TEAM_PAGES, False), (Mode.CUT_STACK, False)])
+def test_only_scissors_mode_uses_dashed_cut_lines(folder, tmp_path, mode, dashed):
+    out = tmp_path / "out.pdf"
+    build_cards(folder, mode, out)
+    content = PdfReader(out).pages[0].get_contents().get_data()
+    assert (b"[4 2] 0 d" in content) is dashed
+
+
+def test_test_page_has_real_qr_codes_and_marks_chosen_settings(folder, tmp_path):
+    out = tmp_path / "test-page.pdf"
+    result = runner.invoke(app, ["test-page", str(folder), "--out", str(out)])
+    assert result.exit_code == 0, result.output
+    tid = load_or_create_state(folder).tid
+
+    (image,) = page_images(out)
+    cards = {decode_payload(r.text) for r in zxingcpp.read_barcodes(image)}
+    # 5 QR sizes (questions 1-5) + sample cards: Q1, last question, first spare. A01 has the logo.
+    assert cards == {CardId(tid, "A01", question=q) for q in (1, 2, 3, 4, 5, 6)} | {CardId(tid, "A01", spare=1)}
+
+    text = PdfReader(out).pages[0].extract_text()
+    assert "0.65 in (chosen)" in text
+    assert "3% grey (chosen)" in text

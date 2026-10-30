@@ -61,6 +61,9 @@ Camera resolution: ____; photo size per card: ____ KB.
 
 ## Spike 3: printed test page
 
+Superseded by `uv run chgk test-page <tournament folder>` (Phase 1), which uses the
+tournament's real settings, QR codes and logo.
+
 `uv run python spikes/print_test/make_sheet.py` → `out/print_test.pdf`. Print at
 **100% / Actual size** on each printer you expect to use.
 

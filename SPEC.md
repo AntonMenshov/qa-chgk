@@ -61,6 +61,7 @@ tournament = Tournament(
     date=date(2026, 11, 15),
     rounds=3,
     questions_per_round=12,          # int, or a list per round: [12, 12, 15]
+    scanner_url="https://<user>.github.io/qa-chgk/s/",   # printed inside every QR
     spares_per_team=3,               # unnumbered spare cards per team, whole game
     card=CardFields(
         team_name=True,
@@ -68,14 +69,18 @@ tournament = Tournament(
         date=True,
         logo=LogoMode.TEAM_ELSE_TOURNAMENT,   # NONE | TEAM | TOURNAMENT | TEAM_ELSE_TOURNAMENT
         tournament_logo="logos/tournament.png",
+        logo_grey=0.03,
     ),
-    layout=Layout(cols=3, rows=5),   # 15 cards per Letter page by default
+    layout=Layout(cols=3, rows=5, qr_size=0.65),   # 15 cards per Letter page
 )
 ```
 
 Values the system generates (tournament ID, spreadsheet ID, jury token) are stored
 next to the config in `tournaments/<slug>/state.json`, which is never hand-edited
-and is git-ignored because it contains secrets.
+and is git-ignored because it contains secrets. Until the Sheet backend exists
+(Phase 2), teams come from `tournaments/<slug>/teams.csv`
+(`team_id,name,city,logo_file`); missing team IDs are assigned and written back.
+`tournaments/example/` is a working example.
 
 ## 5. Google Sheet (one spreadsheet per tournament)
 
@@ -174,7 +179,8 @@ The app doesn't show it (decided).
   margins cover printers that can't print to the edge.
 - The grid is configurable; the default is **3 columns × 5 rows = 15 cards**, about
   2.67″ × 2.1″ each.
-- Thin cut lines, plus crop marks at the sheet edges for guillotine alignment.
+- Cards sit edge to edge, so neighbouring cards share one cut line and no paper is
+  wasted. Thin grey cut lines; crop marks in the margin for the guillotine modes.
 
 ### 8.2 Card contents (Russian labels; no «Вопрос»)
 ```
@@ -187,7 +193,10 @@ The app doesn't show it (decided).
 │ Синие зайцы · Осенний кубок · 15.11.2026 │   optional footer
 └───────────────────────────────┘
 ```
-- Spare cards show «Запасной» instead of a number.
+- Spare cards show «Запасной» instead of a number, and a «№ ____» line for the team to
+  write the question number.
+- Characters the font can't draw (e.g. emoji in a team name) print as `?`, with a
+  warning.
 - An embedded Unicode TTF font (OFL licence, e.g. PT Sans or Noto Sans) is used for
   Cyrillic.
 - The logo never overlaps the QR quiet zone.
@@ -198,7 +207,7 @@ The app doesn't show it (decided).
 |---|---|
 | `team-pages` | each page holds one team's cards in order; leftover slots become extra spares |
 | `cut-stack` | for guillotine: stack all sheets, cut once; stacking the piles in slot order gives every team's cards already sorted |
-| `scissors` | one team per page, visible cut lines with a small gutter between cards |
+| `scissors` | one team per page, same edge-to-edge grid (cards share cut lines, no wasted paper); darker dashed lines and no crop marks |
 
 ### 8.4 Distribution
 Each team gets **one stack for the whole game** (numbered cards + spares).

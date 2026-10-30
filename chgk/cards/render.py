@@ -1,0 +1,212 @@
+"""Draw imposed pages into a Letter PDF."""
+
+from functools import lru_cache
+from pathlib import Path
+
+import segno
+from PIL import Image
+from reportlab.lib.utils import ImageReader
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.pdfgen.canvas import Canvas
+
+from chgk import FONTS_DIR
+from chgk.cards.geometry import (
+    INFO_SIZE,
+    NUMBER_SIZE,
+    PAGE_H,
+    PAGE_W,
+    ROUND_SIZE,
+    TEAM_SIZE,
+    CardParts,
+    Rect,
+    card_parts,
+    card_rects,
+    printable_area,
+)
+from chgk.cards.impose import Mode, Page
+from chgk.cards.model import Card
+from chgk.config import CardFields, LogoMode, Tournament
+from chgk.ids import encode_payload
+
+FONT, FONT_BOLD = "PTSans", "PTSans-Bold"
+GUIDE_GREY = 0.65  # cut lines for a guillotine: 0 = black, 1 = white
+SCISSORS_GREY = 0.35  # darker, dashed cut lines that are easy to follow with scissors
+ELLIPSIS = "…"
+SPARE_LABEL = "Запасной"
+SPARE_NUMBER_LABEL = "№ ____"
+
+
+@lru_cache(maxsize=None)
+def _fonts() -> TTFont:
+    regular = TTFont(FONT, FONTS_DIR / "PT_Sans-Web-Regular.ttf")
+    pdfmetrics.registerFont(regular)
+    pdfmetrics.registerFont(TTFont(FONT_BOLD, FONTS_DIR / "PT_Sans-Web-Bold.ttf"))
+    return regular
+
+
+def missing_glyphs(text: str) -> set[str]:
+    """Characters the bundled font cannot draw (they would print as empty boxes)."""
+    cmap = _fonts().face.charToGlyph
+    return {ch for ch in text if ord(ch) not in cmap and not ch.isspace()}
+
+
+def printable(text: str, warnings: list[str]) -> str:
+    missing = missing_glyphs(text)
+    if not missing:
+        return text
+    warnings.append(f"{text!r}: no glyph for {''.join(sorted(missing))!r}, printed as '?'")
+    return "".join("?" if ch in missing else ch for ch in text)
+
+
+def fit_text(text: str, font: str, size: float, max_width: float, min_size: float) -> tuple[str, float]:
+    """Shrink to fit; below `min_size`, cut the text and end it with an ellipsis."""
+    while size > min_size and pdfmetrics.stringWidth(text, font, size) > max_width:
+        size = max(min_size, size - 0.5)
+    if pdfmetrics.stringWidth(text, font, size) <= max_width:
+        return text, size
+    while text and pdfmetrics.stringWidth(text + ELLIPSIS, font, size) > max_width:
+        text = text[:-1]
+    return text.rstrip() + ELLIPSIS, size
+
+
+def logo_key(card: Card, fields: CardFields, team_logos: dict[str, Image.Image]) -> str | None:
+    """Which logo a card shows: a team_id, "tournament", or None."""
+    has_team = card.team.team_id in team_logos
+    if fields.logo is LogoMode.TEAM:
+        return card.team.team_id if has_team else None
+    if fields.logo is LogoMode.TEAM_ELSE_TOURNAMENT:
+        return card.team.team_id if has_team else ("tournament" if fields.tournament_logo else None)
+    if fields.logo is LogoMode.TOURNAMENT:
+        return "tournament"
+    return None
+
+
+def draw_qr(c: Canvas, payload: str, rect: Rect) -> None:
+    """Vector QR code filling `rect`, including a white 4-module quiet zone."""
+    qr = segno.make_qr(payload, error="m", boost_error=False)
+    matrix = qr.matrix
+    n = len(matrix)
+    module = rect.w / (n + 8)
+    c.setFillGray(1)
+    c.rect(rect.x, rect.y, rect.w, rect.h, stroke=0, fill=1)
+    c.setFillGray(0)
+    path = c.beginPath()
+    for r, row in enumerate(matrix):
+        y = rect.top - (r + 5) * module
+        col = 0
+        while col < n:
+            if row[col]:
+                start = col
+                while col < n and row[col]:
+                    col += 1
+                path.rect(rect.x + (start + 4) * module, y, (col - start) * module, module)
+            else:
+                col += 1
+    c.drawPath(path, stroke=0, fill=1)
+
+
+def _draw_guides(c: Canvas, tournament: Tournament, mode: Mode, rects: list[Rect]) -> None:
+    """Cut lines on the shared card edges; crop marks in the margin for guillotine modes."""
+    area = printable_area(tournament.layout)
+    xs = sorted({round(r.x, 3) for r in rects} | {round(area.right, 3)})
+    ys = sorted({round(r.y, 3) for r in rects} | {round(area.top, 3)})
+    scissors = mode is Mode.SCISSORS
+    c.setStrokeGray(SCISSORS_GREY if scissors else GUIDE_GREY)
+    c.setLineWidth(0.4 if scissors else 0.3)
+    if scissors:
+        c.setDash(4, 2)
+    for x in xs:
+        c.line(x, area.y, x, area.top)
+    for y in ys:
+        c.line(area.x, y, area.right, y)
+    c.setDash()
+    if scissors:
+        return
+    # Crop marks in the margin, so cut positions are visible on the edge of a stack.
+    m = area.x
+    for x in xs:
+        c.line(x, 2, x, m - 3)
+        c.line(x, PAGE_H - 2, x, PAGE_H - m + 3)
+    for y in ys:
+        c.line(2, y, m - 3, y)
+        c.line(PAGE_W - 2, y, PAGE_W - m + 3, y)
+
+
+def _draw_card(c: Canvas, card: Card, parts: CardParts, tournament: Tournament, logo: ImageReader | None,
+               warnings: list[str]) -> None:
+    fields = tournament.card
+    if logo is not None:
+        lr = parts.logo
+        c.drawImage(logo, lr.x, lr.y, lr.w, lr.h, preserveAspectRatio=True, anchor="c")
+
+    draw_qr(c, encode_payload(tournament.scanner_url, card.id), parts.qr)
+
+    nr = parts.number
+    c.setFillGray(0)
+    if card.is_spare:
+        label, size = fit_text(SPARE_LABEL, FONT_BOLD, 14, nr.w, 8)
+        c.setFont(FONT_BOLD, size)
+        c.drawString(nr.x, nr.top - pdfmetrics.getAscent(FONT_BOLD, size), label)
+        c.setFont(FONT, ROUND_SIZE + 2)
+        c.drawString(nr.x, nr.y + 1, SPARE_NUMBER_LABEL)
+    else:
+        c.setFont(FONT_BOLD, NUMBER_SIZE)
+        c.drawString(nr.x, nr.top - pdfmetrics.getAscent(FONT_BOLD, NUMBER_SIZE), str(card.id.question))
+        c.setFont(FONT, ROUND_SIZE)
+        c.drawString(nr.x, nr.y + 1, f"Тур {card.round}")
+
+    fr = parts.footer
+    if fields.team_name:
+        text, size = fit_text(printable(card.team.name, warnings), FONT_BOLD, TEAM_SIZE, fr.w, 5.5)
+        c.setFont(FONT_BOLD, size)
+        c.drawString(fr.x, parts.team_baseline, text)
+    info = " · ".join(
+        part
+        for part, on in (
+            (printable(tournament.name, warnings), fields.tournament_name),
+            (tournament.date.strftime("%d.%m.%Y"), fields.date),
+        )
+        if on
+    )
+    if info:
+        text, size = fit_text(info, FONT, INFO_SIZE, fr.w, 5)
+        c.setFont(FONT, size)
+        c.drawString(fr.x, parts.info_baseline, text)
+
+
+def render_cards(
+    pages: list[Page],
+    tournament: Tournament,
+    mode: Mode,
+    out_path: Path,
+    team_logos: dict[str, Image.Image] | None = None,
+    tournament_logo: Image.Image | None = None,
+) -> list[str]:
+    """Write the PDF; return warnings (e.g. characters the font cannot print)."""
+    _fonts()
+    team_logos = team_logos or {}
+    readers = {k: ImageReader(v) for k, v in team_logos.items()}
+    if tournament_logo is not None:
+        readers["tournament"] = ImageReader(tournament_logo)
+
+    rects = card_rects(tournament.layout)
+    qr_pt = tournament.layout.qr_size * 72
+    all_parts = [card_parts(r, qr_pt) for r in rects]
+
+    out_path = Path(out_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    c = Canvas(str(out_path), pagesize=(PAGE_W, PAGE_H))
+    c.setTitle(f"{tournament.name} — карточки ({mode.value})")
+    warnings: list[str] = []
+    for page in pages:
+        for card, parts in zip(page, all_parts):
+            if card is None:
+                continue
+            key = logo_key(card, tournament.card, team_logos)
+            _draw_card(c, card, parts, tournament, readers.get(key), warnings)
+        # Guides last: the QR's white quiet zone would otherwise hide them at the corners.
+        _draw_guides(c, tournament, mode, rects)
+        c.showPage()
+    c.save()
+    return sorted(set(warnings))
