@@ -34,3 +34,9 @@ def folder(tmp_path):
         ImageDraw.Draw(img).ellipse((20, 20, 180, 180), fill="black")
         img.save(tmp_path / name)
     return tmp_path
+
+
+@pytest.fixture(autouse=True)
+def isolated_cwd(tmp_path, monkeypatch):
+    """Commands that write to the default out/<slug>/ must not touch the repo's out/."""
+    monkeypatch.chdir(tmp_path)
