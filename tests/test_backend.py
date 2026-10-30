@@ -1,4 +1,5 @@
 import json
+import re
 
 import httpx
 import pytest
@@ -230,7 +231,9 @@ def test_bundle_contains_both_files_and_a_stable_version(tmp_path):
     assert f'const VERSION = "{version}";' in text and 'const VERSION = "dev";' not in text
     for name in ("function mergeCell", "function applyEvents", "function doPost", "function setup", "function onSheetEdit"):
         assert name in text
-    assert text.index("// ===== logic.js") < text.index("// ===== Code.js")
+    # The editor's Run button starts on the first function, so that must be setup().
+    assert re.search(r"^function (\w+)", text, re.M).group(1) == "setup"
+    assert text.index("// ===== Code.js") < text.index("// ===== logic.js")
     assert bundle_apps_script(tmp_path / "again.gs")[1] == version
     assert (APPS_SCRIPT_DIR / "Code.js").read_text().count('const VERSION = "dev";') == 1
 

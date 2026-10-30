@@ -175,6 +175,10 @@ checks that the decks come out in order.
   logos it was invisible. Scaling by the darkest pixel was a bug (a few stray dark pixels);
   now the darkest 10% of the drawing sets the shade.
 - Draw cut guides **after** the cards, or the QR's white quiet zone hides them.
+- The Apps Script editor's Run button starts on the file's first function. The bundle
+  used to start with logic.js's `fail()`, so the user's first "Run" just threw. Code.js
+  now goes first and the first function is `setup()` (tested). `source_version` still
+  hashes in logic.js, Code.js order, so reordering didn't change the version.
 
 ## GitHub
 
@@ -187,6 +191,7 @@ checks that the decks come out in order.
 
 ## Things that need the user
 
-- Deploying the real Apps Script (Phase 2) under their Gmail.
+- Deploying the real Apps Script (Phase 2) under their Gmail: **deployed** 2026-10-29
+  (version 1a482b60badf, health check OK); waiting for `setup()`'s token.
 - A real print of the cards.
 - Delete `spike.jpg` from the root of their Google Drive (left by spike 1).

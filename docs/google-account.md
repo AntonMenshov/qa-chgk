@@ -26,8 +26,9 @@ which holds the results Sheet and a `Фото` folder for card photos.
 6. Google asks to authorize: pick the account, then **Advanced → Go to chgk backend
    (unsafe)** → **Allow**. It says "unsafe" only because it's your own unverified
    script. It needs Sheets, Drive and triggers.
-7. In the editor's function menu choose **setup**, press **Run**, and open the
-   **Execution log**. It prints the account and a ready command:
+7. In the toolbar's function menu (next to ▶ Run / Debug) choose **setup**. It is the
+   first function, so it is usually already selected; if the menu shows anything else,
+   switch it. Press **Run** and open the **Execution log**. It prints the account and a ready command:
    ```
    uv run chgk backend add <name> --url https://script.google.com/macros/s/…/exec --token …
    ```
