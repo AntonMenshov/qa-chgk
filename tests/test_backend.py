@@ -19,6 +19,7 @@ from chgk.cli import app
 from chgk.ids import decode_jury_link, encode_jury_link
 from chgk.remote import new_tournament, sync_teams
 from chgk.state import load_or_create_state
+from chgk.teams import Team, read_teams
 
 URL_A = "https://script.google.com/macros/s/AKfycbAccountA_000000000/exec"
 URL_B = "https://script.google.com/macros/s/AKfycbAccountB_000000000/exec"
@@ -222,7 +223,7 @@ def test_sync_teams_assigns_ids_and_writes_back(folder, backends):
 
     teams = sync_teams(folder, Profiles())
     assert [t.team_id for t in teams] == ["A01", "A02", "A03", "A04"]
-    assert "A04,Новые,Бостон" in (folder / "teams.csv").read_text(encoding="utf-8")
+    assert read_teams(folder / "teams.py")[-1] == Team("A04", "Новые", "Бостон")
     assert a.tournaments[state.tid]["teams"][-1]["team_id"] == "A04"  # written back
 
 
@@ -237,7 +238,7 @@ def test_sync_teams_leaves_reserve_teams_on_the_backend(folder, backends):
                                           {"team_id": "R2", "name": "", "reserve": True}]
     teams = sync_teams(folder, Profiles())
     assert [t.team_id for t in teams] == ["A01", "A02", "A03"]
-    assert "R1" not in (folder / "teams.csv").read_text(encoding="utf-8")
+    assert "R1" not in (folder / "teams.py").read_text(encoding="utf-8")
     sent = [c for c in a.calls if c["action"] == "set_teams"][-1]["teams"]
     assert [t["team_id"] for t in sent] == ["A01", "A02", "A03"]
 

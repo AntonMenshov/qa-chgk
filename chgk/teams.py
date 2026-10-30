@@ -1,13 +1,24 @@
-"""Team list. Until the Google Sheet backend exists (Phase 2) it comes from
-`tournaments/<slug>/teams.csv` with columns: team_id, name, city, logo_file."""
+"""Team list: `tournaments/<slug>/teams.py`, a Python file like config.py:
 
-import csv
+    from chgk.teams import team
+
+    teams = [
+        team("42", id="645", logo="42.png"),
+        team("Звезды сошлись", logo="zvezdy.png"),  # no id: one is assigned and written back
+    ]
+
+IDs end up in the cards' QR codes, so a team without one gets the next free A01, A02, …
+written back into the file (which is then regenerated, without comments). `chgk teams`
+also regenerates it from the Sheet's Teams tab."""
+
+import importlib.util
+import json
 from dataclasses import dataclass
 from pathlib import Path
 
 from chgk.ids import assign_team_ids
 
-COLUMNS = ["team_id", "name", "city", "logo_file"]
+TEAMS_FILE = "teams.py"
 
 
 @dataclass(frozen=True)
@@ -17,6 +28,11 @@ class Team:
     city: str = ""
     logo_file: str = ""  # path relative to the tournament folder
     reserve: bool = False  # a deck for a team that turns up unregistered; the jury names it later
+
+
+def team(name: str, id: str | None = None, city: str = "", logo: str = "") -> Team:
+    """One entry in teams.py. Without `id` (e.g. the team's rating number) one is assigned."""
+    return Team(id or "", name, city, logo)
 
 
 def reserve_teams(count: int, teams: list[Team]) -> list[Team]:
@@ -29,39 +45,49 @@ def reserve_teams(count: int, teams: list[Team]) -> list[Team]:
     return reserve
 
 
-def load_teams_csv(path: Path) -> list[Team]:
-    """Read teams; assign missing team_ids and write them back so they stay stable."""
+def read_teams(path: Path) -> list[Team]:
+    """Run teams.py and return its `teams`; assign missing team IDs and write them back."""
     path = Path(path)
-    # utf-8-sig: Excel and Google Sheets exports often start with a BOM.
-    with path.open(encoding="utf-8-sig", newline="") as f:
-        rows = [
-            row
-            for row in csv.DictReader(f)
-            # Extra cells beyond the header land under the key None as a list; ignore them.
-            if any(isinstance(v, str) and v.strip() for k, v in row.items() if k is not None)
-        ]
-    if not rows:
+    if not path.is_file():
+        raise ValueError(f"no {TEAMS_FILE} in {path.parent}")
+    spec = importlib.util.spec_from_file_location(f"chgk_teams_{path.parent.name}", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    given = getattr(module, "teams", None)
+    if not isinstance(given, list) or not all(isinstance(t, Team) for t in given):
+        raise ValueError(f"{path} must define `teams = [team(...), ...]`")
+    if not given:
         raise ValueError(f"{path} has no teams")
-    if "name" not in rows[0]:
-        raise ValueError(f"{path} needs a 'name' column")
-
-    existing = [(row.get("team_id") or "").strip() or None for row in rows]
-    ids = assign_team_ids(existing)  # keeps given IDs (upper-cased), fills in the blanks
+    ids = assign_team_ids([t.team_id or None for t in given])
     teams = []
-    for row, team_id in zip(rows, ids):
-        name = (row.get("name") or "").strip()
+    for t, team_id in zip(given, ids):
+        name = t.name.strip()
         if not name:
             raise ValueError(f"{path}: team {team_id} has no name")
-        teams.append(Team(team_id, name, (row.get("city") or "").strip(), (row.get("logo_file") or "").strip()))
-
-    if ids != existing:
-        write_teams_csv(path, teams)
+        teams.append(Team(team_id, name, t.city.strip(), t.logo_file.strip()))
+    if teams != given:
+        write_teams(path, teams)
     return teams
 
 
-def write_teams_csv(path: Path, teams: list[Team]) -> None:
-    with Path(path).open("w", encoding="utf-8", newline="") as f:
-        writer = csv.writer(f, lineterminator="\n")  # git-friendly; Excel reads it too
-        writer.writerow(COLUMNS)
-        for t in teams:
-            writer.writerow([t.team_id, t.name, t.city, t.logo_file])
+def _py(value: str) -> str:
+    return json.dumps(value, ensure_ascii=False)  # a valid Python string literal, double-quoted
+
+
+def write_teams(path: Path, teams: list[Team]) -> None:
+    lines = [
+        "# Teams of this tournament. A team without an id gets one assigned and written back",
+        "# here; `chgk teams` rewrites this file from the Sheet's Teams tab.",
+        "from chgk.teams import team",
+        "",
+        "teams = [",
+    ]
+    for t in teams:
+        args = [_py(t.name), f"id={_py(t.team_id)}"]
+        if t.city:
+            args.append(f"city={_py(t.city)}")
+        if t.logo_file:
+            args.append(f"logo={_py(t.logo_file)}")
+        lines.append(f"    team({', '.join(args)}),")
+    lines.append("]")
+    Path(path).write_text("\n".join(lines) + "\n", encoding="utf-8")

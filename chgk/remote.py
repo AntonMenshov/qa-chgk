@@ -4,11 +4,10 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 
 from chgk.backend import BackendClient, Profile, Profiles
-from chgk.cards.build import TEAMS_FILE
 from chgk.config import load_config
 from chgk.ids import assign_team_ids, generate_jury_token
 from chgk.state import State, load_or_create_state, save_state
-from chgk.teams import Team, load_teams_csv, reserve_teams, write_teams_csv
+from chgk.teams import TEAMS_FILE, Team, read_teams, reserve_teams, write_teams
 
 
 @dataclass(frozen=True)
@@ -34,8 +33,8 @@ def new_tournament(folder: Path, profile: Profile, client: BackendClient | None 
 
     client = client or BackendClient(profile.url, profile.admin_token)
     account = profile.account or client.ping().get("account", "")
-    teams_csv = folder / TEAMS_FILE
-    teams = load_teams_csv(teams_csv) if teams_csv.is_file() else []
+    teams_file = folder / TEAMS_FILE
+    teams = read_teams(teams_file) if teams_file.is_file() else []
     reserve = reserve_teams(tournament.reserve_teams, teams)
     jury_token = state.jury_token or generate_jury_token()
     # Save the token first, so a retry after a timeout reuses it and the backend recognises the retry.
@@ -65,7 +64,7 @@ def tournament_client(folder: Path, profiles: Profiles) -> tuple[State, BackendC
 
 
 def sync_teams(folder: Path, profiles: Profiles, client: BackendClient | None = None) -> list[Team]:
-    """The Sheet's Teams tab is the source of truth: pull it into teams.csv.
+    """The Sheet's Teams tab is the source of truth: pull it into teams.py.
 
     Teams added in the Sheet without a team_id get one, and the IDs are written back.
     Reserve teams (R1, R2, …) stay on the backend: the jury names them in the Sheet.
@@ -83,6 +82,6 @@ def sync_teams(folder: Path, profiles: Profiles, client: BackendClient | None = 
         if not name:
             raise ValueError(f"Teams tab: team {team_id} has no name")
         teams.append(Team(team_id, name, (row.get("city") or "").strip(), (row.get("logo_file") or "").strip()))
-    write_teams_csv(folder / TEAMS_FILE, teams)
+    write_teams(folder / TEAMS_FILE, teams)
     client.set_teams(state.tid, _team_dicts(teams))  # writes assigned IDs back and adds rows on every tab
     return teams

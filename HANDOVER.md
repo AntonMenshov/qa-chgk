@@ -20,7 +20,7 @@ Full design: [SPEC.md](SPEC.md). Build order: [PLAN.md](PLAN.md).
 |---|---|
 | Spec and plan | ✅ done, agreed with the user |
 | 0 — Skeleton and spikes | ✅ spike 1 (laptop + iPhone Safari), spike 2 (all QR sizes scan well; zxing-wasm chosen), spike 3 (0.65 in QR; logo shade later changed to 12%) |
-| 1 — Config, identity, card PDF | ✅ done; cards + jury sheet work offline from `teams.csv` |
+| 1 — Config, identity, card PDF | ✅ done; cards + jury sheet work offline from `teams.py` |
 | 2 — Apps Script backend + Sheet | 🔶 code + tests done; waiting for the user to deploy it (docs/google-account.md) for the live end-to-end check |
 | 3 — Scanner web app | not started |
 | 4 — Card photos | not started |
@@ -35,7 +35,7 @@ chgk/                 Python package (at repo root, no src/ — user's preferenc
   remote.py           new_tournament / sync_teams (tournament keeps its own backend)
   config.py           Tournament / CardFields / Layout / LogoMode dataclasses + load_config
   ids.py              TID, team IDs, QR payload encode/decode
-  teams.py            teams.csv loader (keeps given team_ids, assigns + writes back missing ones)
+  teams.py            teams.py loader/writer (keeps given team_ids, assigns + writes back missing ones)
   state.py            tournaments/<slug>/state.json (TID, backend URL/profile, sheet ID, jury token)
   logos.py            image → pale greyscale watermark
   jury.py             jury printout (platypus): QR page, links, how-to, team forms, backup grid
@@ -49,7 +49,7 @@ chgk/                 Python package (at repo root, no src/ — user's preferenc
   assets/fonts/       PT Sans Regular/Bold (OFL) — Cyrillic
 apps_script/          backend: logic.js (pure, Node-tested) + Code.js (Sheets/Drive); package.json makes them CommonJS
 logos/                shared logo library (team logos git-ignored; nologo.png public)
-tournaments/example/  working example: config.py, teams.csv (the user's real teams)
+tournaments/example/  working example: config.py, teams.py (the user's real teams)
 tests/                pytest (test_*.py) + JS tests in tests/js/*.test.mjs
 tests/conftest.py     shared `folder` fixture: a small tournament on disk
 tests/js/fake_apps_script.mjs  in-memory Sheets/Drive/properties to run Code.js in Node;

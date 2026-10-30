@@ -13,9 +13,8 @@ from chgk.config import LogoMode, Tournament, load_config
 from chgk.jury import render_jury_sheet
 from chgk.logos import FALLBACK_KEY, LOGO_LIBRARY, MAX_SIDE, TOURNAMENT_KEY, load_pale_logo, resolve_logo
 from chgk.state import load_or_create_state
-from chgk.teams import Team, load_teams_csv, reserve_teams
+from chgk.teams import TEAMS_FILE, Team, read_teams, reserve_teams
 
-TEAMS_FILE = "teams.csv"
 
 INSTRUCTIONS = {
     Mode.TEAM_PAGES: "Each page holds one team's cards. Cut each page along the grey lines.",
@@ -72,8 +71,8 @@ class BuildResult:
 
 
 def load_teams(folder: Path, tournament: Tournament) -> list[Team]:
-    """The organiser's teams from teams.csv, then the reserve teams R1, R2, …"""
-    teams = load_teams_csv(Path(folder) / TEAMS_FILE)
+    """The organiser's teams from teams.py, then the reserve teams R1, R2, …"""
+    teams = read_teams(Path(folder) / TEAMS_FILE)
     return teams + reserve_teams(tournament.reserve_teams, teams)
 
 
@@ -119,7 +118,7 @@ def build_test_page(folder: Path, out: Path | None = None) -> Path:
     """Calibration page using the tournament's first team (prefer one with a logo)."""
     folder = Path(folder)
     tournament = load_config(folder)
-    teams = load_teams_csv(folder / TEAMS_FILE)  # a registered team: the page shows a real one
+    teams = read_teams(folder / TEAMS_FILE)  # a registered team: the page shows a real one
     state = load_or_create_state(folder)
     logo_files, _ = _load_logos(folder, tournament, teams)
     team = next((t for t in teams if t.team_id in logo_files), teams[0])

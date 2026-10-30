@@ -64,7 +64,7 @@ def _ask_mode() -> Mode:
 
 @app.command("cards")
 def cards(
-    folder: Path = typer.Argument(..., help="Tournament folder with config.py and teams.csv"),
+    folder: Path = typer.Argument(..., help="Tournament folder with config.py and teams.py"),
     mode: Mode | None = typer.Option(None, help="Imposition; asked interactively when omitted"),
     teams: str | None = typer.Option(None, help="Only these team_ids, comma-separated, e.g. A01,A07"),
     out: Path | None = typer.Option(None, help="Output PDF (default: out/<slug>/cards-<mode>.pdf)"),
@@ -88,7 +88,7 @@ def cards(
 
 @app.command("test-page")
 def test_page(
-    folder: Path = typer.Argument(..., help="Tournament folder with config.py and teams.csv"),
+    folder: Path = typer.Argument(..., help="Tournament folder with config.py and teams.py"),
     out: Path | None = typer.Option(None, help="Output PDF (default: out/<slug>/test-page.pdf)"),
 ) -> None:
     """Print one calibration page: rulers, QR sizes, logo shades and sample cards."""
@@ -102,7 +102,7 @@ def test_page(
 
 @app.command("jury-sheet")
 def jury_sheet(
-    folder: Path = typer.Argument(..., help="Tournament folder with config.py and teams.csv"),
+    folder: Path = typer.Argument(..., help="Tournament folder with config.py and teams.py"),
     out: Path | None = typer.Option(None, help="Output PDF (default: out/<slug>/jury.pdf)"),
 ) -> None:
     """Print the jury sheet: QR codes, links, how-to, team and player forms, paper backup grid."""
@@ -208,7 +208,7 @@ def backend_check(name: str | None = typer.Argument(None, help="Profile (default
 
 @app.command("new")
 def new(
-    folder: Path = typer.Argument(..., help="Tournament folder with config.py (and teams.csv)"),
+    folder: Path = typer.Argument(..., help="Tournament folder with config.py (and teams.py)"),
     backend: str | None = typer.Option(None, help="Backend profile (default: active)"),
 ) -> None:
     """Create the tournament's Google Sheet and Drive folder; writes state.json and the jury sheet."""
@@ -230,9 +230,9 @@ def new(
 
 @app.command("teams")
 def teams_cmd(folder: Path = typer.Argument(..., help="Tournament folder")) -> None:
-    """Pull the Sheet's Teams tab into teams.csv (assigning team IDs, written back to the Sheet)."""
+    """Pull the Sheet's Teams tab into teams.py (assigning team IDs, written back to the Sheet)."""
     try:
         teams = sync_teams(folder, Profiles())
     except (ValueError, BackendError) as err:
         raise _fail(err) from err
-    typer.echo(f"{len(teams)} teams synced to {Path(folder) / 'teams.csv'}.")
+    typer.echo(f"{len(teams)} teams synced to {Path(folder) / 'teams.py'}.")

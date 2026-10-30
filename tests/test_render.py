@@ -26,7 +26,7 @@ from chgk.teams import Team
 from reportlab.pdfbase import pdfmetrics
 
 DPI = 200
-from conftest import LONG_NAME
+from conftest import LONG_NAME, TEAM_ROWS, write_teams_file
 
 
 def page_images(pdf_path):
@@ -100,8 +100,7 @@ def test_team_filter_and_unknown_team(folder, tmp_path):
 
 
 def test_unprintable_characters_warn_and_still_render(folder, tmp_path):
-    csv = folder / "teams.csv"
-    csv.write_text(csv.read_text(encoding="utf-8") + "A04,Звёзды ★,,\n", encoding="utf-8")
+    write_teams_file(folder, TEAM_ROWS + [("A04", "Звёзды ★", "", "")])
     result = build_cards(folder, Mode.CUT_STACK, tmp_path / "out.pdf")
     assert any("★" in w for w in result.warnings)
 
@@ -202,9 +201,7 @@ def test_test_page_has_real_qr_codes_and_marks_chosen_settings(folder, tmp_path)
 
 
 def test_missing_team_logo_warns_and_falls_back(folder, tmp_path):
-    csv = folder / "teams.csv"
-    csv.write_text(csv.read_text(encoding="utf-8").replace("A02," + LONG_NAME + ",,", "A02," + LONG_NAME + ",,gone.png"),
-                   encoding="utf-8")
+    write_teams_file(folder, [TEAM_ROWS[0], ("A02", LONG_NAME, "", "gone.png"), TEAM_ROWS[2]])
     result = build_cards(folder, Mode.CUT_STACK, tmp_path / "out.pdf")
     assert any("team A02" in w and "gone.png" in w for w in result.warnings)
 
@@ -271,8 +268,7 @@ def test_reserve_decks_can_be_printed_alone(folder, tmp_path):
 
 
 def test_a_team_id_that_clashes_with_a_reserve_id_is_an_error(folder, tmp_path):
-    csv = folder / "teams.csv"
-    csv.write_text(csv.read_text(encoding="utf-8").replace("A03,", "R2,"), encoding="utf-8")
+    write_teams_file(folder, TEAM_ROWS[:2] + [("R2", "Думать быстро", "", "")])
     with pytest.raises(ValueError, match="R2 is kept for reserve teams"):
         build_cards(folder, Mode.TEAM_PAGES, tmp_path / "out.pdf")
     result = runner.invoke(app, ["cards", str(folder), "--mode", "team-pages", "--out", str(tmp_path / "x.pdf")])

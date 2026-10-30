@@ -5,6 +5,18 @@ from PIL import Image, ImageDraw
 
 SCANNER = "https://example.github.io/qa-chgk/s/"
 LONG_NAME = "Команда с очень-очень длинным названием «Правило трёх буравчиков»"
+# (team_id, name, city, logo) of the fixture tournament's teams.py
+TEAM_ROWS = [("A01", "Синие зайцы", "Бостон", "z.png"), ("A02", LONG_NAME, "", ""), ("A03", "Думать быстро", "", "")]
+
+
+def write_teams_file(folder, rows):
+    """teams.py as an organiser would write it (team_id None = no id given)."""
+    lines = ["from chgk.teams import team", "", "teams = ["]
+    for team_id, name, city, logo in rows:
+        args = [repr(name)] + ([f"id={team_id!r}"] if team_id else []) + ([f"city={city!r}"] if city else []) \
+            + ([f"logo={logo!r}"] if logo else [])
+        lines.append(f"    team({', '.join(args)}),")
+    (folder / "teams.py").write_text("\n".join(lines + ["]", ""]), encoding="utf-8")
 
 
 @pytest.fixture
@@ -25,10 +37,7 @@ def folder(tmp_path):
         ),
         encoding="utf-8",
     )
-    (tmp_path / "teams.csv").write_text(
-        f"team_id,name,city,logo_file\nA01,Синие зайцы,Бостон,z.png\nA02,{LONG_NAME},,\nA03,Думать быстро,,\n",
-        encoding="utf-8",
-    )
+    write_teams_file(tmp_path, TEAM_ROWS)
     for name in ("t.png", "z.png"):
         img = Image.new("RGB", (200, 200), "white")
         ImageDraw.Draw(img).ellipse((20, 20, 180, 180), fill="black")

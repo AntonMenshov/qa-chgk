@@ -4,52 +4,75 @@ import pytest
 
 from chgk.ids import TID_ALPHABET
 from chgk.state import load_or_create_state
-from chgk.teams import Team, load_teams_csv
+from chgk.teams import Team, read_teams, write_teams
 
 
-def write(path, text, bom=False):
-    path.write_bytes(("﻿" if bom else "").encode() + text.encode("utf-8"))
+def write(path, text):
+    path.write_text(text, encoding="utf-8")
     return path
 
 
-def test_load_assigns_ids_and_writes_them_back(tmp_path):
-    csv_path = write(tmp_path / "teams.csv", "team_id,name,city,logo_file\n,Синие зайцы,Бостон,\nB02,Думать быстро,,logos/d.png\n,Третьи,,\n")
-    teams = load_teams_csv(csv_path)
+HEADER = "from chgk.teams import team\n\n"
+
+
+def test_given_ids_are_kept_missing_ones_assigned_and_written_back(tmp_path):
+    path = write(tmp_path / "teams.py", HEADER + """teams = [
+    team("Синие зайцы", city="Бостон"),
+    team("Думать быстро", id="58746", logo="logos/d.png"),
+    team("Третьи"),  # a comment
+]
+""")
+    teams = read_teams(path)
     assert teams == [
         Team("A01", "Синие зайцы", "Бостон", ""),
-        Team("B02", "Думать быстро", "", "logos/d.png"),
+        Team("58746", "Думать быстро", "", "logos/d.png"),
         Team("A02", "Третьи", "", ""),
     ]
-    # Second load reads the same IDs from the file.
-    assert load_teams_csv(csv_path) == teams
-    assert "A01,Синие зайцы" in csv_path.read_text(encoding="utf-8")
-    assert b"\r" not in csv_path.read_bytes()  # LF only: no git CRLF warnings
+    # The file now carries the IDs (so QR codes stay the same) and reads back the same.
+    text = path.read_text(encoding="utf-8")
+    assert 'team("Синие зайцы", id="A01", city="Бостон"),' in text
+    assert read_teams(path) == teams
+    assert b"\r" not in path.read_bytes()
 
 
-def test_load_handles_bom_name_only_column_and_blank_lines(tmp_path):
-    csv_path = write(tmp_path / "teams.csv", "name\nКоманда 1\n\n,\nКоманда 2\n", bom=True)
-    assert [(t.team_id, t.name) for t in load_teams_csv(csv_path)] == [("A01", "Команда 1"), ("A02", "Команда 2")]
+def test_file_untouched_when_every_team_has_an_id(tmp_path):
+    text = HEADER + 'teams = [\n    team("X", id="645"),  # my comment stays\n]\n'
+    path = write(tmp_path / "teams.py", text)
+    assert read_teams(path) == [Team("645", "X")]
+    assert path.read_text(encoding="utf-8") == text
 
 
-def test_file_untouched_when_ids_already_present(tmp_path):
-    text = "team_id,name,city,logo_file\nA01,X,,\n"
-    csv_path = write(tmp_path / "teams.csv", text)
-    load_teams_csv(csv_path)
-    assert csv_path.read_text(encoding="utf-8") == text
+def test_ids_are_normalised_and_names_trimmed(tmp_path):
+    path = write(tmp_path / "teams.py", HEADER + 'teams = [team("  Альфа ", id=" a07 ")]\n')
+    assert read_teams(path) == [Team("A07", "Альфа")]
+
+
+def test_written_file_round_trips_awkward_names(tmp_path):
+    teams = [Team("A01", 'Кавычки "внутри" и \\ слэш'), Team("645", "42", "Нью-Йорк", "logos/42.png")]
+    path = tmp_path / "teams.py"
+    write_teams(path, teams)
+    assert read_teams(path) == teams
 
 
 @pytest.mark.parametrize(
     "text",
     [
-        "team_id,name\n",  # no teams
-        "team,city\nX,Y\n",  # no name column
-        "team_id,name\nA01,\n",  # empty name
-        "team_id,name\nA01,X\nA01,Y\n",  # duplicate id
+        HEADER + "teams = []\n",  # no teams
+        HEADER + "squads = [team('X')]\n",  # wrong variable
+        HEADER + "teams = [('A01', 'X')]\n",  # not team(...)
+        HEADER + "teams = [team('  ')]\n",  # empty name
+        HEADER + "teams = [team('X', id='A01'), team('Y', id='A01')]\n",  # duplicate id
+        HEADER + "teams = [team('X', id='A-1')]\n",  # bad id
     ],
 )
 def test_invalid_team_files(tmp_path, text):
     with pytest.raises(ValueError):
-        load_teams_csv(write(tmp_path / "teams.csv", text))
+        read_teams(write(tmp_path / "teams.py", text))
+
+
+def test_missing_teams_file(tmp_path):
+    with pytest.raises(ValueError, match="no teams.py"):
+        read_teams(tmp_path / "teams.py")
 
 
 def test_state_created_once_and_reused(tmp_path):

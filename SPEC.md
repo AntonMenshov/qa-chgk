@@ -115,9 +115,11 @@ tournament = Tournament(
 
 Values the system generates (tournament ID, spreadsheet ID, jury token) are stored
 next to the config in `tournaments/<slug>/state.json`, which is never hand-edited
-and is git-ignored because it contains secrets. Until the Sheet backend exists
-(Phase 2), teams come from `tournaments/<slug>/teams.csv`
-(`team_id,name,city,logo_file`); given team IDs are kept (upper-cased), missing ones are assigned and written back.
+and is git-ignored because it contains secrets. Teams are in `tournaments/<slug>/teams.py`,
+Python like config.py (user request, replacing teams.csv):
+`teams = [team("42", id="645", logo="42.png"), team("Звезды сошлись"), …]`.
+Given team IDs are kept (upper-cased); missing ones are assigned and written back (the
+file is then regenerated). `chgk teams` regenerates it from the Sheet's Teams tab.
 `tournaments/example/` is a working example.
 
 ## 5. Google Sheet (one spreadsheet per tournament)
@@ -309,7 +311,7 @@ as `chgk jury-sheet <folder>`.
   tab or Teams, and the name is copied to every tab (matched by team ID). Naming a
   reserve team on Teams before its first scan adds it too.
 - Any team can be renamed this way; a cleared name cell is put back. `chgk teams`
-  leaves reserve teams on the backend (they are not written to teams.csv).
+  leaves reserve teams on the backend (they are not written to teams.py).
 - Jury link format: `<scanner_url>#setup=<TID>.<JURY_TOKEN>.<DEPLOYMENT_ID>`. It's
   encoded in Python, will be decoded by the JS scanner, and has shared test vectors in
   `tests/vectors/jury_links.json`.
@@ -317,7 +319,7 @@ as `chgk jury-sheet <folder>`.
 ## 9. Logos
 
 **Shared logo library:** `logos/` at the repo root (user decision, 2026-10-29).
-- A logo name (`logo_file` in teams.csv, `tournament_logo`, `fallback_logo`) is looked
+- A logo name (`logo=` in teams.py, `tournament_logo`, `fallback_logo`) is looked
   up in the tournament folder first, then in `logos/`, so one team logo serves every
   tournament.
 - Team logos in `logos/` are **private**: git-ignored, local only. Only
