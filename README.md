@@ -43,7 +43,8 @@ Needs [uv](https://docs.astral.sh/uv/) and a Gmail account for the results.
 **Logos** (a pale watermark on each team's cards): put PNG, JPG or SVG files in `logos/` (shared
 by all tournaments, kept off GitHub) and name them in teams.py (`logo="fiasko.png"`).
 `uv run chgk logos tournaments/<slug>` shows which logo each team's cards use. With
-`--draw`, Claude draws SVG drafts in the style of your logos for teams without one (with
+`--draw`, Claude (Opus, max effort) draws SVG drafts in the style of your logos for teams
+without one, then reviews its own rendering and fixes it (with
 `ANTHROPIC_API_KEY` set in your shell; without it you get a brief to hand to Claude Code);
 `out/<slug>/logo-preview.pdf` shows them on real cards, and `--accept all` (or `--accept A01,A02`)
 keeps them.

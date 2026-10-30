@@ -25,7 +25,7 @@ Full design: [SPEC.md](SPEC.md). Build order: [PLAN.md](PLAN.md).
 | 3 — Scanner web app | 🔶 built and tested (unit + integration + headless-Chrome end-to-end with a fake camera), checked live on Pages against the real backend; the iPhone check is in Phase 7 |
 | 4 — Card photos | ✅ built, tested (phone queue, backend `upload_photo`, headless-Chrome check that each photo shows its card) and checked live (API upload to Drive); the iPhone check is in Phase 7 |
 | 5 — Projector board + stats | ✅ built, tested and checked live |
-| 6 — Logos | ✅ built and tested (SPEC §9.1): SVG logos (resvg, PT Sans lettering, unsafe SVGs refused), `chgk logos` report, Claude-drawn drafts (Claude Opus 5.5, key from `ANTHROPIC_API_KEY` only; a brief for Claude Code without it), preview PDF, `--accept`. Not yet run against the real API (no key here); the no-key path was run on the example (draft A01 drawn in a session, preview made, not accepted). Image-API logos: Phase 9 |
+| 6 — Logos | ✅ built and tested (SPEC §9.1): SVG logos (resvg, PT Sans lettering, unsafe SVGs refused), `chgk logos` report, Claude-drawn drafts (Claude Opus 5.5 at max effort with a render-and-review loop, key from `ANTHROPIC_API_KEY` only; a brief for Claude Code without it), preview PDF, `--accept`. 22 drafts drawn in a session for the user's teams (`tournaments/logo-drafts/`, kept, not accepted); API drafts go to `tournaments/logo-drafts-api/` for comparison. Image-API logos: Phase 9 |
 | 7 — Internal test at home (printouts) | not started: the manual checks (docs/manual-checks.md), a mock game, feedback, bug analysis and fixes, then a docs/comments check |
 | 8 — External test at a tournament | not started: the same loop with real teams |
 | 9 — Next version | the deferred list in PLAN.md |
@@ -107,7 +107,7 @@ README.md             organiser guide (end to end) and contributor commands
 ```
 
 ### How to run
-- Tests: `uv run pytest` (476, incl. 3 browser tests that need Google Chrome + Node) and
+- Tests: `uv run pytest` (484, incl. 3 browser tests that need Google Chrome + Node) and
   `npm test` (205, then 73 backend tests again with the Sheets API off).
 - Lint and format: `uv run ruff format . && uv run ruff check .`, `npm run format && npm run lint`.
 - Backend: `uv run chgk backend add|use|list|check|remove|bundle` (docs/google-account.md).
@@ -172,7 +172,8 @@ One line each; SPEC has the details. Decisions recorded only here are written ou
   `CardFields(date=True)` (user: "I never asked for it"), at least 2 spares and free slots
   as extra spares, reserve decks R1, R2… (§8.7), the jury printout (§8.6).
 - **Logos** — SPEC §9: private library `logos/`, fallback chain, 12% shade; SVG and Claude-drawn
-  drafts §9.1 (Claude Opus 5.5 with `fallbacks: "default"`; the key only from `ANTHROPIC_API_KEY`).
+  drafts §9.1 (always Claude Opus 5.5 at max effort, with a render-and-review loop; the key only
+  from `ANTHROPIC_API_KEY`). Drafts are never deleted or overwritten (user, 2026-10-30).
   The example tournament has no team name on cards, logo 10%, logo_size 1.85 in (user);
   elsewhere the defaults stay.
 - **Board** — SPEC §10.1. **Juror view:** no official answer (§7.5). **Jurors:** one at a
@@ -185,9 +186,10 @@ Kept in one place: [SPEC.md §14](SPEC.md) (defaults used unless the user says o
 
 ## Next steps
 
-1. **Phase 6 follow-up:** the first real `chgk logos --draw` with the user's key (needs
-   `ANTHROPIC_API_KEY`); judge the drafts against the library's style and tune `style_rules`
-   if needed. The logo checks are in docs/manual-checks.md.
+1. **Phase 6 follow-up:** compare the API drafts (`tournaments/logo-drafts-api/`) with the
+   session's 22 (`tournaments/logo-drafts/`); the user picks and accepts. The key is set in the
+   user's shell profile: a Claude Code session started earlier doesn't see it, so run
+   `zsh -ic 'uv run chgk logos … --draw'`. The logo checks are in docs/manual-checks.md.
 2. **Phase 7** internal test at home with printouts: it starts with the user's manual
    checks ([docs/manual-checks.md](docs/manual-checks.md)), then a mock game. Then **Phase 8**,
    an external test at a tournament. Each with feedback entry, bug analysis and fixes, and a
@@ -202,6 +204,10 @@ Kept in one place: [SPEC.md §14](SPEC.md) (defaults used unless the user says o
 - **The anthropic SDK 2.x runs on `httpx2`**, so respx can't mock it: the tests give a real
   client an `httpx2.MockTransport` that answers with SSE text. It sends the key as
   `Authorization: Bearer`.
+- **Logo drafts, what made them weak** (22 drawn in a session from shared templates): owls all
+  alike; the owl standing next to the prop instead of acting; jokes resting on details that
+  vanish pale (A12's bandage, A18's spade); a cluster of circles read as roses (A17); a name
+  touching the edges (A16). `style_rules` and the review loop now address each.
 - **reportlab stores identical images once:** two teams with the same draft gave one image
   in the PDF; tests that count images need different drawings.
 
