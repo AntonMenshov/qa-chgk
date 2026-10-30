@@ -33,6 +33,8 @@ Full design: [SPEC.md](SPEC.md). Build order: [PLAN.md](PLAN.md).
 - **Example tournament:** `tournaments/example/` (the user's four teams 645 «42», 58746
   Фиаско, 40400 Совхоз Победа, A01 Звезды сошлись; reserve decks R1, R2), TID **UYDJ7** (re-created 2026-10-30 after the user deleted the old folder)
   on that backend; `out/example/` holds its cards (team-pages) and jury.pdf.
+- **Second example:** `tournaments/example-15/` — the same four teams, 3 rounds of 15
+  questions, TID **U9FP4**; `out/example-15/` has its cards (team-pages, 24 pages) and jury.pdf.
 
 ### Repository layout
 ```
