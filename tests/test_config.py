@@ -50,7 +50,7 @@ def test_defaults_match_user_choices():
     assert t.spares_per_team == 2
     assert t.reserve_teams == 2  # decks for teams that turn up unregistered
     assert t.board_grid_max_teams == 5  # user: full grid on the board up to 5 teams
-    assert (t.layout.cols, t.layout.rows, t.layout.per_page) == (3, 5, 15)
+    assert (t.layout.cols, t.layout.rows, t.layout.per_page) == (3, 4, 12)
     assert t.layout.qr_size == 0.65
     assert t.card.logo_grey == 0.12
     assert t.card.logo is LogoMode.NONE

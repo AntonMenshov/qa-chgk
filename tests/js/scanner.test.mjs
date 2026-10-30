@@ -595,6 +595,11 @@ test('offline: every module the scanner loads is in the service worker cache', (
   assert.ok(seen.size >= 15, `found only ${seen.size} modules`); // app.js, ui/, lib/, shared/logic.js
 });
 
+test('app.js starts the scanner once (a second boot doubled the timers and the first load)', () => {
+  const source = readFileSync(new URL('../../web/s/app.js', import.meta.url), 'utf8');
+  assert.equal(source.match(/^boot\(\);$/gm).length, 1);
+});
+
 test('api: a request the server never answers fails after the time limit, and can be retried', async () => {
   const {backend: make, BackendError: Err, REQUEST_TIMEOUT_MS} = await import('../../web/s/lib/api.js');
   assert.ok(REQUEST_TIMEOUT_MS >= 30000 && REQUEST_TIMEOUT_MS <= 60000);

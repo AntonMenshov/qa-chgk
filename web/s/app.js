@@ -153,5 +153,3 @@ function boot() {
 }
 
 boot();
-
-boot();

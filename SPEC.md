@@ -146,7 +146,7 @@ tournament = Tournament(
         logo_size=None,  # inches; None fits the writing area (§9)
         logo_grey=0.12,
     ),
-    layout=Layout(cols=3, rows=5, qr_size=0.65),  # 15 cards per Letter page
+    layout=Layout(cols=3, rows=4, qr_size=0.65),  # 12 cards per Letter page
 )
 ```
 
@@ -296,8 +296,8 @@ The app doesn't show it (decided).
 ### 8.1 Page and card
 - Letter (8.5″×11″), printed at 100%, so it's safe to send to a copy shop. The 0.25″
   margins cover printers that can't print to the edge.
-- The grid is configurable; the default is **3 columns × 5 rows = 15 cards**, about
-  2.67″ × 2.1″ each.
+- The grid is configurable; the default is **3 columns × 4 rows = 12 cards** (whatever the
+  number of questions), about 2.67″ × 2.63″ each.
 - Cards sit edge to edge, so neighbouring cards share one cut line and no paper is
   wasted. Thin grey cut lines; crop marks in the margin for the guillotine modes.
 
@@ -405,7 +405,7 @@ as `chgk jury-sheet <folder>`.
 - **Size:** `CardFields.logo_size` (inches). `None` (the default) fits the logo into
   the writing area. A number makes it a square centred on the card (user request),
   behind the number and footer text, and shrunk to fit; its corner may go under the QR,
-  which is drawn on top with its white quiet zone. On a 3×5 card the maximum is about 1.96 in.
+  which is drawn on top with its white quiet zone. On a 3×4 card the maximum is about 2.48 in.
 - **Shade:** the darkest 10% of the drawing gets exactly `logo_grey` ink, and anything
   darker is clamped. Scaling by the single darkest pixel printed the user's light-grey
   logos at about a third of the chosen shade (fixed 2026-10-29).

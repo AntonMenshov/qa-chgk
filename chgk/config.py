@@ -51,7 +51,7 @@ class Layout:
     """Card grid on a Letter page. Sizes are in inches."""
 
     cols: int = 3
-    rows: int = 5
+    rows: int = 4
     qr_size: float = 0.65  # including the quiet zone
     margin: float = 0.25
 

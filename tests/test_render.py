@@ -4,7 +4,7 @@ from dataclasses import replace
 
 import pypdfium2
 import pytest
-from conftest import LONG_NAME, TEAM_ROWS, read_qr, write_teams_file
+from conftest import LONG_NAME, TEAM_ROWS, TEST_GRID, read_qr, write_teams_file
 from PIL import Image
 from pypdf import PdfReader
 from reportlab.pdfbase import pdfmetrics
@@ -24,7 +24,7 @@ from chgk.cards.render import (
     spare_box,
 )
 from chgk.cli import app
-from chgk.config import CardFields, Layout, LogoMode
+from chgk.config import CardFields, LogoMode
 from chgk.ids import TID_ALPHABET, CardId, decode_payload
 from chgk.state import load_or_create_state, save_state
 from chgk.teams import Team
@@ -39,7 +39,7 @@ def page_images(pdf_path):
 
 def decoded_slots(image):
     """{slot index: payload} for every QR on a rendered page, located by its centre."""
-    rects = card_rects(Layout())
+    rects = card_rects(TEST_GRID)
     scale = DPI / 72
     found = {}
     for result in read_qr(image):
@@ -91,7 +91,7 @@ def test_cut_stack_pdf_order_matches_the_guillotine_workflow(folder, tmp_path):
 
 def _qr_slots_at(pdf, dpi):
     """Per page: the card payloads read (QR Code only) at `dpi`, each checked to sit in its own slot."""
-    rects = card_rects(Layout())
+    rects = card_rects(TEST_GRID)
     pages = []
     for page in pypdfium2.PdfDocument(pdf):
         image = page.render(scale=dpi / 72).to_pil()
@@ -307,7 +307,7 @@ def test_spare_cards_have_an_empty_number_box_and_no_words(folder, tmp_path):
     # Page 1 is team A01: slots 0-5 are questions 1-6, slot 6 is the first spare.
     image = page_images(out)[0].convert("L")
     scale = DPI / 72
-    rect = card_rects(Layout())[6]
+    rect = card_rects(TEST_GRID)[6]
     box = spare_box(card_parts(rect, 0.65 * 72).number)
 
     def px(x, y):
@@ -334,7 +334,7 @@ def test_spare_box_is_white_inside_over_a_big_centred_logo(folder, tmp_path):
     build_cards(folder, Mode.TEAM_PAGES, out)
     image = page_images(out)[0].convert("L")
     scale = DPI / 72
-    rect = card_rects(Layout())[6]
+    rect = card_rects(TEST_GRID)[6]
     parts = card_parts(rect, 0.65 * 72, 1.85 * 72)
     box = spare_box(parts.number)
     assert parts.logo.intersects(box)  # the logo does reach under the box ...

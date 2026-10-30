@@ -4,7 +4,12 @@ import pytest
 import zxingcpp
 from PIL import Image, ImageDraw
 
+from chgk.config import Layout
+
 SCANNER = "https://example.github.io/qa-chgk/s/"
+# The test tournament keeps 3×5 (15 per page), not the 3×4 default: the hand-written card
+# orders in the tests assume it, and it keeps a non-default grid covered.
+TEST_GRID = Layout(cols=3, rows=5, qr_size=0.65)
 LONG_NAME = "Команда с очень-очень длинным названием «Правило трёх буравчиков»"
 # (team_id, name, city, logo) of the fixture tournament's teams.py
 TEAM_ROWS = [("A01", "Синие зайцы", "Бостон", "z.png"), ("A02", LONG_NAME, "", ""), ("A03", "Думать быстро", "", "")]
@@ -46,7 +51,7 @@ def folder(tmp_path):
                 slug="test-cup", name="Осенний кубок", date=date(2026, 11, 15), rounds=2,
                 questions_per_round=3, scanner_url="{SCANNER}", spares_per_team=2,
                 card=CardFields(logo=LogoMode.TEAM_ELSE_TOURNAMENT, tournament_logo="t.png"),
-                layout=Layout(cols=3, rows=5, qr_size=0.65),
+                layout={TEST_GRID!r},
             )
             """
         ),

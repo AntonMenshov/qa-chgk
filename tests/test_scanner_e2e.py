@@ -23,13 +23,12 @@ from typing import ClassVar
 import pypdfium2
 import pytest
 import segno
-from conftest import read_qr
+from conftest import TEST_GRID, read_qr
 from PIL import Image
 
 from chgk.cards.build import build_cards
 from chgk.cards.geometry import PAGE_H, card_rects
 from chgk.cards.impose import Mode
-from chgk.config import Layout
 from chgk.ids import BoardAccess, JuryAccess, encode_board_link, encode_jury_link
 from chgk.state import load_or_create_state, save_state
 
@@ -59,7 +58,7 @@ FPS_FRAMES_CARD, FPS_FRAMES_GAP = 40, 25
 def card_image(pdf: Path, page: int, slot: int) -> Image.Image:
     """One printed card, cut from a page of the cards PDF."""
     image = pypdfium2.PdfDocument(pdf)[page].render(scale=DPI / 72).to_pil().convert("RGB")
-    r = card_rects(Layout())[slot]
+    r = card_rects(TEST_GRID)[slot]
     k = DPI / 72
     return image.crop((round(r.x * k), round((PAGE_H - r.top) * k), round(r.right * k), round((PAGE_H - r.y) * k)))
 

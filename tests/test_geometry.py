@@ -31,7 +31,7 @@ def test_cards_tile_the_printable_area_without_gaps(grid):
 def test_default_card_size_and_reading_order():
     rects = card_rects(Layout())
     assert rects[0].w == pytest.approx(8.0 / 3 * INCH)
-    assert rects[0].h == pytest.approx(10.5 / 5 * INCH)
+    assert rects[0].h == pytest.approx(10.5 / 4 * INCH)
     # first card is top-left, second is to its right, fourth starts the next row
     assert rects[0].x < rects[1].x and rects[0].y == rects[1].y
     assert rects[3].x == rects[0].x and rects[3].y < rects[0].y
@@ -69,7 +69,7 @@ def test_sized_logo_is_centred_on_the_card(grid, logo_in):
 
 
 def test_sized_logo_is_bigger_than_the_default_on_a_3x5_card():
-    card = card_rects(Layout())[0]
+    card = card_rects(Layout(cols=3, rows=5))[0]
     default = card_parts(card, 0.65 * INCH).logo.w
     big = card_parts(card, 0.65 * INCH, 1.85 * INCH).logo.w
     assert big == pytest.approx(1.85 * INCH)
