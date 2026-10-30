@@ -21,7 +21,7 @@ Full design: [SPEC.md](SPEC.md). Build order: [PLAN.md](PLAN.md).
 | Spec and plan | ✅ done, agreed with the user |
 | 0 — Skeleton and spikes | ✅ spike 1 (laptop + iPhone Safari), spike 2 (all QR sizes scan well; zxing-wasm chosen), spike 3 (0.65 in QR, 3% grey) |
 | 1 — Config, identity, card PDF | ✅ done; cards + jury sheet work offline from `teams.csv` |
-| 2 — Apps Script backend + Sheet | next |
+| 2 — Apps Script backend + Sheet | 🔶 code + tests done; waiting for the user to deploy it (docs/google-account.md) for the live end-to-end check |
 | 3 — Scanner web app | not started |
 | 4 — Card photos | not started |
 | 5 — Projector board + stats | not started |
@@ -30,7 +30,9 @@ Full design: [SPEC.md](SPEC.md). Build order: [PLAN.md](PLAN.md).
 ### Repository layout
 ```
 chgk/                 Python package (at repo root, no src/ — user's preference)
-  cli.py              typer app: version, cards, test-page, jury-sheet
+  cli.py              typer app: version, cards, test-page, jury-sheet, new, teams, backend add|use|list|check|remove|bundle
+  backend.py          backend profiles (~/.config/chgk/backends.json, CHGK_CONFIG_DIR), HTTP client, Code.gs bundler
+  remote.py           new_tournament / sync_teams (tournament keeps its own backend)
   config.py           Tournament / CardFields / Layout / LogoMode dataclasses + load_config
   ids.py              TID, team IDs, QR payload encode/decode
   teams.py            teams.csv loader (assigns + writes back missing team_ids)
@@ -45,10 +47,14 @@ chgk/                 Python package (at repo root, no src/ — user's preferenc
     build.py          folder → PDF (cards and test page)
     testpage.py       calibration page
   assets/fonts/       PT Sans Regular/Bold (OFL) — Cyrillic
-tournaments/example/  working example: config.py, teams.csv, placeholder logos
+apps_script/          backend: logic.js (pure, Node-tested) + Code.js (Sheets/Drive); package.json makes them CommonJS
+logos/                shared logo library (team logos git-ignored; nologo.png public)
+tournaments/example/  working example: config.py, teams.csv (the user's real teams)
 tests/                pytest (test_*.py) + JS tests in tests/js/*.test.mjs
 tests/conftest.py     shared `folder` fixture: a small tournament on disk
-tests/vectors/        shared JSON test vectors (qr_payloads.json, jury_links.json) for Python and JS
+tests/js/fake_apps_script.mjs  in-memory Sheets/Drive/properties to run Code.js in Node
+tests/vectors/        shared JSON test vectors (qr_payloads, jury_links, merge_cases) for Python and JS
+docs/google-account.md  deploying the backend under any Gmail account; switching; updating
 spikes/               throwaway Phase 0 experiments (no tests)
 docs/spikes.md        spike instructions and results
 web/                  GitHub Pages site; web/s/ = scanner (placeholder until Phase 3)
@@ -57,8 +63,8 @@ package.json          only for `npm test` (no npm dependencies)
 ```
 
 ### How to run
-- Python tests: `uv run pytest` (296 pass)
-- JS tests: `npm test` (1 passes)
+- Python tests: `uv run pytest` (320 pass)
+- JS tests: `npm test` (43 pass)
 - Cards: `uv run chgk cards tournaments/example [--mode team-pages|cut-stack|scissors] [--teams A01,A02]`
   → `out/<slug>/cards-<mode>.pdf` + `out/<slug>/jury.pdf`. Without `--mode` it asks.
 - Jury sheet alone: `uv run chgk jury-sheet tournaments/example [--mode …]`
@@ -143,9 +149,17 @@ checks that the decks come out in order.
 
 ## Next steps
 
-1. **Phase 2 (in progress):** Apps Script backend + Sheet, including switchable Google-account
-   backends (SPEC §3.1, PLAN Phase 2). The user already deployed the spike 1 script,
-   so they know the deploy flow.
+1. **Finish Phase 2:**
+   - The user deploys the bundle under their Gmail (docs/google-account.md), runs
+     `setup`, and runs the printed `chgk backend add` command.
+   - Then run the live end-to-end check: `chgk backend check`,
+     `chgk new tournaments/example`, post a few events with the jury token (scratch
+     script, no commit), look at the Sheet, try a jury edit in Results, and
+     `chgk teams`.
+   - Fix whatever the real Sheets service does differently from the fakes in
+     `tests/js/fake_apps_script.mjs`.
+2. **Phase 3:** the scanner web app in `web/s/` (zxing-wasm, setup via the jury link,
+   offline queue, batches of marks).
 
 ## Lessons learned
 
@@ -154,6 +168,7 @@ checks that the decks come out in order.
   and unknown characters print as `?` with a warning.
 - typer 0.27 no longer depends on click: don't `import click`.
 - Never make a phone user type or paste URLs/tokens: deliver them by QR (spike 2 lesson).
+- Logic in `apps_script/` stays pure in logic.js; Code.js is exercised in Node through fakes (range bounds 1000×26 like real sheets).
 - Draw cut guides **after** the cards, or the QR's white quiet zone hides them.
 
 ## GitHub
@@ -168,5 +183,5 @@ checks that the decks come out in order.
 ## Things that need the user
 
 - Deploying the real Apps Script (Phase 2) under their Gmail.
-- iPhone test (spike 2) and a real print of the cards.
+- A real print of the cards.
 - Delete `spike.jpg` from the root of their Google Drive (left by spike 1).

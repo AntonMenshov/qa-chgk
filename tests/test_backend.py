@@ -1,0 +1,277 @@
+import json
+
+import httpx
+import pytest
+import respx
+from typer.testing import CliRunner
+
+from chgk.backend import (
+    APPS_SCRIPT_DIR,
+    BackendClient,
+    BackendError,
+    Profile,
+    Profiles,
+    bundle_apps_script,
+    source_version,
+)
+from chgk.cli import app
+from chgk.ids import decode_jury_link, encode_jury_link
+from chgk.remote import new_tournament, sync_teams
+from chgk.state import load_or_create_state
+
+URL_A = "https://script.google.com/macros/s/AKfycbAccountA_000000000/exec"
+URL_B = "https://script.google.com/macros/s/AKfycbAccountB_000000000/exec"
+runner = CliRunner()
+
+
+@pytest.fixture(autouse=True)
+def config_dir(tmp_path, monkeypatch):
+    """Profiles go to a temp dir, never to the real ~/.config/chgk."""
+    d = tmp_path / "config"
+    monkeypatch.setenv("CHGK_CONFIG_DIR", str(d))
+    return d
+
+
+def body(route_call) -> dict:
+    return json.loads(route_call.request.content)
+
+
+class FakeBackend:
+    """A minimal stand-in for the Apps Script web app, served through respx."""
+
+    def __init__(self, url, account):
+        self.url, self.account = url, account
+        self.tournaments: dict[str, dict] = {}
+        self.calls: list[dict] = []
+
+    def __call__(self, request: httpx.Request) -> httpx.Response:
+        req = json.loads(request.content)
+        self.calls.append(req)
+        assert request.headers["content-type"].startswith("text/plain")
+        action = req["action"]
+        if action == "ping":
+            return httpx.Response(200, json={"ok": True, "version": "v1", "account": self.account})
+        if action == "create_tournament":
+            t = self.tournaments.get(req["tid"])
+            if t:
+                return httpx.Response(200, json={"ok": True, "existed": True, "spreadsheet_id": t["sheet"]})
+            self.tournaments[req["tid"]] = {"sheet": f"SHEET-{req['tid']}", "teams": req["teams"], "req": req}
+            return httpx.Response(200, json={"ok": True, "existed": False, "spreadsheet_id": f"SHEET-{req['tid']}"})
+        if action == "get_teams":
+            return httpx.Response(200, json={"ok": True, "teams": self.tournaments[req["tid"]]["teams"]})
+        if action == "set_teams":
+            self.tournaments[req["tid"]]["teams"] = req["teams"]
+            return httpx.Response(200, json={"ok": True, "appended": 0, "renamed": 0})
+        return httpx.Response(200, json={"ok": False, "error": "unknown action"})
+
+
+@pytest.fixture
+def backends():
+    a, b = FakeBackend(URL_A, "a@gmail.com"), FakeBackend(URL_B, "club@gmail.com")
+    with respx.mock(assert_all_called=False) as mock:
+        mock.post(URL_A).mock(side_effect=a)
+        mock.post(URL_B).mock(side_effect=b)
+        yield a, b
+
+
+# ---- profiles ----
+
+
+def test_profiles_round_trip_outside_the_repo(config_dir):
+    profiles = Profiles()
+    profiles.add(Profile("personal", URL_A, "tokA", "a@gmail.com"))
+    profiles.add(Profile("club", URL_B, "tokB"), activate=False)
+    profiles.save()
+    path = config_dir / "backends.json"
+    assert path.stat().st_mode & 0o777 == 0o600
+
+    again = Profiles()
+    assert again.active().name == "personal"
+    again.use("club")
+    again.save()
+    assert Profiles().active().url == URL_B
+    assert Profiles().by_url(URL_A).name == "personal"
+
+
+def test_profile_errors():
+    profiles = Profiles()
+    with pytest.raises(ValueError, match="no backend profile yet"):
+        profiles.active()
+    with pytest.raises(ValueError, match="Apps Script"):
+        profiles.add(Profile("x", "https://example.com/exec", "t"))
+    with pytest.raises(ValueError, match="no backend profile"):
+        profiles.use("missing")
+    with pytest.raises(ValueError, match="no local profile"):
+        profiles.by_url(URL_A)
+
+
+def test_remove_switches_active():
+    profiles = Profiles()
+    profiles.add(Profile("a", URL_A, "t"))
+    profiles.add(Profile("b", URL_B, "t"))
+    profiles.remove("b")
+    assert profiles.active().name == "a"
+
+
+# ---- client ----
+
+
+@respx.mock
+def test_client_sends_text_plain_json_with_token():
+    route = respx.post(URL_A).mock(return_value=httpx.Response(200, json={"ok": True, "account": "a@gmail.com"}))
+    assert BackendClient(URL_A, "tok").ping()["account"] == "a@gmail.com"
+    sent = body(route.calls[0])
+    assert sent == {"action": "ping", "token": "tok"}
+    assert route.calls[0].request.headers["content-type"] == "text/plain;charset=utf-8"
+
+
+@respx.mock
+def test_client_reports_backend_errors():
+    respx.post(URL_A).mock(return_value=httpx.Response(200, json={"ok": False, "error": "forbidden: admin token required"}))
+    with pytest.raises(BackendError, match="forbidden"):
+        BackendClient(URL_A, "bad").ping()
+
+
+@respx.mock
+def test_client_explains_html_login_page():
+    respx.post(URL_A).mock(return_value=httpx.Response(200, text="<html>Sign in</html>"))
+    with pytest.raises(BackendError, match="Who has access: Anyone"):
+        BackendClient(URL_A, "tok").ping()
+
+
+@respx.mock
+def test_client_reports_network_errors():
+    respx.post(URL_A).mock(side_effect=httpx.ConnectError("offline"))
+    with pytest.raises(BackendError, match="cannot reach"):
+        BackendClient(URL_A, "tok").ping()
+
+
+# ---- tournaments ----
+
+
+def test_new_tournament_records_its_backend(folder, backends):
+    a, _ = backends
+    result = new_tournament(folder, Profile("personal", URL_A, "tokA"))
+    assert result.created
+    s = result.state
+    assert (s.backend_url, s.backend_profile, s.backend_account) == (URL_A, "personal", "a@gmail.com")
+    assert s.spreadsheet_id == f"SHEET-{s.tid}"
+    req = a.tournaments[s.tid]["req"]
+    assert req["name"] == "Осенний кубок" and req["date"] == "2026-11-15" and req["round_sizes"] == [3, 3]
+    assert [t["team_id"] for t in req["teams"]] == ["A01", "A02", "A03"]
+    assert req["jury_token"] == s.jury_token and len(s.jury_token) >= 16
+    assert load_or_create_state(folder) == s
+
+
+def test_new_tournament_is_idempotent(folder, backends):
+    a, _ = backends
+    first = new_tournament(folder, Profile("personal", URL_A, "tokA")).state
+    again = new_tournament(folder, Profile("personal", URL_A, "tokA"))
+    assert not again.created and again.state == first
+    assert sum(c["action"] == "create_tournament" for c in a.calls) == 1
+
+
+def test_switching_accounts_keeps_existing_tournaments_on_their_backend(folder, tmp_path, backends, config_dir):
+    """The user's requirement: switch Gmail accounts without breaking running tournaments."""
+    a, b = backends
+    profiles = Profiles()
+    profiles.add(Profile("personal", URL_A, "tokA"))
+    profiles.add(Profile("club", URL_B, "tokB"), activate=False)
+    profiles.save()
+
+    old = new_tournament(folder, profiles.active()).state
+    profiles.use("club")
+    profiles.save()
+
+    # The old tournament still talks to account A.
+    sync_teams(folder, Profiles())
+    assert any(c["action"] == "get_teams" for c in a.calls)
+    assert not any(c["action"] == "get_teams" for c in b.calls)
+    assert load_or_create_state(folder).backend_url == URL_A == old.backend_url
+
+    # A new tournament goes to account B; its jury link points the phones there.
+    other = tmp_path / "other"
+    other.mkdir()
+    (other / "config.py").write_text((folder / "config.py").read_text(encoding="utf-8").replace("test-cup", "other-cup"),
+                                     encoding="utf-8")
+    new_state = new_tournament(other, Profiles().active()).state
+    assert new_state.backend_url == URL_B
+    link = encode_jury_link("https://e.github.io/qa-chgk/s/", new_state.jury_access)
+    assert decode_jury_link(link).backend_url == URL_B
+
+
+def test_sync_teams_assigns_ids_and_writes_back(folder, backends):
+    a, _ = backends
+    profiles = Profiles()
+    profiles.add(Profile("personal", URL_A, "tokA"))
+    profiles.save()
+    state = new_tournament(folder, profiles.active()).state
+    # The organizer adds a team in the Sheet without an ID.
+    a.tournaments[state.tid]["teams"].append({"team_id": "", "name": "Новые", "city": "Бостон", "logo_file": ""})
+
+    teams = sync_teams(folder, Profiles())
+    assert [t.team_id for t in teams] == ["A01", "A02", "A03", "A04"]
+    assert "A04,Новые,Бостон" in (folder / "teams.csv").read_text(encoding="utf-8")
+    assert a.tournaments[state.tid]["teams"][-1]["team_id"] == "A04"  # written back
+
+
+def test_sync_teams_needs_a_backend(folder):
+    with pytest.raises(ValueError, match="chgk new"):
+        sync_teams(folder, Profiles())
+
+
+# ---- bundle ----
+
+
+def test_bundle_contains_both_files_and_a_stable_version(tmp_path):
+    out, version = bundle_apps_script(tmp_path / "Code.gs")
+    text = out.read_text(encoding="utf-8")
+    assert version == source_version() and len(version) == 12
+    assert f'const VERSION = "{version}";' in text and 'const VERSION = "dev";' not in text
+    for name in ("function mergeCell", "function applyEvents", "function doPost", "function setup", "function onSheetEdit"):
+        assert name in text
+    assert text.index("// ===== logic.js") < text.index("// ===== Code.js")
+    assert bundle_apps_script(tmp_path / "again.gs")[1] == version
+    assert (APPS_SCRIPT_DIR / "Code.js").read_text().count('const VERSION = "dev";') == 1
+
+
+# ---- CLI ----
+
+
+def test_cli_backend_add_list_use_check(backends):
+    result = runner.invoke(app, ["backend", "add", "personal", "--url", URL_A, "--token", "tokA"])
+    assert result.exit_code == 0, result.output
+    assert "a@gmail.com" in result.output
+    assert runner.invoke(app, ["backend", "add", "club", "--url", URL_B, "--token", "tokB"]).exit_code == 0
+
+    listing = runner.invoke(app, ["backend", "list"]).output
+    assert "* club" in listing and "  personal" in listing
+    assert runner.invoke(app, ["backend", "use", "personal"]).exit_code == 0
+    check = runner.invoke(app, ["backend", "check"])
+    assert check.exit_code == 0 and "account a@gmail.com" in check.output
+    assert "Local code is version" in check.output  # fake backend reports an old version
+
+
+def test_cli_backend_add_rejects_unreachable():
+    with respx.mock:
+        respx.post(URL_A).mock(return_value=httpx.Response(200, json={"ok": False, "error": "forbidden"}))
+        result = runner.invoke(app, ["backend", "add", "personal", "--url", URL_A, "--token", "bad"])
+    assert result.exit_code == 1 and "forbidden" in result.output
+    assert not Profiles().profiles
+
+
+def test_cli_new_and_teams(folder, backends):
+    runner.invoke(app, ["backend", "add", "personal", "--url", URL_A, "--token", "tokA"])
+    result = runner.invoke(app, ["new", str(folder)])
+    assert result.exit_code == 0, result.output
+    assert "Created on backend 'personal' (a@gmail.com)" in result.output
+    assert "docs.google.com/spreadsheets/d/SHEET-" in result.output
+    again = runner.invoke(app, ["new", str(folder)])
+    assert "Already created" in again.output
+    teams = runner.invoke(app, ["teams", str(folder)])
+    assert teams.exit_code == 0 and "3 teams synced" in teams.output
+
+
+def test_cli_new_without_profile_explains(folder):
+    result = runner.invoke(app, ["new", str(folder)])
+    assert result.exit_code == 1 and "google-account.md" in result.output

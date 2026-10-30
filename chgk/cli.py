@@ -5,10 +5,19 @@ from pathlib import Path
 import typer
 
 from chgk import __version__
+from chgk.backend import BackendClient, BackendError, Profile, Profiles, bundle_apps_script, source_version
 from chgk.cards.build import INSTRUCTIONS, build_cards, build_jury_sheet, build_test_page
 from chgk.cards.impose import Mode
+from chgk.remote import new_tournament, sync_teams
 
 app = typer.Typer(help="ЧГК answer cards and jury scanning.", no_args_is_help=True)
+backend_app = typer.Typer(help="Google backends: one named profile per Google account.", no_args_is_help=True)
+app.add_typer(backend_app, name="backend")
+
+
+def _fail(err: Exception) -> typer.Exit:
+    typer.secho(f"Error: {err}", fg="red", err=True)
+    return typer.Exit(1)
 
 MODE_HELP = {
     Mode.TEAM_PAGES: "one team per page, cut along the lines",
@@ -92,3 +101,123 @@ def jury_sheet(
     for warning in warnings:
         typer.secho(f"Warning: {warning}", fg="yellow", err=True)
     typer.echo(f"{path}: jury sheet. Keep it away from the teams: it holds the jury access QR.")
+
+
+# ---- backend profiles (SPEC §3.1) ----
+
+
+@backend_app.command("bundle")
+def backend_bundle(out: Path = typer.Option(Path("out/apps_script/Code.gs"), help="Where to write the bundle")) -> None:
+    """Write the single Code.gs to paste into an Apps Script project."""
+    path, version = bundle_apps_script(out)
+    typer.echo(f"{path}: backend version {version}. Paste it into script.google.com (docs/google-account.md).")
+
+
+@backend_app.command("add")
+def backend_add(
+    name: str = typer.Argument(..., help="Profile name, e.g. personal or club"),
+    url: str = typer.Option(..., help="The web app /exec URL"),
+    token: str = typer.Option(..., help="Admin token printed by setup() in the script editor"),
+    account: str = typer.Option("", help="Label, e.g. the Gmail address (filled in from the backend if empty)"),
+    check: bool = typer.Option(True, help="Ping the backend before saving"),
+) -> None:
+    """Add (or replace) a backend profile and make it active."""
+    profiles = Profiles()
+    if check:
+        try:
+            reply = BackendClient(url, token).ping()
+        except BackendError as err:
+            raise _fail(err) from err
+        account = account or reply.get("account", "")
+    try:
+        profiles.add(Profile(name, url, token, account))
+    except ValueError as err:
+        raise _fail(err) from err
+    profiles.save()
+    typer.echo(f"Backend '{name}' saved and active{f' ({account})' if account else ''}.")
+
+
+@backend_app.command("use")
+def backend_use(name: str) -> None:
+    """Make a profile active: new tournaments are created on it."""
+    profiles = Profiles()
+    try:
+        profiles.use(name)
+    except ValueError as err:
+        raise _fail(err) from err
+    profiles.save()
+    typer.echo(f"Active backend: {name}. Existing tournaments stay on the backend they were created on.")
+
+
+@backend_app.command("list")
+def backend_list() -> None:
+    """List profiles; * marks the active one."""
+    profiles = Profiles()
+    if not profiles.profiles:
+        typer.echo("No backend profiles yet (docs/google-account.md).")
+    for p in profiles.profiles.values():
+        mark = "*" if p.name == profiles.active_name else " "
+        typer.echo(f"{mark} {p.name:<12} {p.account or '-':<28} {p.url}")
+
+
+@backend_app.command("remove")
+def backend_remove(name: str) -> None:
+    """Forget a profile (the Google side is not touched)."""
+    profiles = Profiles()
+    try:
+        profiles.remove(name)
+    except ValueError as err:
+        raise _fail(err) from err
+    profiles.save()
+    typer.echo(f"Removed backend '{name}'.")
+
+
+@backend_app.command("check")
+def backend_check(name: str | None = typer.Argument(None, help="Profile (default: active)")) -> None:
+    """Ping a backend: shows its Google account and whether its code is up to date."""
+    profiles = Profiles()
+    try:
+        profile = profiles.get(name) if name else profiles.active()
+        reply = BackendClient(profile.url, profile.admin_token).ping()
+    except (ValueError, BackendError) as err:
+        raise _fail(err) from err
+    local = source_version()
+    typer.echo(f"Backend '{profile.name}' OK: account {reply.get('account') or '?'}, version {reply.get('version')}.")
+    if reply.get("version") != local:
+        typer.secho(f"Local code is version {local}: run `chgk backend bundle` and paste it into the script, "
+                    "then Deploy → Manage deployments → edit → New version.", fg="yellow")
+
+
+# ---- tournaments on the backend ----
+
+
+@app.command("new")
+def new(
+    folder: Path = typer.Argument(..., help="Tournament folder with config.py (and teams.csv)"),
+    backend: str | None = typer.Option(None, help="Backend profile (default: active)"),
+) -> None:
+    """Create the tournament's Google Sheet and Drive folder; writes state.json and the jury sheet."""
+    profiles = Profiles()
+    try:
+        profile = profiles.get(backend) if backend else profiles.active()
+        result = new_tournament(folder, profile)
+        jury_path, _ = build_jury_sheet(folder)
+    except (ValueError, BackendError) as err:
+        raise _fail(err) from err
+    s = result.state
+    if result.created:
+        typer.echo(f"Created on backend '{s.backend_profile}' ({s.backend_account}).")
+    else:
+        typer.echo(f"Already created on backend '{s.backend_profile}' ({s.backend_account}); nothing changed.")
+    typer.echo(f"Sheet: {s.spreadsheet_url}")
+    typer.echo(f"{jury_path}: jury sheet with the access QR. Re-run `chgk cards` to refresh it next to the cards.")
+
+
+@app.command("teams")
+def teams_cmd(folder: Path = typer.Argument(..., help="Tournament folder")) -> None:
+    """Pull the Sheet's Teams tab into teams.csv (assigning team IDs, written back to the Sheet)."""
+    try:
+        teams = sync_teams(folder, Profiles())
+    except (ValueError, BackendError) as err:
+        raise _fail(err) from err
+    typer.echo(f"{len(teams)} teams synced to {Path(folder) / 'teams.csv'}.")

@@ -55,6 +55,7 @@ Tests are written alongside the code, not after it.
   - pytest for the client with `respx`;
   - pytest for backend profiles: add/use/list, a tournament keeps its backend after
     the active profile changes, nothing written inside the repo;
+  - `node --test` for Code.js against in-memory fakes of Sheets/Drive/properties;
   - manual check: deploy once and run `chgk new` against it.
 
 ## Phase 3 — Scanner web app
