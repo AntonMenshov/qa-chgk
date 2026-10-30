@@ -36,20 +36,35 @@ def test_team_deck_order_and_rounds():
     assert [c.round for c in deck] == [1, 1, 2, 2, 2, None, None]
 
 
-COMBOS = list(product([1, 2, 7], [[1], [12, 12, 12], [12, 12, 15], [15] * 8], [0, 3], [1, 8, 15]))
+COMBOS = list(product([1, 2, 7], [[1], [12, 12, 12], [12, 12, 15], [15] * 8], [2, 3], [1, 8, 15]))
 
 
 @pytest.mark.parametrize("n_teams,questions,spares,per_page", COMBOS)
 def test_cut_stack_properties(n_teams, questions, spares, per_page):
     ds = decks(n_teams, questions, spares)
-    sequence = [c for d in ds for c in d]
+    own = [c for d in ds for c in d]
     pages = cut_stack(ds, per_page)
 
     assert all(len(p) == per_page for p in pages)
-    assert len(pages) == -(-len(sequence) // per_page)  # ceil
-    placed = [c for p in pages for c in p if c is not None]
-    assert Counter(placed) == Counter(sequence)  # every card exactly once
-    assert stack_and_cut(pages) == sequence  # guillotine workflow yields sorted decks
+    assert len(pages) == -(-len(own) // per_page)  # ceil: extra spares never add a page
+    assert all(None not in p for p in pages)  # every free slot became an extra spare
+    placed = [c for p in pages for c in p]
+    assert Counter(c for c in placed if c in set(own)) == Counter(own)  # every own card exactly once
+    # The guillotine workflow yields each team's deck, then its extra spares, team after team.
+    stacked = stack_and_cut(pages)
+    extras = []
+    for deck in ds:
+        assert stacked[: len(deck)] == deck
+        stacked = stacked[len(deck) :]
+        more = [c for c in stacked[: per_page * len(pages)] if c.team == deck[0].team]
+        n = len(more)
+        assert stacked[:n] == more and all(c.is_spare for c in more)
+        assert [c.id.spare for c in more] == list(range(spares + 1, spares + n + 1))  # numbered on
+        stacked = stacked[n:]
+        extras.append(n)
+    assert stacked == []
+    assert max(extras) - min(extras) <= 1  # shared out evenly, the first decks first
+    assert extras == sorted(extras, reverse=True)
 
 
 @pytest.mark.parametrize("n_teams,questions,spares,per_page", COMBOS)
@@ -72,7 +87,7 @@ def test_team_pages_properties(n_teams, questions, spares, per_page):
 
 
 def test_impose_dispatch():
-    ds = decks(2, [3], 1)
+    ds = decks(2, [3], 2)
     assert impose(Mode.CUT_STACK, ds, 15) == cut_stack(ds, 15)
     assert impose(Mode.TEAM_PAGES, ds, 15, TID) == team_pages(ds, 15, TID)
     assert impose(Mode.SCISSORS, ds, 15, TID) == team_pages(ds, 15, TID)

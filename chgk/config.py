@@ -21,6 +21,9 @@ class LogoMode(Enum):
     TEAM_ELSE_TOURNAMENT = "team_else_tournament"
 
 
+MIN_SPARES = 2  # spare cards per team at the least (user rule, 2026-10-30)
+
+
 @dataclass(frozen=True)
 class CardFields:
     """Optional fields printed on each card."""
@@ -73,7 +76,7 @@ class Tournament:
     rounds: int
     questions_per_round: int | list[int]
     scanner_url: str  # e.g. "https://<user>.github.io/qa-chgk/s/"
-    spares_per_team: int = 3
+    spares_per_team: int = 2  # at least 2 (user rule); empty slots add more, never a page
     # Full decks R1, R2, … (no name, generic logo) for teams that turn up unregistered.
     reserve_teams: int = 2
     # Projector board: up to this many teams it shows the full grid of every round;
@@ -94,8 +97,8 @@ class Tournament:
             raise ConfigError(f"questions_per_round lists {len(per_round)} rounds, but rounds={self.rounds}")
         if any(k < 1 for k in per_round):
             raise ConfigError(f"every round needs ≥ 1 question, got {per_round}")
-        if self.spares_per_team < 0:
-            raise ConfigError(f"spares_per_team must be ≥ 0, got {self.spares_per_team}")
+        if self.spares_per_team < MIN_SPARES:
+            raise ConfigError(f"spares_per_team must be ≥ {MIN_SPARES}, got {self.spares_per_team}")
         if not 0 <= self.reserve_teams <= 9:
             raise ConfigError(f"reserve_teams must be 0–9, got {self.reserve_teams}")
         if not 0 <= self.board_grid_max_teams <= 100:

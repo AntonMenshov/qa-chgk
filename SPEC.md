@@ -125,7 +125,7 @@ tournament = Tournament(
     rounds=3,
     questions_per_round=12,  # int, or a list per round: [12, 12, 15]
     scanner_url="https://<user>.github.io/qa-chgk/s/",  # printed inside every QR
-    spares_per_team=3,  # unnumbered spare cards per team, whole game
+    spares_per_team=2,  # unnumbered spare cards per team, whole game: at least 2
     reserve_teams=2,  # decks R1, R2, … for teams that turn up unregistered (0-9, §8.7)
     board_grid_max_teams=5,  # projector board: full grid up to this many teams (§10.1)
     card=CardFields(
@@ -309,11 +309,14 @@ The app doesn't show it (decided).
 | Mode | Description |
 |---|---|
 | `team-pages` | each page holds one team's cards in order; leftover slots become extra spares |
-| `cut-stack` | for guillotine: stack all sheets, cut once; stacking the piles in slot order gives every team's cards already sorted |
+| `cut-stack` | for guillotine: stack all sheets, cut once; stacking the piles in slot order gives every team's cards already sorted; the free slots of the last pages become extra spares, shared out across the teams |
 | `scissors` | one team per page, same edge-to-edge grid (cards share cut lines, no wasted paper); darker dashed lines and no crop marks |
 
 ### 8.4 Distribution
-Each team gets **one stack for the whole game** (numbered cards + spares).
+Each team gets **one stack for the whole game** (numbered cards + spares). Spares (user
+rule, 2026-10-30): **at least 2** per team (`spares_per_team`, default 2), plus as many
+more as fit in slots that would otherwise stay empty, in every mode. Extra spares never
+add a page.
 
 ### 8.5 Test page
 `chgk test-page` prints a calibration page:
@@ -488,7 +491,11 @@ uv run chgk version
 
 The one list of open items; HANDOVER.md points here.
 
-1. How many spare cards per team [3]?
-2. ~~Projector board: freeze standings~~ decided: shown only after each round, revealed by hand (§10.1).
-3. Card photos: how long to keep them in Drive [forever]?
-4. Fill empty slots on the last `team-pages` page with extra spares [yes]?
+Decided (user, 2026-10-30):
+- Spare cards: at least 2 per team, more where the layout has free slots, never an
+  extra page (§8.4).
+- Projector board: shown only after each round, revealed by hand (§10.1); no freeze.
+- Card photos (Phase 4): kept forever, inside the tournament's own Drive folder.
+- Empty slots on a team's last page become extra spares.
+
+Nothing is open right now.

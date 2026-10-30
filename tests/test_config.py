@@ -47,7 +47,7 @@ def test_round_of_out_of_range(q):
 
 def test_defaults_match_user_choices():
     t = make()
-    assert t.spares_per_team == 3
+    assert t.spares_per_team == 2
     assert t.reserve_teams == 2  # decks for teams that turn up unregistered
     assert t.board_grid_max_teams == 5  # user: full grid on the board up to 5 teams
     assert (t.layout.cols, t.layout.rows, t.layout.per_page) == (3, 5, 15)
@@ -94,8 +94,11 @@ def test_invalid_parts(build):
         build()
 
 
-def test_zero_spares_allowed():
-    assert make(spares_per_team=0).spares_per_team == 0
+def test_at_least_two_spares():
+    assert make(spares_per_team=2).spares_per_team == 2
+    for few in (0, 1):
+        with pytest.raises(ConfigError, match="spares_per_team must be ≥ 2"):
+            make(spares_per_team=few)
 
 
 def test_load_config(tmp_path):

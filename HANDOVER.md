@@ -191,8 +191,10 @@ checks that the decks come out in order.
     - fallback chain: team → tournament → `nologo.png`;
     - the example tournament is set up the way the user asked: **no team name on cards,
       logo 10%, logo_size 1.85 in**. The defaults elsewhere stay team name on, 12%, auto size.
-- **Teams:** one stack per team for the whole game, plus spares (3 by default). Empty
-  slots on a team's last page become extra spares. Spare cards carry no words: an empty
+- **Teams:** one stack per team for the whole game, plus at least 2 spares (user rule);
+  free slots become extra spares in every mode (guillotine: shared out across the teams),
+  never an extra page. Card photos (Phase 4) will be kept forever in the tournament's
+  Drive folder. Spare cards carry no words: an empty
   white box where the number goes (user request).
 - **Reserve decks (SPEC §8.7):** R1, R2… for teams that turn up unregistered. They are on
   the Teams tab from the start but join the other tabs only on first scan or when named,

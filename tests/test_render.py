@@ -71,7 +71,8 @@ def test_every_qr_decodes_from_the_pdf_and_sits_in_its_slot(folder, mode, tmp_pa
     assert expected_numbered <= set(seen)
     assert (result.teams, result.reserve) == (3, 2)
     if mode is Mode.CUT_STACK:
-        assert result.cards == 5 * (6 + 2) and result.pages == 3
+        # 5 decks × (6 + 2) = 40 cards on 3 pages of 15: the 5 free slots became one more spare each.
+        assert result.cards == 3 * 15 and result.pages == 3
     else:
         assert result.cards == 5 * 15 and result.pages == 5  # free slots became extra spares
 
@@ -82,7 +83,7 @@ def test_cut_stack_pdf_order_matches_the_guillotine_workflow(folder, tmp_path):
     pages = [decoded_slots(image) for image in page_images(out)]
     piles = [[page[s] for page in pages if s in page] for s in range(15)]
     stacked = [decode_payload(p) for pile in piles for p in pile]
-    deck = [(q, None) for q in range(1, 7)] + [(None, 1), (None, 2)]
+    deck = [(q, None) for q in range(1, 7)] + [(None, 1), (None, 2), (None, 3)]  # S3 fills a free slot
     expected = [(team, q, s) for team in ("A01", "A02", "A03", "R1", "R2") for q, s in deck]
     assert [(c.team_id, c.question, c.spare) for c in stacked] == expected
 
@@ -99,7 +100,7 @@ def test_pdf_text_contains_labels_and_cyrillic(folder, tmp_path):
 
 def test_team_filter_and_unknown_team(folder, tmp_path):
     result = build_cards(folder, Mode.CUT_STACK, tmp_path / "a.pdf", ["A03"])
-    assert result.teams == 1 and result.cards == 8
+    assert result.teams == 1 and result.cards == 15  # 8 cards, the rest of the page as spares
     with pytest.raises(ValueError, match="Z99"):
         build_cards(folder, Mode.CUT_STACK, tmp_path / "b.pdf", ["Z99"])
 
@@ -162,7 +163,7 @@ def test_cli_cards_with_mode(folder, tmp_path):
     out = tmp_path / "cli.pdf"
     result = runner.invoke(app, ["cards", str(folder), "--mode", "cut-stack", "--out", str(out)])
     assert result.exit_code == 0, result.output
-    assert "3 teams + 2 reserve decks, 40 cards, 3 pages (cut-stack)" in result.output
+    assert "3 teams + 2 reserve decks, 45 cards, 3 pages (cut-stack)" in result.output  # 5 free slots → spares
     assert out.read_bytes().startswith(b"%PDF")
 
 
