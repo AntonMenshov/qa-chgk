@@ -1,3 +1,5 @@
+import re
+
 import pypdfium2
 import pytest
 import zxingcpp
@@ -87,8 +89,9 @@ def test_pdf_text_contains_labels_and_cyrillic(folder, tmp_path):
     out = tmp_path / "out.pdf"
     build_cards(folder, Mode.TEAM_PAGES, out)
     text = "\n".join(page.extract_text() for page in PdfReader(out).pages)
-    for expected in ("Синие зайцы", "Думать быстро", "Осенний кубок · 15.11.2026", "Тур 1", "Тур 2"):
+    for expected in ("Синие зайцы", "Думать быстро", "Осенний кубок", "Тур 1", "Тур 2"):
         assert expected in text
+    assert "15.11.2026" not in text  # no date unless asked for (user request)
     assert "Вопрос" not in text  # the user asked for no «Вопрос» label
 
 
@@ -200,6 +203,15 @@ def test_test_page_has_real_qr_codes_and_marks_chosen_settings(folder, tmp_path)
     assert "12% grey (chosen)" in text
 
 
+def test_date_on_the_cards_only_when_switched_on(folder, tmp_path):
+    config = folder / "config.py"
+    config.write_text(config.read_text(encoding="utf-8").replace("card=CardFields(", "card=CardFields(date=True, "),
+                      encoding="utf-8")
+    build_cards(folder, Mode.TEAM_PAGES, tmp_path / "out.pdf")
+    text = "\n".join(page.extract_text() for page in PdfReader(tmp_path / "out.pdf").pages)
+    assert "Осенний кубок · 15.11.2026" in text
+
+
 def test_missing_team_logo_warns_and_falls_back(folder, tmp_path):
     write_teams_file(folder, [TEAM_ROWS[0], ("A02", LONG_NAME, "", "gone.png"), TEAM_ROWS[2]])
     result = build_cards(folder, Mode.CUT_STACK, tmp_path / "out.pdf")
@@ -213,7 +225,7 @@ def test_team_name_can_be_left_off_the_cards(folder, tmp_path):
     result = build_cards(folder, Mode.TEAM_PAGES, tmp_path / "out.pdf")
     text = "\n".join(page.extract_text() for page in PdfReader(result.path).pages)
     assert "Синие зайцы" not in text and "Думать быстро" not in text
-    assert "Осенний кубок · 15.11.2026" in text  # the other footer fields stay
+    assert "Осенний кубок" in text  # the other footer fields stay
     assert "Синие зайцы" in "\n".join(p.extract_text() for p in PdfReader(result.jury_path).pages)  # jury still sees names
 
 
@@ -279,7 +291,14 @@ def test_reserve_cards_without_team_names_on_cards(folder, tmp_path):
     config.write_text(config.read_text(encoding="utf-8").replace("card=CardFields(", "card=CardFields(team_name=False, "),
                       encoding="utf-8")
     result = build_cards(folder, Mode.TEAM_PAGES, tmp_path / "out.pdf")
-    assert "Команда:" not in "\n".join(page.extract_text() for page in PdfReader(result.path).pages)
+    pages = [page.extract_text() for page in PdfReader(result.path).pages]
+    assert "Команда:" not in "\n".join(pages)
+    # Without a name line, each reserve card still carries its deck's ID (user request);
+    # registered teams' cards don't show theirs.
+    for deck, text in zip(("R1", "R2"), pages[3:]):
+        assert len(re.findall(rf"\b{deck}\b", text)) == 15, deck
+        assert text.count("Осенний кубок") == 15
+    assert not re.search(r"\b(A0[123]|R[12])\b", "\n".join(pages[:3]))
 
 
 def test_reserve_decks_can_be_printed_alone(folder, tmp_path):

@@ -36,6 +36,7 @@ SCISSORS_GREY = 0.35  # darker, dashed cut lines that are easy to follow with sc
 ELLIPSIS = "…"
 SPARE_BOX_W = 0.8 * 72  # pt: room for a handwritten two- or three-digit number
 SPARE_BOX_GREY = 0.35
+RESERVE_ID_SIZE = 8  # pt: a reserve deck's ID (R1, …), bottom right; small but readable
 RESERVE_NAME_LABEL = "Команда:"
 
 
@@ -190,8 +191,14 @@ def _draw_card(c: Canvas, card: Card, parts: CardParts, tournament: Tournament, 
         )
         if on
     )
+    id_w = 0.0
+    if card.team.reserve:
+        # A reserve deck has no name on its cards yet: its ID tells the decks apart (user request).
+        c.setFont(FONT_BOLD, RESERVE_ID_SIZE)
+        c.drawRightString(fr.right, parts.info_baseline, card.team.team_id)
+        id_w = pdfmetrics.stringWidth(card.team.team_id, FONT_BOLD, RESERVE_ID_SIZE) + 6
     if info:
-        text, size = fit_text(info, FONT, INFO_SIZE, fr.w, 5)
+        text, size = fit_text(info, FONT, INFO_SIZE, fr.w - id_w, 5)
         c.setFont(FONT, size)
         c.drawString(fr.x, parts.info_baseline, text)
 

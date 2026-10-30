@@ -27,7 +27,7 @@ class CardFields:
 
     team_name: bool = True
     tournament_name: bool = True
-    date: bool = True
+    date: bool = False  # off unless asked for (user: no date on the cards)
     logo: LogoMode = LogoMode.NONE
     tournament_logo: str | None = None  # file name: tournament folder first, then the logos/ library
     fallback_logo: str | None = "nologo.png"  # for cards that would otherwise have no logo

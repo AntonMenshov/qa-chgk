@@ -182,6 +182,9 @@ checks that the decks come out in order.
   5 teams, else total + last round's grid; «Взяли» row. Read-only board token
   (`get_board`); `chgk board` adds one to tournaments created before Phase 5.
 
+- Cards: no date unless `CardFields(date=True)` (user: "I never asked for it"; it had
+  been on by default since Phase 1). Reserve decks print their ID (R1, …) small and bold
+  at the bottom right (user request), registered teams don't.
 - Cards: a sized logo is centred on the card (user: it looked shifted left); its corner
   may go under the QR, which is drawn on top with its white quiet zone. The spare number
   box is filled white (its outline crossed the logo).
