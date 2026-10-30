@@ -63,7 +63,10 @@ function handle_(req) {
   const props = PropertiesService.getScriptProperties();
   if (req.action === "ping") {
     requireAdmin_(props, req);
-    return { ok: true, version: VERSION, account: Session.getEffectiveUser().getEmail(), authorized: authorized_() };
+    return {
+      ok: true, version: VERSION, account: Session.getEffectiveUser().getEmail(), authorized: authorized_(),
+      sheets_api: sheetsApi_(),
+    };
   }
   if (req.action === "create_tournament") {
     requireAdmin_(props, req);
@@ -238,7 +241,7 @@ function buildTabs_(ss, req) {
   });
 
   const stats = ss.insertSheet(TABS.stats, ss.getSheets().length);
-  ss.insertSheet(TABS.disputed, ss.getSheets().length);
+  newDisputedTab_(ss);
   const rows = statsRows(sizes);
   stats.getRange(1, 1, rows.length, 4).setValues(rows);
   stats.getRange(1, 1, 1, 4).setFontWeight("bold");
@@ -274,7 +277,12 @@ function readTeams_(ss) {
   const sheet = ss.getSheetByName(TABS.teams);
   const n = sheet.getLastRow() - 1;
   if (n < 1) return [];
-  return sheet.getRange(2, 1, n, TEAMS_HEADER.length).getValues()
+  return teamsFromRows_(sheet.getRange(2, 1, n, TEAMS_HEADER.length).getValues());
+}
+
+/** Teams tab rows (from row 2) → [{team_id, name, city, logo_file, reserve, row}]. */
+function teamsFromRows_(values) {
+  return values
     .map((r, i) => ({
       team_id: String(r[0]).trim(), name: String(r[1]).trim(), city: String(r[2]).trim(),
       logo_file: String(r[3]).trim(), reserve: String(r[4]).trim() !== "", row: i + 2,
@@ -494,88 +502,201 @@ function setTeams_(ss, reg, teams) {
 
 // ---- marks ----
 
-/** Meta rows by team ID (a missing team gets a row), and its column layout. */
-function metaRows_(ss, n) {
-  const meta = ss.getSheetByName(TABS.meta);
-  const ml = metaLayout(n);
-  ensureSize_(meta, 1, ml.width);
-  const rows = new Map(teamRowsOf_(meta).map((t) => [t.team_id, t.row]));
-  const rowOf = (teamId) => {
-    if (!rows.has(teamId)) {
-      appendRows_(meta, [[teamId].concat(new Array(ml.width - 1).fill(""))]);
-      rows.set(teamId, meta.getLastRow());
+// ---- one read and one write per request ----
+// With the «Google Sheets API» advanced service on (editor: Services + → Google Sheets API),
+// a request reads everything it needs in one Values.batchGet and writes in one
+// Values.batchUpdate (profiled: ~8 separate reads and 3 single-cell writes per mark were
+// most of a request's 4-5 s). Without it, or when a call fails (quota: 60 per minute per
+// account; a tab too small or missing), the same work goes through SpreadsheetApp.
+
+const SHEETS_API_GROW = 1000; // rows added at a time when a write runs past a tab's grid
+
+/** True when the advanced service is on. */
+function sheetsApi_() {
+  return typeof Sheets !== "undefined" && Boolean(Sheets.Spreadsheets && Sheets.Spreadsheets.Values);
+}
+
+/** A1 range on a named tab; `rows` null = down to the last row. */
+function a1_(name, row, col, rows, cols) {
+  const end = rows ? row + rows - 1 : "";
+  return `'${name.replace(/'/g, "''")}'!${colLetter(col)}${row}:${colLetter(col + cols - 1)}${end}`;
+}
+
+/**
+ * Read blocks {name, row, col, cols, rows?} at once. Each comes back as rows padded to
+ * `cols` with "", trailing empty rows dropped; row k of a block is sheet row `row + k`.
+ */
+function readBlocks_(ss, specs) {
+  const pad = (rows, cols) => rows.map((r) => Array.from({ length: cols }, (_, i) => (i < r.length ? r[i] : "")));
+  if (sheetsApi_()) {
+    try {
+      const res = Sheets.Spreadsheets.Values.batchGet(ss.getId(), {
+        ranges: specs.map((b) => a1_(b.name, b.row, b.col, b.rows, b.cols)), valueRenderOption: "UNFORMATTED_VALUE",
+      });
+      return specs.map((b, i) => pad(res.valueRanges[i].values || [], b.cols));
+    } catch (err) {
+      // quota or a transient error: read the slow way below
     }
-    return rows.get(teamId);
+  }
+  return specs.map((b) => {
+    const sheet = b.name === TABS.summary ? summaryOf_(ss) : ss.getSheetByName(b.name);
+    if (!sheet) fail(`the Sheet has no «${b.name}» tab`);
+    const last = b.rows ? b.row + b.rows - 1 : sheet.getLastRow();
+    if (last < b.row) return [];
+    const rows = sheet.getRange(b.row, b.col, last - b.row + 1, b.cols).getValues();
+    while (rows.length && rows[rows.length - 1].every((v) => v === "")) rows.pop();
+    return rows;
+  });
+}
+
+/** Collects value writes; flush() sends them in one call (RAW: "42" stays text, "?" stays "?"). */
+function writer_(ss) {
+  const data = [];
+  return {
+    set(name, row, col, values) { if (values.length) data.push({ name, row, col, values }); },
+    get size() { return data.length; },
+    flush() {
+      if (!data.length) return;
+      const batch = data.splice(0, data.length);
+      if (sheetsApi_()) {
+        try {
+          Sheets.Spreadsheets.Values.batchUpdate({
+            valueInputOption: "RAW",
+            data: batch.map((d) => ({ range: a1_(d.name, d.row, d.col, d.values.length, d.values[0].length), values: d.values })),
+          }, ss.getId());
+          return;
+        } catch (err) {
+          // a tab too small (Log grows all game) or missing (older Sheets): the slow way grows or creates it
+        }
+      }
+      batch.forEach((d) => {
+        const sheet = ss.getSheetByName(d.name) || (d.name === TABS.disputed ? newDisputedTab_(ss) : null);
+        if (!sheet) fail(`the Sheet has no «${d.name}» tab`);
+        const lastRow = d.row + d.values.length - 1;
+        if (sheet.getMaxRows() < lastRow) ensureSize_(sheet, lastRow + SHEETS_API_GROW, 1);
+        ensureSize_(sheet, 1, d.col + d.values[0].length - 1);
+        sheet.getRange(d.row, d.col, d.values.length, d.values[0].length).setValues(d.values);
+      });
+    },
   };
-  return { meta, ml, rows, rowOf };
+}
+
+/** Log time as text in the script's time zone (the Sheets API takes no Date objects). */
+function logTime_(ms) {
+  return Utilities.formatDate(new Date(ms), Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm:ss");
 }
 
 /**
  * Every mark: "TEAM:Q" → {value, ts}, where it sits now, and the last value the backend
- * knows. Rows are matched by team ID, so the tabs may have been re-sorted in between.
+ * knows; all in one read. Rows are matched by team ID, so the tabs may have been re-sorted
+ * in between. `with_.teams` adds the Teams tab (m.teamsTab), `with_.log` the Log (m.log:
+ * scan IDs, photos, next free row). Writes go to `m.w`, sent by `m.w.flush()`.
  */
-function readMarks_(ss, reg) {
+function readMarks_(ss, reg, with_) {
+  const opts = with_ || {};
   const sizes = reg.round_sizes;
   const n = totalQuestions(sizes);
+  const ml = metaLayout(n);
+  const lays = sizes.map((_, i) => roundLayout(sizes, i + 1));
+  const logFirst = LOG_HEADER.indexOf("scan_id") + 1;
+  const logCols = LOG_HEADER.length - logFirst + 1;
+  const specs = [{ name: TABS.summary, row: 2, col: 1, cols: 2 }, { name: TABS.meta, row: 1, col: 1, cols: ml.width }]
+    .concat(lays.map((lay) => ({ name: lay.name, row: 2, col: 1, cols: lay.sumCol - 1 })));
+  if (opts.teams) specs.push({ name: TABS.teams, row: 2, col: 1, cols: TEAMS_HEADER.length });
+  if (opts.log) specs.push({ name: TABS.log, row: 2, col: logFirst, cols: logCols });
+  const blocks = readBlocks_(ss, specs);
+  const w = writer_(ss);
+
   // ID order (the order of the cards), not the standings order of «Итоги».
-  const teams = teamRowsOf_(summaryOf_(ss)).map((t) => ({ team_id: t.team_id, name: t.name }))
+  const teams = blocks[0].map((r) => ({ team_id: String(r[0]).trim(), name: String(r[1]) }))
+    .filter((t) => t.team_id !== "")
     .sort((a, b) => (a.team_id < b.team_id ? -1 : a.team_id > b.team_id ? 1 : 0));
   const cells = {};
   const where = {};
-  sizes.forEach((_, i) => {
-    const lay = roundLayout(sizes, i + 1);
-    const sheet = ss.getSheetByName(lay.name);
-    const last = sheet.getLastRow();
-    if (last < 2) return;
-    sheet.getRange(2, 1, last - 1, lay.sumCol - 1).getValues().forEach((r, j) => {
+  lays.forEach((lay, i) => {
+    blocks[2 + i].forEach((r, j) => {
       const id = String(r[0]).trim();
       if (!id) return;
       for (let k = 0; k < lay.size; k++) {
         const key = `${id}:${lay.first + k}`;
         cells[key] = { value: r[lay.firstCol - 1 + k], ts: 0 };
-        where[key] = { sheet, row: j + 2, col: lay.firstCol + k, round: i + 1 };
+        where[key] = { name: lay.name, row: j + 2, col: lay.firstCol + k, round: i + 1 };
       }
     });
   });
 
-  const m = metaRows_(ss, n);
+  const metaBlock = blocks[1];
   const known = {};
+  const rows = new Map();
   // Sheets from before the known-value columns: start from what is on the tabs now.
-  const upgrade = m.meta.getRange(1, m.ml.knownCol(1)).getValue() !== "v1";
-  if (upgrade) m.meta.getRange(1, 1, 1, m.ml.width).setValues([m.ml.header]);
-  const lastMeta = m.meta.getLastRow();
-  if (lastMeta >= 2) {
-    m.meta.getRange(2, 1, lastMeta - 1, m.ml.width).getValues().forEach((r, j) => {
-      const id = String(r[0]).trim();
-      for (let q = 1; q <= n; q++) {
-        const key = `${id}:${q}`;
-        if (!cells[key]) continue;
-        cells[key].ts = Number(r[m.ml.tsCol(q) - 1]) || 0;
-        known[key] = upgrade ? cells[key].value : r[m.ml.knownCol(q) - 1];
-      }
-      if (upgrade) {
-        const row = Array.from({ length: n }, (_, k) => (cells[`${id}:${k + 1}`] || { value: "" }).value);
-        m.meta.getRange(j + 2, m.ml.knownCol(1), 1, n).setValues([row]);
-      }
+  const upgrade = (metaBlock[0] || [])[ml.knownCol(1) - 1] !== "v1";
+  if (upgrade) w.set(TABS.meta, 1, 1, [ml.header]);
+  metaBlock.slice(1).forEach((r, j) => {
+    const id = String(r[0]).trim();
+    if (!id) return;
+    rows.set(id, j + 2);
+    for (let q = 1; q <= n; q++) {
+      const key = `${id}:${q}`;
+      if (!cells[key]) continue;
+      cells[key].ts = Number(r[ml.tsCol(q) - 1]) || 0;
+      known[key] = upgrade ? cells[key].value : r[ml.knownCol(q) - 1];
+    }
+    if (upgrade) w.set(TABS.meta, j + 2, ml.knownCol(1), [Array.from({ length: n }, (_, k) => (cells[`${id}:${k + 1}`] || { value: "" }).value)]);
+  });
+  const meta = { ml, rows, next: Math.max(metaBlock.length, 1) + 1 };
+
+  const m = { sizes, n, teams, cells, where, known, meta, w };
+  let next = 2 + lays.length;
+  if (opts.teams) m.teamsTab = teamsFromRows_(blocks[next++]);
+  if (opts.log) {
+    const logRows = blocks[next++];
+    const at = (name) => LOG_HEADER.indexOf(name) + 1 - logFirst;
+    const photos = {};
+    logRows.forEach((r) => {
+      const photo = String(r[at("photo")]).trim();
+      if (photo) photos[`${String(r[at("team_id")]).trim()}:${Number(r[at("question")])}`] = photo;
     });
+    m.log = { seen: new Set(logRows.map((r) => String(r[0]))), photos, next: logRows.length + 2 };
   }
-  return { sizes, n, teams, cells, where, known, meta: m };
+  return m;
+}
+
+/** Meta row of a team; a team without one gets the next free row (written with the rest). */
+function metaRowOf_(m, teamId) {
+  if (!m.meta.rows.has(teamId)) {
+    const row = m.meta.next++;
+    m.w.set(TABS.meta, row, 1, [[teamId].concat(new Array(m.meta.ml.width - 1).fill(""))]);
+    m.meta.rows.set(teamId, row);
+  }
+  return m.meta.rows.get(teamId);
 }
 
 /** Store a mark's value and time: on its round tab (if `toTab`) and in Meta. */
 function writeMark_(m, key, cell, toTab) {
   const at = m.where[key];
-  if (toTab) at.sheet.getRange(at.row, at.col).setValue(cell.value);
+  if (toTab) m.w.set(at.name, at.row, at.col, [[cell.value]]);
   const [teamId, q] = key.split(":");
-  const row = m.meta.rowOf(teamId);
-  m.meta.meta.getRange(row, m.meta.ml.tsCol(Number(q))).setValue(cell.ts);
-  m.meta.meta.getRange(row, m.meta.ml.knownCol(Number(q))).setValue(cell.value);
+  const row = metaRowOf_(m, teamId);
+  m.w.set(TABS.meta, row, m.meta.ml.tsCol(Number(q)), [[cell.ts]]);
+  m.w.set(TABS.meta, row, m.meta.ml.knownCol(Number(q)), [[cell.value]]);
   m.known[key] = cell.value;
+}
+
+/** Queue Log rows after the last one; their scan IDs and photos count from now on. */
+function appendLog_(m, rows) {
+  if (!rows.length) return;
+  m.w.set(TABS.log, m.log.next, 1, rows);
+  const col = (name) => LOG_HEADER.indexOf(name);
+  rows.forEach((r) => {
+    m.log.seen.add(String(r[col("scan_id")]));
+    if (r[col("photo")]) m.log.photos[`${r[col("team_id")]}:${r[col("question")]}`] = r[col("photo")];
+  });
+  m.log.next += rows.length;
 }
 
 /**
  * Pick up jury edits on the round tabs (see sheetEdits): normalise them («+» → 1),
- * time-stamp and log them. Returns the rounds that changed.
+ * time-stamp and log them. Returns the rounds that changed. Needs `m` read with the Log.
  */
 function applySheetEdits_(ss, m, user) {
   const current = {};
@@ -585,7 +706,8 @@ function applySheetEdits_(ss, m, user) {
   const rounds = new Set();
   sheetEdits(current, m.known).forEach((edit) => {
     const at = m.where[edit.key];
-    const range = at.sheet.getRange(at.row, at.col);
+    // Notes are not values: these go through SpreadsheetApp (jury edits are rare).
+    const range = ss.getSheetByName(at.name).getRange(at.row, at.col);
     if (edit.status === null) {
       range.setNote("Непонятное значение: используйте 1, 0, ? или R");
       return;
@@ -595,10 +717,10 @@ function applySheetEdits_(ss, m, user) {
     writeMark_(m, edit.key, m.cells[edit.key], edit.raw !== edit.value);
     rounds.add(at.round);
     const [teamId, q] = edit.key.split(":");
-    rows.push([new Date(now), new Date(now), `sheet-${now}-${edit.key}`, "sheet", user, "", teamId, Number(q), "",
+    rows.push([logTime_(now), logTime_(now), `sheet-${now}-${edit.key}`, "sheet", user, "", teamId, Number(q), "",
       edit.status, edit.value, true, ""]);
   });
-  appendRows_(ss.getSheetByName(TABS.log), rows);
+  appendLog_(m, rows);
   return rounds;
 }
 
@@ -611,50 +733,57 @@ function markValues_(m) {
   return values;
 }
 
-/** The latest photo (link or file name) logged for each card, "TEAM:Q" → photo. */
-function logPhotos_(ss) {
-  const log = ss.getSheetByName(TABS.log);
-  const n = log.getLastRow() - 1;
-  const photos = {};
-  if (n < 1) return photos;
-  const first = LOG_HEADER.indexOf("team_id") + 1;
-  const width = LOG_HEADER.indexOf("photo") + 1 - first + 1;
-  log.getRange(2, first, n, width).getValues().forEach((r) => {
-    const photo = String(r[width - 1]).trim();
-    if (photo) photos[`${String(r[0]).trim()}:${Number(r[1])}`] = photo;
-  });
-  return photos;
-}
+const DISPUTED_WIDTH = 7; // A-D the list, E blank, F-G the counts
 
-/** Rewrite «Спорные» from the marks in `m` (created, hidden, if missing). */
-function writeDisputed_(ss, m) {
-  let sheet = ss.getSheetByName(TABS.disputed);
-  if (!sheet) {
-    sheet = ss.insertSheet(TABS.disputed, ss.getSheets().length);
-    sheet.hideSheet();
-  }
-  const names = {};
-  m.teams.forEach((t) => { names[t.team_id] = t.name; });
-  const { list, summary } = disputedSheet(m.sizes, names, markValues_(m), logPhotos_(ss));
-  const last = sheet.getLastRow();
-  if (last > 0) sheet.getRange(1, 1, last, 7).clearContent();
-  ensureSize_(sheet, Math.max(list.length, summary.length), 7);
+function newDisputedTab_(ss) {
+  const sheet = ss.insertSheet(TABS.disputed, ss.getSheets().length);
+  sheet.hideSheet();
   // Team names as plain text, or a team called «42» becomes a number.
   sheet.getRange(1, 3, sheet.getMaxRows(), 1).setNumberFormat("@");
   sheet.getRange(1, 6, sheet.getMaxRows(), 1).setNumberFormat("@");
-  sheet.getRange(1, 1, list.length, 4).setValues(list);
-  sheet.getRange(1, 6, summary.length, 2).setValues(summary);
+  return sheet;
+}
+
+/** «Спорные» as one block of rows, DISPUTED_WIDTH wide, at least `minRows` long (blank rows clear old ones). */
+function disputedBlock_(m, values, photos, minRows) {
+  const names = {};
+  m.teams.forEach((t) => { names[t.team_id] = t.name; });
+  const { list, summary } = disputedSheet(m.sizes, names, values, photos);
+  const n = Math.max(list.length, summary.length, minRows || 0);
+  return Array.from({ length: n }, (_, i) => (list[i] || ["", "", "", ""]).concat([""], summary[i] || ["", ""]));
+}
+
+/** Rewrite «Спорные» completely (created, hidden, if missing). Needs `m` read with the Log. */
+function writeDisputed_(ss, m) {
+  const sheet = ss.getSheetByName(TABS.disputed) || newDisputedTab_(ss);
+  const block = disputedBlock_(m, markValues_(m), m.log.photos, 0);
+  const last = sheet.getLastRow();
+  if (last > 0) sheet.getRange(1, 1, last, DISPUTED_WIDTH).clearContent();
+  ensureSize_(sheet, block.length, DISPUTED_WIDTH);
+  sheet.getRange(1, 1, block.length, DISPUTED_WIDTH).setValues(block);
   sheet.getRange(1, 1, 1, 4).setFontWeight("bold");
-  sheet.getRange(1, 6, summary.length, 1).setFontWeight("bold");
+  sheet.getRange(1, 6, block.length, 1).setFontWeight("bold");
 }
 
-/** Rewrite «Спорные» only when the set of «?» marks changed (most requests leave it alone). */
-function updateDisputed_(ss, m, before) {
-  if (disputedKeys(markValues_(m)).join() !== before || !ss.getSheetByName(TABS.disputed)) writeDisputed_(ss, m);
+/** What «Спорные» shows now, from the values the backend knows (a jury edit is already on the tab). */
+function disputedBefore_(m) {
+  return { keys: disputedKeys(m.known).join(), rows: disputedBlock_(m, m.known, {}, 0).length };
 }
 
+/**
+ * Queue a rewrite of «Спорные» with the request's other writes, only when the set of «?»
+ * marks changed (most requests leave it alone). The block is padded to the old length, so
+ * rows of «?» that went away are cleared.
+ */
+function updateDisputed_(m, before) {
+  if (disputedKeys(markValues_(m)).join() === before.keys) return;
+  m.w.set(TABS.disputed, 1, 1, disputedBlock_(m, markValues_(m), m.log.photos, before.rows));
+}
+
+/** Full rewrite after SpreadsheetApp writes (names, teams, an older Sheet). */
 function refreshDisputed_(ss, sizes) {
-  writeDisputed_(ss, readMarks_(ss, { round_sizes: sizes }));
+  SpreadsheetApp.flush(); // the batched read must see them
+  writeDisputed_(ss, readMarks_(ss, { round_sizes: sizes }, { log: true }));
 }
 
 /** «Статистика»; a Sheet made before the rename still has «Stats», renamed here. */
@@ -667,8 +796,8 @@ function statsTab_(ss) {
 }
 
 function readState_(ss, reg) {
-  const m = readMarks_(ss, reg);
-  const reserve = readTeams_(ss).filter((t) => t.reserve);
+  const m = readMarks_(ss, reg, { teams: true });
+  const reserve = m.teamsTab.filter((t) => t.reserve);
   const reserveIds = new Set(reserve.map((t) => t.team_id));
   const present = new Set(m.teams.map((t) => t.team_id));
   // Phones need reserve IDs too, to accept those cards before their first scan.
@@ -730,26 +859,29 @@ function readResults_(ss, reg) {
 }
 
 function recordEvents_(ss, reg, req) {
-  // A reserve team's first valid scan puts it on the tabs.
-  const reserveIds = new Set(readTeams_(ss).filter((t) => t.reserve).map((t) => t.team_id));
+  let m = readMarks_(ss, reg, { teams: true, log: true });
+  // A reserve team's first valid scan puts it on the tabs (rare: then read again).
+  const reserveIds = new Set(m.teamsTab.filter((t) => t.reserve).map((t) => t.team_id));
   const nowMs = Date.now();
-  activateReserve_(ss, reg.round_sizes, req.events
-    .filter((ev) => ev && reserveIds.has(ev.team_id) && !eventError(ev, new Set([ev.team_id]), reg.round_sizes, nowMs))
-    .map((ev) => ev.team_id));
-  const m = readMarks_(ss, reg);
-  const disputedBefore = disputedKeys(m.known).join(); // known values: a jury edit is already on the tab
+  const activate = req.events
+    .filter((ev) => ev && reserveIds.has(ev.team_id) && !m.where[`${ev.team_id}:1`]
+      && !eventError(ev, new Set([ev.team_id]), reg.round_sizes, nowMs))
+    .map((ev) => ev.team_id);
+  if (activate.length) {
+    activateReserve_(ss, reg.round_sizes, activate);
+    SpreadsheetApp.flush();
+    m = readMarks_(ss, reg, { teams: true, log: true });
+  }
+  const disputedBefore = disputedBefore_(m);
   // Jury edits first, so they get their time before app marks are compared with them.
   const rounds = applySheetEdits_(ss, m, "");
   const cells = m.cells;
   const before = Object.assign({}, cells);
-  const log = ss.getSheetByName(TABS.log);
-  const nLog = log.getLastRow() - 1;
-  const seen = new Set(nLog > 0 ? log.getRange(2, 3, nLog, 1).getValues().map((r) => String(r[0])) : []);
   // Teams with rows on the round tabs can be marked. Unused reserve teams count as known,
   // so their invalid events report the real problem (their valid ones activated them above).
   const teamIds = new Set(m.teams.map((t) => t.team_id).filter((id) => m.where[`${id}:1`]).concat([...reserveIds]));
 
-  const outcomes = applyEvents(cells, seen, req.events, teamIds, reg.round_sizes, Date.now());
+  const outcomes = applyEvents(cells, m.log.seen, req.events, teamIds, reg.round_sizes, Date.now());
 
   // Write only the cells that changed, so a juror editing the sheet at the same moment is not overwritten.
   Object.keys(cells).forEach((key) => {
@@ -758,17 +890,18 @@ function recordEvents_(ss, reg, req) {
     rounds.add(m.where[key].round);
   });
 
-  const now = new Date();
+  const now = logTime_(Date.now());
   const logRows = [];
   req.events.forEach((ev, k) => {
     const o = outcomes[k];
     if (o.error || o.duplicate) return;
-    logRows.push([now, new Date(ev.client_ts), ev.scan_id, "app", ev.juror || "", ev.device || "", ev.team_id,
+    logRows.push([now, logTime_(ev.client_ts), ev.scan_id, "app", ev.juror || "", ev.device || "", ev.team_id,
       ev.question, ev.spare || "", ev.status, STATUS_VALUE[ev.status], o.applied, ev.photo || ""]);
   });
-  appendRows_(log, logRows);
+  appendLog_(m, logRows);
+  updateDisputed_(m, disputedBefore);
+  m.w.flush(); // before sorting: the rows above are where the read found them
   if (rounds.size) sortTabs_(ss, reg.round_sizes, [...rounds], m);
-  updateDisputed_(ss, m, disputedBefore);
   return { ok: true, results: outcomes };
 }
 
@@ -802,11 +935,13 @@ function onSheetEdit(e) {
       refreshDisputed_(ss, sizes);
     }
     if (touchesMarks) {
-      const m = readMarks_(ss, { round_sizes: sizes });
-      const disputedBefore = disputedKeys(m.known).join(); // known values: a jury edit is already on the tab
+      SpreadsheetApp.flush(); // names written just above must be in the batched read
+      const m = readMarks_(ss, { round_sizes: sizes }, { log: true });
+      const disputedBefore = disputedBefore_(m);
       const rounds = applySheetEdits_(ss, m, user);
+      updateDisputed_(m, disputedBefore);
+      m.w.flush();
       if (rounds.size) sortTabs_(ss, sizes, [...rounds], m);
-      updateDisputed_(ss, m, disputedBefore);
     }
   });
 }

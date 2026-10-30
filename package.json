@@ -4,6 +4,6 @@
   "type": "module",
   "description": "JS side of chgk: scanner web app, projector board, Apps Script logic. No npm dependencies; tests use the built-in node:test runner.",
   "scripts": {
-    "test": "node --test \"tests/js/**/*.test.mjs\""
+    "test": "node --test \"tests/js/**/*.test.mjs\" && CHGK_NO_SHEETS_API=1 node --test tests/js/backend.test.mjs tests/js/calculations.test.mjs"
   }
 }

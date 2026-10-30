@@ -7,6 +7,7 @@ import typer
 from chgk import __version__
 from chgk.backend import (
     PERMISSIONS_HINT,
+    SHEETS_API_HINT,
     BackendClient,
     BackendError,
     Profile,
@@ -28,6 +29,8 @@ app.add_typer(backend_app, name="backend")
 def _warn_permissions(reply: dict) -> None:
     if reply.get("authorized") is False:
         typer.secho(PERMISSIONS_HINT, fg="yellow")
+    if reply.get("sheets_api") is False:  # older backends don't say: no warning
+        typer.secho(SHEETS_API_HINT, fg="yellow")
 
 
 def _fail(err: Exception) -> typer.Exit:

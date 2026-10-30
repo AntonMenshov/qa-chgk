@@ -27,6 +27,13 @@ PERMISSIONS_HINT = (
 )
 
 
+SHEETS_API_HINT = (
+    "The script's 'Google Sheets API' service is off, so every request takes ~2 s longer. In the script "
+    "editor: Services (+) → Google Sheets API → Add, then Deploy → Manage deployments → edit → New version. "
+    "See docs/google-account.md."
+)
+
+
 class BackendError(RuntimeError):
     """The backend refused a request or could not be reached."""
 

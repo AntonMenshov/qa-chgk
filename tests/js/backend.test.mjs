@@ -537,6 +537,107 @@ test("an older Sheet: share_view renames «Stats» to «Статистика» a
   assert.equal(tab("Спорные").hidden, true);
 });
 
+// ---- one read and one write per request (Sheets API advanced service) ----
+
+function apiWorld() {
+  const b = loadBackend({ sheetsApi: true });
+  b.setup();
+  const admin = b.$.props.get("ADMIN_TOKEN");
+  const created = b.post({ action: "create_tournament", token: admin, tid: TID, name: "Кубок", date: "2026-11-15",
+    round_sizes: [3, 3], jury_token: JURY, teams: TEAMS, reserve: ["R1"] });
+  const ss = b.$.spreadsheets.get(created.spreadsheet_id);
+  const calls = (fn) => {
+    const before = { reads: b.$.api.reads, writes: b.$.api.writes };
+    const result = fn();
+    return { result, reads: b.$.api.reads - before.reads, writes: b.$.api.writes - before.writes };
+  };
+  return { b, admin, ss, tab: (name) => ss.getSheetByName(name), calls };
+}
+
+test("record_events, get_state and get_board read once; record_events writes once", () => {
+  const { b, calls, tab } = apiWorld();
+  const post = (events) => calls(() => b.post({ action: "record_events", tid: TID, token: JURY, events }));
+  // Marks, Meta, Log and «Спорные» in one write, whatever the batch holds.
+  let c = post([ev({ question: 1, status: "received" }), ev({ team_id: "A02", question: 2, status: "disputed", photo: "p.jpg" })]);
+  assert.deepEqual([c.result.ok, c.reads, c.writes], [true, 1, 1]);
+  assert.ok(b.$.api.batches.at(-1) >= 6);
+  assert.equal(tab("Спорные").get(2, 4), "p.jpg");
+  const third = ev({ question: 3, status: "correct" });
+  c = post([third]);
+  assert.deepEqual([c.reads, c.writes], [1, 1]);
+  c = post([third]); // the phone retries: a duplicate, read only
+  assert.deepEqual([c.reads, c.writes], [1, 0]);
+  assert.deepEqual([calls(() => b.post({ action: "get_state", tid: TID, token: JURY })).reads,
+    calls(() => b.post({ action: "get_board", tid: TID, token: JURY })).reads], [1, 1]);
+  assert.equal(calls(() => b.post({ action: "get_state", tid: TID, token: JURY })).writes, 0);
+  // RAW writes keep text as text: a team ID like 645 in Meta and Log, a team called «42» on «Спорные».
+  assert.equal(tab("Спорные").get(2, 3), "Фиаско");
+  assert.equal(typeof tab("Log").get(2, 7), "string");
+  assert.match(tab("Log").get(2, 1), /^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d$/);
+});
+
+test("the same marks, places and «Спорные» with the Sheets API off (the slow path)", () => {
+  const run = (sheetsApi) => {
+    const b = loadBackend({ sheetsApi });
+    b.setup();
+    const admin = b.$.props.get("ADMIN_TOKEN");
+    const created = b.post({ action: "create_tournament", token: admin, tid: TID, name: "Кубок", date: "2026-11-15",
+      round_sizes: [3, 3], jury_token: JURY, teams: TEAMS, reserve: ["R1"] });
+    let k = 0;
+    const e = (over) => ({ scan_id: `x${++k}`, status: "correct", team_id: "A01", question: 1, client_ts: 1700000000000 + k, ...over });
+    for (const events of [[e({}), e({ team_id: "A02", question: 4, status: "disputed" })],
+      [e({ team_id: "R1", question: 2 }), e({ team_id: "A02", question: 5 })], [e({ team_id: "A01", question: 4, status: "disputed" })]]) {
+      assert.equal(b.post({ action: "record_events", tid: TID, token: JURY, events }).ok, true);
+    }
+    const ss = b.$.spreadsheets.get(created.spreadsheet_id);
+    const dump = (name) => { const t = ss.getSheetByName(name); return Array.from({ length: t.getLastRow() }, (_, i) => t.row(i + 1, 7)); };
+    return { tabs: ["Итоги", "Тур 1", "Тур 2", "Спорные"].map(dump), state: b.post({ action: "get_state", tid: TID, token: JURY }),
+      results: b.post({ action: "get_results", tid: TID, token: JURY }), api: b.$.api };
+  };
+  const fast = run(true);
+  const slow = run(false);
+  assert.deepEqual(fast.tabs, slow.tabs);
+  assert.deepEqual(fast.state, slow.state);
+  assert.deepEqual(fast.results, slow.results);
+  assert.ok(fast.api.reads > 0 && slow.api.reads === 0);
+});
+
+test("a failing Sheets API (quota: 60 calls a minute per account) falls back: the marks still go in", () => {
+  const { b, tab } = apiWorld();
+  b.$.api.fail = true;
+  const mark = ev({ team_id: "A02", question: 4 });
+  const res = b.post({ action: "record_events", tid: TID, token: JURY, events: [mark] });
+  assert.equal(res.ok, true, JSON.stringify(res));
+  assert.equal(tab("Тур 2").get(tab("Тур 2").rowOf("A02"), 3), 1);
+  assert.equal(b.post({ action: "get_board", tid: TID, token: JURY }).marks.A02[3], 1);
+  b.$.api.fail = false;
+  // Seen by the next request: the scan ID is known, so a retry from the phone is a duplicate.
+  const again = b.post({ action: "record_events", tid: TID, token: JURY, events: [mark] });
+  assert.equal(again.results[0].duplicate, true);
+});
+
+test("the Log grows past the grid: one slow write adds room, then the API writes again", () => {
+  const { b, tab, calls } = apiWorld();
+  const log = tab("Log");
+  for (let r = 2; r <= 1000; r++) log.set(r, 3, `old-${r}`); // a full game's worth of rows
+  const c = calls(() => b.post({ action: "record_events", tid: TID, token: JURY, events: [ev({ question: 2 })] }));
+  assert.equal(c.result.ok, true);
+  assert.equal(log.get(1001, 3), `s${seq}`);
+  assert.ok(log.getMaxRows() >= 2000);
+  const before = b.$.api.batches.length;
+  b.post({ action: "record_events", tid: TID, token: JURY, events: [ev({ question: 3 })] });
+  assert.equal(b.$.api.batches.length, before + 1); // the API write went through this time
+  assert.equal(log.get(1002, 3), `s${seq}`);
+});
+
+test("ping says whether the Sheets API service is on", () => {
+  for (const on of [true, false]) {
+    const b = loadBackend({ sheetsApi: on });
+    b.setup();
+    assert.equal(b.post({ action: "ping", token: b.$.props.get("ADMIN_TOKEN") }).sheets_api, on);
+  }
+});
+
 test("set_board_token gives an older tournament a board link (admin only); a weak token is refused", () => {
   const { b, admin } = world();
   const NEW = "new-board-token-abcdefgh";

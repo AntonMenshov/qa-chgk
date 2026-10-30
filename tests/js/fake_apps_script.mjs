@@ -2,7 +2,8 @@
 // exercised in Node. They mimic the behaviour that matters: range bounds (1000 × 26 for
 // a new sheet), getLastRow, values defaulting to "", getValues() returning computed
 // formula results, and text that looks like a number turning into a number unless the
-// cell is formatted as plain text ("@").
+// cell is formatted as plain text ("@"). The «Google Sheets API» advanced service
+// (Sheets.Spreadsheets.Values) works on the same spreadsheets; see fakeSheetsApi.
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import { makeEvaluator } from "./sheet_formulas.mjs";
@@ -158,6 +159,75 @@ class FakeFolder {
   }
 }
 
+const colNumber = (letters) => [...letters].reduce((n, ch) => n * 26 + ch.charCodeAt(0) - 64, 0);
+
+/**
+ * Sheets.Spreadsheets.Values over the fake spreadsheets, as the real API behaves:
+ * batchGet (UNFORMATTED_VALUE) gives computed values with trailing empty cells and rows
+ * left out; batchUpdate (RAW) stores values exactly as given ("42" stays text) and fails as
+ * a whole on a missing tab or a range past the grid. `api` counts calls; `api.fail` makes
+ * every call throw (e.g. the 60-per-minute quota).
+ */
+function fakeSheetsApi(spreadsheets, api) {
+  const parse = (a1) => {
+    const m = /^'((?:[^']|'')+)'!([A-Z]+)(\d+):([A-Z]+)(\d*)$/.exec(a1);
+    if (!m) throw new Error(`Unable to parse range: ${a1}`);
+    return { name: m[1].replace(/''/g, "'"), r1: Number(m[3]), c1: colNumber(m[2]), r2: m[5] ? Number(m[5]) : null, c2: colNumber(m[4]) };
+  };
+  const tab = (ss, name) => {
+    const sheet = ss.getSheetByName(name);
+    if (!sheet) throw new Error(`Unable to parse range: '${name}'`);
+    return sheet;
+  };
+  return {
+    Spreadsheets: {
+      Values: {
+        batchGet(id, { ranges, valueRenderOption }) {
+          api.reads += 1;
+          if (api.fail) throw new Error("Quota exceeded for quota metric 'Read requests'");
+          if (valueRenderOption !== "UNFORMATTED_VALUE") throw new Error("expected UNFORMATTED_VALUE");
+          const ss = spreadsheets.get(id);
+          return {
+            valueRanges: ranges.map((a1) => {
+              const r = parse(a1);
+              const sheet = tab(ss, r.name);
+              const rows = [];
+              for (let row = r.r1; row <= Math.min(r.r2 || sheet.getLastRow(), sheet.maxRows); row++) {
+                const values = [];
+                for (let c = r.c1; c <= r.c2; c++) values.push(sheet.value(row, c));
+                while (values.length && values[values.length - 1] === "") values.pop();
+                rows.push(values);
+              }
+              while (rows.length && rows[rows.length - 1].length === 0) rows.pop();
+              return rows.length ? { range: a1, values: rows } : { range: a1 };
+            }),
+          };
+        },
+        batchUpdate(resource, id) {
+          api.writes += 1;
+          if (api.fail) throw new Error("Quota exceeded for quota metric 'Write requests'");
+          if (resource.valueInputOption !== "RAW") throw new Error("expected RAW");
+          const ss = spreadsheets.get(id);
+          const ops = resource.data.map((d) => {
+            const r = parse(d.range);
+            const sheet = tab(ss, r.name);
+            const rows = d.values.length;
+            const cols = Math.max(...d.values.map((v) => v.length));
+            if (r.r2 !== r.r1 + rows - 1 || r.c2 !== r.c1 + cols - 1) throw new Error(`values don't match ${d.range}`);
+            if (r.r1 + rows - 1 > sheet.maxRows || r.c1 + cols - 1 > sheet.maxCols) {
+              throw new Error(`Range (${d.range}) exceeds grid limits`);
+            }
+            return { sheet, r, values: d.values };
+          });
+          ops.forEach(({ sheet, r, values }) => values.forEach((row, i) => row.forEach((v, j) => sheet.set(r.r1 + i, r.c1 + j, v))));
+          api.batches.push(resource.data.length);
+          return {};
+        },
+      },
+    },
+  };
+}
+
 function chain() {
   // Any method returns the same object; build()/create() end the chain.
   const proxy = new Proxy({}, { get: (_, prop) => (prop === "build" || prop === "create" ? () => ({}) : () => proxy) });
@@ -166,12 +236,13 @@ function chain() {
 
 /** A fresh Apps Script world with Code.js and logic.js loaded; returns the vm context. */
 export function loadBackend({ account = "me@gmail.com", serviceUrl = "https://script.google.com/macros/s/AKfycbFAKE00000/exec",
-  allScopes = true } = {}) {
+  allScopes = true, sheetsApi = !process.env.CHGK_NO_SHEETS_API } = {}) {
   const props = new Map();
   const spreadsheets = new Map();
   const root = new FakeFolder("root");
   const triggers = [];
   const sharing = new Map(); // spreadsheet id → "ACCESS:PERMISSION"
+  const api = { reads: 0, writes: 0, batches: [], fail: false };
   const ctx = {
     console,
     JSON, Date, Math, Number, String, Object, Array, Set, Map, Error,
@@ -185,11 +256,12 @@ export function loadBackend({ account = "me@gmail.com", serviceUrl = "https://sc
       MimeType: { JSON: "json" },
       createTextOutput: (text) => ({ setMimeType: () => ({ text, json: () => JSON.parse(text) }) }),
     },
-    Session: { getEffectiveUser: () => ({ getEmail: () => account }) },
+    Session: { getEffectiveUser: () => ({ getEmail: () => account }), getScriptTimeZone: () => "Etc/UTC" },
     LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },
     SpreadsheetApp: {
       create(name) { const ss = new FakeSpreadsheet(`ss${spreadsheets.size + 1}`, name); spreadsheets.set(ss.id, ss); return ss; },
       openById(id) { return spreadsheets.get(id); },
+      flush() {},
       newConditionalFormatRule: chain,
       BorderStyle: { SOLID_MEDIUM: "SOLID_MEDIUM" },
     },
@@ -207,15 +279,22 @@ export function loadBackend({ account = "me@gmail.com", serviceUrl = "https://sc
       getAuthorizationInfo: () => ({ getAuthorizationStatus: () => (allScopes ? "NOT_REQUIRED" : "REQUIRED") }),
       requireAllScopes: (mode) => { ctx.$.scopeRequests.push(mode); },
     },
-    Utilities: { getUuid: () => "0123456789abcdef0123456789abcdef" },
+    Utilities: {
+      getUuid: () => "0123456789abcdef0123456789abcdef",
+      formatDate: (d, tz, fmt) => {
+        if (tz !== "Etc/UTC" || fmt !== "yyyy-MM-dd HH:mm:ss") throw new Error(`formatDate ${tz} ${fmt}`);
+        return d.toISOString().slice(0, 19).replace("T", " ");
+      },
+    },
     Logger: { log: (...args) => ctx.logged.push(args) },
     logged: [],
   };
+  if (sheetsApi) ctx.Sheets = fakeSheetsApi(spreadsheets, api);
   vm.createContext(ctx);
   const dir = new URL("../../apps_script/", import.meta.url);
   const source = readFileSync(new URL("logic.js", dir), "utf8") + "\n" + readFileSync(new URL("Code.js", dir), "utf8");
   vm.runInContext(source, ctx, { filename: "apps_script bundle" });
-  ctx.$ = { props, spreadsheets, root, triggers, sharing, scopeRequests: [] };
+  ctx.$ = { props, spreadsheets, root, triggers, sharing, api, scopeRequests: [] };
   ctx.post = (body) => ctx.doPost({ postData: { contents: JSON.stringify(body) } }).json();
   return ctx;
 }

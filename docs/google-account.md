@@ -17,6 +17,9 @@ which holds the results Sheet and a `Фото` folder for card photos.
    `chgk backend`.
 4. Delete everything in the editor's `Code.gs`, paste the whole content of
    `out/apps_script/Code.gs`, and save (⌘S).
+   Then, in the left sidebar, **Services (+) → Google Sheets API → Add**. With it a
+   request reads and writes the Sheet in one go each, ~2 s faster. Without it everything
+   still works, just slower, and `chgk backend check` says so.
 5. **Deploy → New deployment**. Click the gear and choose **Web app**:
    - Description: `chgk`
    - Execute as: **Me**

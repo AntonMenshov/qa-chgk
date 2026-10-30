@@ -43,6 +43,7 @@ class FakeBackend:
 
     def __init__(self, url, account, authorized=True):
         self.url, self.account, self.authorized = url, account, authorized
+        self.sheets_api = True
         self.tournaments: dict[str, dict] = {}
         self.calls: list[dict] = []
 
@@ -53,7 +54,7 @@ class FakeBackend:
         action = req["action"]
         if action == "ping":
             return httpx.Response(200, json={"ok": True, "version": "v1", "account": self.account,
-                                             "authorized": self.authorized})
+                                             "authorized": self.authorized, "sheets_api": self.sheets_api})
         if action == "create_tournament":
             t = self.tournaments.get(req["tid"])
             if t:
@@ -298,6 +299,15 @@ def test_cli_backend_warns_when_a_permission_is_missing(backends):
     assert "Select all" in runner.invoke(app, ["backend", "check"]).output
     a.authorized = True
     assert "Select all" not in runner.invoke(app, ["backend", "check"]).output
+
+
+def test_cli_backend_check_warns_when_the_sheets_api_service_is_off(backends):
+    a, _ = backends
+    runner.invoke(app, ["backend", "add", "personal", "--url", URL_A, "--token", "tokA"])
+    assert "Google Sheets API" not in runner.invoke(app, ["backend", "check"]).output
+    a.sheets_api = False
+    check = runner.invoke(app, ["backend", "check"])
+    assert check.exit_code == 0 and "Services (+) → Google Sheets API → Add" in check.output
 
 
 def test_cli_backend_add_rejects_unreachable():

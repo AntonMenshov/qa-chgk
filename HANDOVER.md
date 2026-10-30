@@ -189,6 +189,15 @@ checks that the decks come out in order.
   5 teams, else total + last round's grid; «Взяли» row. Read-only board token
   (`get_board`); `chgk board` adds one to tournaments created before Phase 5.
 
+- Backend speed (user picked proposal #3, 2026-10-30): with the «Google Sheets API» advanced
+  service on, a request reads everything in one Values.batchGet (readMarks_ with optional
+  Teams/Log) and writes everything in one Values.batchUpdate (writer_, RAW: "42" stays
+  text). Sorting and notes stay on SpreadsheetApp, after the flush. Any API failure (quota
+  60/min/account, a tab past its grid — Log grows by 1000 rows — or missing) falls back to
+  SpreadsheetApp, so nothing is lost. Log times are now text "yyyy-MM-dd HH:mm:ss" in the
+  script's time zone. `npm test` runs the backend suites again with the API off. Not yet
+  measured live. #2 (cache) kept for later, #4 (ARRAYFORMULA) rejected, #1 (timings) next.
+
 - «Спорные» (user request): hidden tab listing every «?» (Тур, Вопрос, Команда, Фото from
   Log) with totals overall / per round / per team. Written by the backend only when the
   set of «?» changes — compared with Meta's known values, since a jury edit is already on
