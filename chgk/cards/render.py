@@ -34,7 +34,7 @@ FONT, FONT_BOLD = "PTSans", "PTSans-Bold"
 GUIDE_GREY = 0.65  # cut lines for a guillotine: 0 = black, 1 = white
 SCISSORS_GREY = 0.35  # darker, dashed cut lines that are easy to follow with scissors
 ELLIPSIS = "…"
-SPARE_BOX_W = 0.9 * 72  # pt: room for a handwritten two- or three-digit number
+SPARE_BOX_W = 0.8 * 72  # pt: room for a handwritten two- or three-digit number
 SPARE_BOX_GREY = 0.35
 RESERVE_NAME_LABEL = "Команда:"
 
@@ -156,11 +156,14 @@ def _draw_card(c: Canvas, card: Card, parts: CardParts, tournament: Tournament, 
     c.setFillGray(0)
     if card.is_spare:
         # An empty box where the number sits on every other card: the team writes it in.
+        # White inside, so the logo behind it neither crosses the border nor the handwriting.
         box = spare_box(nr)
         c.setStrokeGray(SPARE_BOX_GREY)
+        c.setFillGray(1)
         c.setLineWidth(1)
-        c.roundRect(box.x, box.y, box.w, box.h, 4)
+        c.roundRect(box.x, box.y, box.w, box.h, 4, stroke=1, fill=1)
         c.setStrokeGray(0)
+        c.setFillGray(0)
     else:
         c.setFont(FONT_BOLD, NUMBER_SIZE)
         c.drawString(nr.x, nr.top - pdfmetrics.getAscent(FONT_BOLD, NUMBER_SIZE), str(card.id.question))

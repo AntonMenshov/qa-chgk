@@ -237,6 +237,26 @@ def test_spare_cards_have_an_empty_number_box_and_no_words(folder, tmp_path):
     assert min(px(mid_x, mid_y), px(box.x + 8, box.top - 8)) > 200  # empty inside
 
 
+def test_spare_box_is_white_inside_over_a_big_centred_logo(folder, tmp_path):
+    """User report: the box outline ran across the logo. The logo is now centred on the
+    card and the box is filled white, so nothing of the logo shows inside it."""
+    config = folder / "config.py"
+    text = config.read_text(encoding="utf-8")
+    assert "card=CardFields(" in text
+    config.write_text(text.replace("card=CardFields(", "card=CardFields(logo_size=1.85, logo_grey=0.5, "), encoding="utf-8")
+    out = tmp_path / "out.pdf"
+    build_cards(folder, Mode.TEAM_PAGES, out)
+    image = page_images(out)[0].convert("L")
+    scale = DPI / 72
+    rect = card_rects(Layout())[6]
+    parts = card_parts(rect, 0.65 * 72, 1.85 * 72)
+    box = spare_box(parts.number)
+    assert parts.logo.intersects(box)  # the logo does reach under the box ...
+    inside = [image.getpixel((round(x * scale), round((PAGE_H - y) * scale)))
+              for x in range(round(box.x + 4), round(box.right - 4), 3) for y in range(round(box.y + 4), round(box.top - 4), 3)]
+    assert min(inside) > 245  # ... but the box stays white
+
+
 # ---- reserve decks (teams that turn up unregistered) ----
 
 

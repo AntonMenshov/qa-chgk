@@ -58,11 +58,13 @@ def test_card_parts_fit_and_do_not_overlap(grid, qr_in):
 
 @pytest.mark.parametrize("grid", GRIDS)
 @pytest.mark.parametrize("logo_in", [0.5, 1.4, 1.85, 5.0])
-def test_sized_logo_stays_on_the_card_and_off_the_qr(grid, logo_in):
+def test_sized_logo_is_centred_on_the_card(grid, logo_in):
     for card in card_rects(Layout(cols=grid[0], rows=grid[1])):
         parts = card_parts(card, 0.65 * INCH, logo_in * INCH)
         assert card.contains(parts.logo)
-        assert not parts.logo.intersects(parts.qr)
+        # Centred on the card, not in the space left of the QR (user request).
+        assert parts.logo.x + parts.logo.w / 2 == pytest.approx(card.x + card.w / 2)
+        assert parts.logo.y + parts.logo.h / 2 == pytest.approx(card.y + card.h / 2)
         assert parts.logo.w == parts.logo.h <= logo_in * INCH + 1e-6
 
 
