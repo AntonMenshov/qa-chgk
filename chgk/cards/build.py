@@ -15,7 +15,6 @@ from chgk.logos import FALLBACK_KEY, LOGO_LIBRARY, MAX_SIDE, TOURNAMENT_KEY, loa
 from chgk.state import load_or_create_state
 from chgk.teams import TEAMS_FILE, Team, read_teams, reserve_teams
 
-
 INSTRUCTIONS = {
     Mode.TEAM_PAGES: "Each page holds one team's cards. Cut each page along the grey lines.",
     Mode.SCISSORS: "Each page holds one team's cards. Cut along the dashed lines; neighbouring cards share a line.",
@@ -29,8 +28,10 @@ INSTRUCTIONS = {
 
 
 def _load_logos(folder: Path, tournament: Tournament, teams: list[Team]) -> tuple[dict[str, Path], list[str]]:
-    """Logo files to use, keyed by team_id / TOURNAMENT_KEY / FALLBACK_KEY. A file that
-    can't be found is a warning, not an error: the card falls back to the next logo."""
+    """Logo files to use, keyed by team_id / TOURNAMENT_KEY / FALLBACK_KEY.
+
+    A file that can't be found is a warning, not an error: the card falls back to the next logo.
+    """
     fields = tournament.card
     found: dict[str, Path] = {}
     warnings: list[str] = []
@@ -71,7 +72,7 @@ class BuildResult:
 
 
 def load_teams(folder: Path, tournament: Tournament) -> list[Team]:
-    """The organiser's teams from teams.py, then the reserve teams R1, R2, …"""
+    """The organiser's teams from teams.py, then the reserve teams R1, R2, and so on."""
     teams = read_teams(Path(folder) / TEAMS_FILE)
     return teams + reserve_teams(tournament.reserve_teams, teams)
 

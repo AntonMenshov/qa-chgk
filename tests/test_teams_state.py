@@ -16,12 +16,16 @@ HEADER = "from chgk.teams import team\n\n"
 
 
 def test_given_ids_are_kept_missing_ones_assigned_and_written_back(tmp_path):
-    path = write(tmp_path / "teams.py", HEADER + """teams = [
+    path = write(
+        tmp_path / "teams.py",
+        HEADER
+        + """teams = [
     team("Синие зайцы", city="Бостон"),
     team("Думать быстро", id="58746", logo="logos/d.png"),
     team("Третьи"),  # a comment
 ]
-""")
+""",
+    )
     teams = read_teams(path)
     assert teams == [
         Team("A01", "Синие зайцы", "Бостон", ""),
@@ -71,7 +75,7 @@ def test_invalid_team_files(tmp_path, text):
 
 
 def test_missing_teams_file(tmp_path):
-    with pytest.raises(ValueError, match="no teams.py"):
+    with pytest.raises(ValueError, match=r"no teams\.py"):
         read_teams(tmp_path / "teams.py")
 
 
@@ -83,10 +87,17 @@ def test_state_created_once_and_reused(tmp_path):
 
 
 def test_state_derived_links_and_tolerates_unknown_keys(tmp_path):
-    (tmp_path / "state.json").write_text(json.dumps({
-        "tid": "K7M2Q", "spreadsheet_id": "abc123", "jury_token": "t" * 24,
-        "backend_url": "https://script.google.com/macros/s/AKfycbx_Example-123/exec", "future_field": 1,
-    }))
+    (tmp_path / "state.json").write_text(
+        json.dumps(
+            {
+                "tid": "K7M2Q",
+                "spreadsheet_id": "abc123",
+                "jury_token": "t" * 24,
+                "backend_url": "https://script.google.com/macros/s/AKfycbx_Example-123/exec",
+                "future_field": 1,
+            }
+        )
+    )
     state = load_or_create_state(tmp_path)
     assert state.spreadsheet_url == "https://docs.google.com/spreadsheets/d/abc123/edit"
     assert state.jury_access.tid == "K7M2Q"

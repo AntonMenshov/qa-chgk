@@ -13,10 +13,14 @@ def write_teams_file(folder, rows):
     """teams.py as an organiser would write it (team_id None = no id given)."""
     lines = ["from chgk.teams import team", "", "teams = ["]
     for team_id, name, city, logo in rows:
-        args = [repr(name)] + ([f"id={team_id!r}"] if team_id else []) + ([f"city={city!r}"] if city else []) \
+        args = (
+            [repr(name)]
+            + ([f"id={team_id!r}"] if team_id else [])
+            + ([f"city={city!r}"] if city else [])
             + ([f"logo={logo!r}"] if logo else [])
+        )
         lines.append(f"    team({', '.join(args)}),")
-    (folder / "teams.py").write_text("\n".join(lines + ["]", ""]), encoding="utf-8")
+    (folder / "teams.py").write_text("\n".join([*lines, "]", ""]), encoding="utf-8")
 
 
 @pytest.fixture

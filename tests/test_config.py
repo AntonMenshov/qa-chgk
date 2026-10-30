@@ -7,14 +7,14 @@ from chgk.config import CardFields, ConfigError, Layout, LogoMode, Tournament, l
 
 
 def make(**overrides) -> Tournament:
-    base = dict(
-        slug="autumn-cup",
-        name="Осенний кубок",
-        date=date(2026, 11, 15),
-        rounds=3,
-        questions_per_round=12,
-        scanner_url="https://example.github.io/qa-chgk/s/",
-    )
+    base = {
+        "slug": "autumn-cup",
+        "name": "Осенний кубок",
+        "date": date(2026, 11, 15),
+        "rounds": 3,
+        "questions_per_round": 12,
+        "scanner_url": "https://example.github.io/qa-chgk/s/",
+    }
     return Tournament(**(base | overrides))
 
 
@@ -59,17 +59,17 @@ def test_defaults_match_user_choices():
 @pytest.mark.parametrize(
     "overrides",
     [
-        dict(slug="Bad Slug"),
-        dict(name="  "),
-        dict(rounds=0),
-        dict(questions_per_round=[12, 12]),
-        dict(questions_per_round=[12, 0, 12]),
-        dict(spares_per_team=-1),
-        dict(reserve_teams=-1),
-        dict(reserve_teams=10),
-        dict(board_grid_max_teams=-1),
-        dict(scanner_url="http://example.com/s/"),
-        dict(scanner_url="https://example.com/s"),
+        {"slug": "Bad Slug"},
+        {"name": "  "},
+        {"rounds": 0},
+        {"questions_per_round": [12, 12]},
+        {"questions_per_round": [12, 0, 12]},
+        {"spares_per_team": -1},
+        {"reserve_teams": -1},
+        {"reserve_teams": 10},
+        {"board_grid_max_teams": -1},
+        {"scanner_url": "http://example.com/s/"},
+        {"scanner_url": "https://example.com/s"},
     ],
 )
 def test_invalid_tournament(overrides):

@@ -63,7 +63,7 @@ def decode_payload(payload: str) -> CardId:
 
 
 def _team_id(n: int) -> str:
-    """0 → A01, 98 → A99, 99 → B01, …"""
+    """Assigned team ID number n: 0 → A01, 98 → A99, 99 → B01, and so on."""
     letter, number = divmod(n, 99)
     if letter >= 26:
         raise ValueError("too many teams")
@@ -77,7 +77,7 @@ def normalize_team_id(team_id: str | None) -> str | None:
 
 
 def assign_team_ids(existing: list[str | None]) -> list[str]:
-    """Keep the given IDs (normalised) and give each missing one the next unused A01, A02, …"""
+    """Keep the given IDs (normalised) and give each missing one the next unused A01, A02, and so on."""
     existing = [normalize_team_id(t) for t in existing]
     used = set()
     for team_id in existing:

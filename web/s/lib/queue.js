@@ -14,8 +14,8 @@ export class Queue {
    * @param {() => number} [o.now]
    * @param {number} [o.batchSize]
    */
-  constructor({ storage, key, send, now = Date.now, batchSize = 200 }) {
-    Object.assign(this, { storage, key, send, now, batchSize });
+  constructor({storage, key, send, now = Date.now, batchSize = 200}) {
+    Object.assign(this, {storage, key, send, now, batchSize});
     const saved = storage.get(key) || {};
     this.pending = saved.pending || [];
     this.rejected = saved.rejected || [];
@@ -26,7 +26,7 @@ export class Queue {
   }
 
   save() {
-    this.storage.set(this.key, { pending: this.pending, rejected: this.rejected });
+    this.storage.set(this.key, {pending: this.pending, rejected: this.rejected});
   }
 
   add(event) {
@@ -44,7 +44,9 @@ export class Queue {
    * sent. Never throws: a failure is kept in lastError and retried later.
    */
   async flush() {
-    if (!this.due()) return null;
+    if (!this.due()) {
+      return null;
+    }
     const batch = this.pending.slice(0, this.batchSize);
     this.inFlight = true;
     let reply;
@@ -67,10 +69,12 @@ export class Queue {
     const sent = new Set();
     for (const event of batch) {
       const r = byId.get(event.scan_id);
-      if (!r) continue; // no answer for it: stays pending
+      if (!r) {
+        continue;
+      } // no answer for it: stays pending
       sent.add(event.scan_id);
       if (r.error) {
-        this.rejected.push({ event, error: r.error });
+        this.rejected.push({event, error: r.error});
         rejected.push(event.scan_id);
       } else {
         acked.push(event.scan_id);
@@ -78,7 +82,7 @@ export class Queue {
     }
     this.pending = this.pending.filter((e) => !sent.has(e.scan_id));
     this.save();
-    return { acked, rejected };
+    return {acked, rejected};
   }
 
   /** Forget refused events once the juror has seen them. */
@@ -88,6 +92,11 @@ export class Queue {
   }
 
   get status() {
-    return { pending: this.pending.length, rejected: this.rejected.length, failing: this.failures > 0, lastError: this.lastError };
+    return {
+      pending: this.pending.length,
+      rejected: this.rejected.length,
+      failing: this.failures > 0,
+      lastError: this.lastError,
+    };
   }
 }

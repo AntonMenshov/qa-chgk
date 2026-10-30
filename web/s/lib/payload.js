@@ -5,21 +5,23 @@
 // Jury link:  <scanner_url>#setup=<TID>.<JURY_TOKEN>.<DEPLOYMENT_ID>
 // Board link: <board_url>?grid=<N>#board=<TID>.<BOARD_TOKEN>.<DEPLOYMENT_ID>  (tests/vectors/board_links.json)
 
-const TID = "[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{5}";
+const TID = '[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{5}';
 const CARD_RE = new RegExp(`^(${TID})\\.([0-9A-Z]{1,8})\\.(?:([1-9][0-9]{0,2})|S([1-9][0-9]?))$`);
 const SETUP_RE = new RegExp(`^setup=(${TID})\\.([A-Za-z0-9_-]{16,})\\.([A-Za-z0-9_-]{10,})$`);
 const BOARD_RE = new RegExp(`^board=(${TID})\\.([A-Za-z0-9_-]{16,})\\.([A-Za-z0-9_-]{10,})$`);
 
 const fragment = (text) => {
-  const s = String(text || "");
-  const hash = s.lastIndexOf("#");
+  const s = String(text || '');
+  const hash = s.lastIndexOf('#');
   return hash >= 0 ? s.slice(hash + 1) : s;
 };
 
 /** {tid, teamId, question, spare} for an answer card, or null. Exactly one of question/spare is set. */
 export function decodeCard(text) {
   const m = CARD_RE.exec(fragment(text));
-  if (!m) return null;
+  if (!m) {
+    return null;
+  }
   return {
     tid: m[1],
     teamId: m[2],
@@ -31,13 +33,17 @@ export function decodeCard(text) {
 /** {tid, juryToken, backendUrl} for a jury setup link, or null. */
 export function decodeSetup(text) {
   const m = SETUP_RE.exec(fragment(text));
-  if (!m) return null;
-  return { tid: m[1], juryToken: m[2], backendUrl: `https://script.google.com/macros/s/${m[3]}/exec` };
+  if (!m) {
+    return null;
+  }
+  return {tid: m[1], juryToken: m[2], backendUrl: `https://script.google.com/macros/s/${m[3]}/exec`};
 }
 
 /** {tid, boardToken, backendUrl} for a projector board link, or null. */
 export function decodeBoard(text) {
   const m = BOARD_RE.exec(fragment(text));
-  if (!m) return null;
-  return { tid: m[1], boardToken: m[2], backendUrl: `https://script.google.com/macros/s/${m[3]}/exec` };
+  if (!m) {
+    return null;
+  }
+  return {tid: m[1], boardToken: m[2], backendUrl: `https://script.google.com/macros/s/${m[3]}/exec`};
 }

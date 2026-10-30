@@ -1,4 +1,4 @@
-"""Team list: `tournaments/<slug>/teams.py`, a Python file like config.py:
+"""Team list: `tournaments/<slug>/teams.py`, a Python file like config.py.
 
     from chgk.teams import team
 
@@ -9,7 +9,8 @@
 
 IDs end up in the cards' QR codes, so a team without one gets the next free A01, A02, …
 written back into the file (which is then regenerated, without comments). `chgk teams`
-also regenerates it from the Sheet's Teams tab."""
+also regenerates it from the Sheet's Teams tab.
+"""
 
 import importlib.util
 import json
@@ -40,8 +41,10 @@ def reserve_teams(count: int, teams: list[Team]) -> list[Team]:
     reserve = [Team(f"R{i}", "", reserve=True) for i in range(1, count + 1)]
     clash = sorted({t.team_id for t in teams} & {t.team_id for t in reserve})
     if clash:
-        raise ValueError(f"team_id {', '.join(clash)} is kept for reserve teams: give that team another ID "
-                         "or lower reserve_teams in config.py")
+        raise ValueError(
+            f"team_id {', '.join(clash)} is kept for reserve teams: give that team another ID "
+            "or lower reserve_teams in config.py"
+        )
     return reserve
 
 
@@ -60,7 +63,7 @@ def read_teams(path: Path) -> list[Team]:
         raise ValueError(f"{path} has no teams")
     ids = assign_team_ids([t.team_id or None for t in given])
     teams = []
-    for t, team_id in zip(given, ids):
+    for t, team_id in zip(given, ids, strict=True):
         name = t.name.strip()
         if not name:
             raise ValueError(f"{path}: team {team_id} has no name")

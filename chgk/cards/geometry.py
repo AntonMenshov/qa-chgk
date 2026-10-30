@@ -71,8 +71,10 @@ def printable_area(layout: Layout) -> Rect:
 
 
 def card_rects(layout: Layout) -> list[Rect]:
-    """Card rectangles in reading order: left to right, top to bottom. Neighbouring
-    cards share an edge, so every cut separates two cards and no paper is wasted."""
+    """Card rectangles in reading order: left to right, top to bottom.
+
+    Neighbouring cards share an edge, so every cut separates two cards and no paper is wasted.
+    """
     area = printable_area(layout)
     w = area.w / layout.cols
     h = area.h / layout.rows

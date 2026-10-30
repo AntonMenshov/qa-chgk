@@ -25,8 +25,10 @@ def impose(mode: Mode, decks: list[list[Card]], per_page: int, tid: str = "") ->
 
 
 def team_pages(decks: list[list[Card]], per_page: int, tid: str) -> list[Page]:
-    """Each page holds one team's cards in order. Empty slots on a team's last page
-    become extra spares, numbered after the team's own spares."""
+    """Each page holds one team's cards in order.
+
+    Empty slots on a team's last page become extra spares, numbered after the team's own spares.
+    """
     pages: list[Page] = []
     for deck in decks:
         if not deck:
@@ -42,9 +44,11 @@ def team_pages(decks: list[list[Card]], per_page: int, tid: str) -> list[Page]:
 
 
 def cut_stack(decks: list[list[Card]], per_page: int) -> list[Page]:
-    """For a guillotine: stack the printed sheets in print order, cut once, then put
-    the slot piles on top of each other in slot order (slot 1 on top). The result is
-    every team's deck, in order, one after another.
+    """For a guillotine: one cut through the stack gives every team's deck in order.
+
+    Stack the printed sheets in print order, cut once, then put the slot piles on top of
+    each other in slot order (slot 1 on top). The result is every team's deck, in order,
+    one after another.
 
     Card i of the overall sequence goes to page i mod P, slot i div P, so the pile
     for slot s holds cards s·P … s·P + P − 1.

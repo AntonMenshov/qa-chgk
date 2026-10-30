@@ -1,6 +1,6 @@
 """Draw imposed pages into a Letter PDF."""
 
-from functools import lru_cache
+from functools import cache
 from pathlib import Path
 
 import segno
@@ -40,7 +40,7 @@ RESERVE_ID_SIZE = 8  # pt: a reserve deck's ID (R1, …), bottom right; small bu
 RESERVE_NAME_LABEL = "Команда:"
 
 
-@lru_cache(maxsize=None)
+@cache
 def _fonts() -> TTFont:
     regular = TTFont(FONT, FONTS_DIR / "PT_Sans-Web-Regular.ttf")
     pdfmetrics.registerFont(regular)
@@ -144,8 +144,9 @@ def spare_box(number: Rect) -> Rect:
     return Rect(number.x, number.y, min(SPARE_BOX_W, number.w), number.h)
 
 
-def _draw_card(c: Canvas, card: Card, parts: CardParts, tournament: Tournament, logo: ImageReader | None,
-               warnings: list[str]) -> None:
+def _draw_card(
+    c: Canvas, card: Card, parts: CardParts, tournament: Tournament, logo: ImageReader | None, warnings: list[str]
+) -> None:
     fields = tournament.card
     if logo is not None:
         lr = parts.logo
@@ -229,7 +230,7 @@ def render_cards(
     c.setTitle(f"{tournament.name} — карточки ({mode.value})")
     warnings: list[str] = []
     for page in pages:
-        for card, parts in zip(page, all_parts):
+        for card, parts in zip(page, all_parts, strict=False):  # a last page may have empty slots
             if card is None:
                 continue
             key = logo_key(card, tournament.card, logos)

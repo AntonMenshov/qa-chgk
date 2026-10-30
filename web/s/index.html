@@ -1,127 +1,134 @@
 <!doctype html>
 <html lang="ru">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#14213d">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="ЧГК жюри">
-<link rel="manifest" href="manifest.webmanifest">
-<link rel="apple-touch-icon" href="icons/icon-180.png">
-<link rel="icon" href="icons/icon-192.png">
-<title>ЧГК · сканер жюри</title>
-<link rel="stylesheet" href="app.css">
-<script src="vendor/zxing-wasm-3.1.4/zxing-reader.iife.js"></script>
-<script type="module" src="app.js"></script>
-</head>
-<body>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#14213d" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="ЧГК жюри" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="icons/icon-180.png" />
+    <link rel="icon" href="icons/icon-192.png" />
+    <title>ЧГК · сканер жюри</title>
+    <link rel="stylesheet" href="app.css" />
+    <script src="vendor/zxing-wasm-3.1.4/zxing-reader.iife.js"></script>
+    <script type="module" src="app.js"></script>
+  </head>
+  <body>
+    <!-- No tournament on this phone yet: scan the jury access QR. -->
+    <section id="setup" class="screen" hidden>
+      <h1>Сканер жюри</h1>
+      <p>Отсканируйте QR-код <b>«Доступ жюри»</b> с первой страницы листа жюри.</p>
+      <p class="muted">
+        Если открыли ссылку из обычной камеры iPhone и добавили приложение на экран «Домой», отсканируйте код ещё раз
+        уже здесь.
+      </p>
+      <div class="viewport">
+        <video id="setup-video" playsinline muted></video>
+        <div class="frame"></div>
+      </div>
+      <button id="setup-start" class="big">Включить камеру</button>
+      <p id="setup-msg" class="msg"></p>
+    </section>
 
-<!-- No tournament on this phone yet: scan the jury access QR. -->
-<section id="setup" class="screen" hidden>
-  <h1>Сканер жюри</h1>
-  <p>Отсканируйте QR-код <b>«Доступ жюри»</b> с первой страницы листа жюри.</p>
-  <p class="muted">Если открыли ссылку из обычной камеры iPhone и добавили приложение на экран «Домой», отсканируйте код ещё раз уже здесь.</p>
-  <div class="viewport"><video id="setup-video" playsinline muted></video><div class="frame"></div></div>
-  <button id="setup-start" class="big">Включить камеру</button>
-  <p id="setup-msg" class="msg"></p>
-</section>
+    <!-- Loading or error before the first data arrives. -->
+    <section id="loading" class="screen" hidden>
+      <h1 id="loading-title">Загрузка…</h1>
+      <p id="loading-msg" class="msg"></p>
+      <button id="loading-retry" class="big" hidden>Повторить</button>
+      <button id="loading-reset" class="link" hidden>Отключить этот турнир</button>
+    </section>
 
-<!-- Loading or error before the first data arrives. -->
-<section id="loading" class="screen" hidden>
-  <h1 id="loading-title">Загрузка…</h1>
-  <p id="loading-msg" class="msg"></p>
-  <button id="loading-retry" class="big" hidden>Повторить</button>
-  <button id="loading-reset" class="link" hidden>Отключить этот турнир</button>
-</section>
+    <!-- Scanning. -->
+    <section id="main" class="screen" hidden>
+      <header>
+        <div id="t-name" class="t-name"></div>
+        <button id="sync" class="pill"></button>
+        <button id="settings-open" class="icon" aria-label="Настройки">⚙</button>
+      </header>
+      <div class="qbar">
+        <button id="q-prev" class="arrow" aria-label="Предыдущий вопрос">‹</button>
+        <div class="qnum">
+          <span class="qlabel">Вопрос</span> <span id="q-num">1</span>
+          <div id="q-round" class="qround"></div>
+        </div>
+        <button id="q-next" class="arrow" aria-label="Следующий вопрос">›</button>
+      </div>
+      <div class="row">
+        <button id="missing-open" class="missing"></button>
+        <button id="lookup-open" class="lookup-open">🔍 Чья карточка?</button>
+      </div>
+      <div class="viewport main-viewport">
+        <video id="video" playsinline muted></video>
+        <div class="frame"></div>
+        <button id="start" class="big start">Начать проверку</button>
+      </div>
+      <div id="toast" class="toast" hidden></div>
+    </section>
 
-<!-- Scanning. -->
-<section id="main" class="screen" hidden>
-  <header>
-    <div id="t-name" class="t-name"></div>
-    <button id="sync" class="pill"></button>
-    <button id="settings-open" class="icon" aria-label="Настройки">⚙</button>
-  </header>
-  <div class="qbar">
-    <button id="q-prev" class="arrow" aria-label="Предыдущий вопрос">‹</button>
-    <div class="qnum"><span class="qlabel">Вопрос</span> <span id="q-num">1</span><div id="q-round" class="qround"></div></div>
-    <button id="q-next" class="arrow" aria-label="Следующий вопрос">›</button>
-  </div>
-  <div class="row">
-    <button id="missing-open" class="missing"></button>
-    <button id="lookup-open" class="lookup-open">🔍 Чья карточка?</button>
-  </div>
-  <div class="viewport main-viewport">
-    <video id="video" playsinline muted></video>
-    <div class="frame"></div>
-    <button id="start" class="big start">Начать проверку</button>
-  </div>
-  <div id="toast" class="toast" hidden></div>
-</section>
+    <!-- A scanned card: verdict. -->
+    <section id="card" class="sheet" hidden>
+      <div id="c-team" class="c-team"></div>
+      <div id="c-meta" class="c-meta"></div>
+      <ul id="c-warn" class="warnings"></ul>
+      <div class="verdicts">
+        <button id="v-correct" class="v correct">Верно</button>
+        <button id="v-incorrect" class="v incorrect">Неверно</button>
+        <button id="v-disputed" class="v disputed">?</button>
+      </div>
+      <button id="v-later" class="link">Решить позже (карточка получена)</button>
+    </section>
 
-<!-- A scanned card: verdict. -->
-<section id="card" class="sheet" hidden>
-  <div id="c-team" class="c-team"></div>
-  <div id="c-meta" class="c-meta"></div>
-  <ul id="c-warn" class="warnings"></ul>
-  <div class="verdicts">
-    <button id="v-correct" class="v correct">Верно</button>
-    <button id="v-incorrect" class="v incorrect">Неверно</button>
-    <button id="v-disputed" class="v disputed">?</button>
-  </div>
-  <button id="v-later" class="link">Решить позже (карточка получена)</button>
-</section>
+    <!-- «Чья карточка?»: read cards without recording anything; the camera keeps scanning. -->
+    <section id="lookup" class="sheet lookup" hidden>
+      <div class="lk-head">Чья карточка? <span>ничего не записывается</span></div>
+      <div id="lk-title" class="c-team"></div>
+      <ul id="lk-details" class="lk-details"></ul>
+      <button id="lk-close" class="big">Готово — вернуться к проверке</button>
+    </section>
 
-<!-- «Чья карточка?»: read cards without recording anything; the camera keeps scanning. -->
-<section id="lookup" class="sheet lookup" hidden>
-  <div class="lk-head">Чья карточка? <span>ничего не записывается</span></div>
-  <div id="lk-title" class="c-team"></div>
-  <ul id="lk-details" class="lk-details"></ul>
-  <button id="lk-close" class="big">Готово — вернуться к проверке</button>
-</section>
+    <!-- A spare card: which question? -->
+    <section id="spare" class="sheet" hidden>
+      <div id="sp-team" class="c-team"></div>
+      <div class="c-meta">Запасная карточка — какой вопрос? Номер вписан в рамку на карточке.</div>
+      <button id="sp-current" class="big"></button>
+      <div id="sp-display" class="sp-display"></div>
+      <div class="keypad">
+        <button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button>
+        <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button>
+        <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button>
+        <button data-k="back">⌫</button><button data-k="0">0</button><button data-k="ok" class="ok">OK</button>
+      </div>
+      <button id="sp-cancel" class="link">Отмена</button>
+    </section>
 
-<!-- A spare card: which question? -->
-<section id="spare" class="sheet" hidden>
-  <div id="sp-team" class="c-team"></div>
-  <div class="c-meta">Запасная карточка — какой вопрос? Номер вписан в рамку на карточке.</div>
-  <button id="sp-current" class="big"></button>
-  <div id="sp-display" class="sp-display"></div>
-  <div class="keypad">
-    <button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button>
-    <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button>
-    <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button>
-    <button data-k="back">⌫</button><button data-k="0">0</button><button data-k="ok" class="ok">OK</button>
-  </div>
-  <button id="sp-cancel" class="link">Отмена</button>
-</section>
+    <!-- Teams without a card for the current question. -->
+    <section id="missing" class="sheet" hidden>
+      <h2 id="m-title"></h2>
+      <ul id="m-list" class="list"></ul>
+      <button id="m-close" class="big">Закрыть</button>
+    </section>
 
-<!-- Teams without a card for the current question. -->
-<section id="missing" class="sheet" hidden>
-  <h2 id="m-title"></h2>
-  <ul id="m-list" class="list"></ul>
-  <button id="m-close" class="big">Закрыть</button>
-</section>
+    <!-- Sending status. -->
+    <section id="syncinfo" class="sheet" hidden>
+      <h2>Отправка отметок</h2>
+      <p id="s-summary"></p>
+      <p id="s-error" class="msg"></p>
+      <ul id="s-rejected" class="list"></ul>
+      <button id="s-now" class="big">Отправить сейчас</button>
+      <button id="s-clear" class="link" hidden>Скрыть отклонённые</button>
+      <button id="s-close" class="link">Закрыть</button>
+    </section>
 
-<!-- Sending status. -->
-<section id="syncinfo" class="sheet" hidden>
-  <h2>Отправка отметок</h2>
-  <p id="s-summary"></p>
-  <p id="s-error" class="msg"></p>
-  <ul id="s-rejected" class="list"></ul>
-  <button id="s-now" class="big">Отправить сейчас</button>
-  <button id="s-clear" class="link" hidden>Скрыть отклонённые</button>
-  <button id="s-close" class="link">Закрыть</button>
-</section>
-
-<!-- Settings. -->
-<section id="settings" class="sheet" hidden>
-  <h2>Настройки</h2>
-  <label>Имя судьи (необязательно)<input id="juror" autocomplete="name"></label>
-  <p id="about" class="muted"></p>
-  <button id="refresh" class="big">Обновить данные турнира</button>
-  <button id="forget" class="link danger">Отключить этот турнир на телефоне</button>
-  <button id="settings-close" class="link">Закрыть</button>
-</section>
-
-</body>
+    <!-- Settings. -->
+    <section id="settings" class="sheet" hidden>
+      <h2>Настройки</h2>
+      <label>Имя судьи (необязательно)<input id="juror" autocomplete="name" /></label>
+      <p id="about" class="muted"></p>
+      <button id="refresh" class="big">Обновить данные турнира</button>
+      <button id="forget" class="link danger">Отключить этот турнир на телефоне</button>
+      <button id="settings-close" class="link">Закрыть</button>
+    </section>
+  </body>
 </html>

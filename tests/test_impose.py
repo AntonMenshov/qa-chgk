@@ -14,8 +14,13 @@ TID = "K7M2Q"
 
 def tournament(questions: list[int], spares: int) -> Tournament:
     return Tournament(
-        slug="t", name="T", date=date(2026, 1, 1), rounds=len(questions), questions_per_round=questions,
-        scanner_url="https://e.github.io/qa-chgk/s/", spares_per_team=spares,
+        slug="t",
+        name="T",
+        date=date(2026, 1, 1),
+        rounds=len(questions),
+        questions_per_round=questions,
+        scanner_url="https://e.github.io/qa-chgk/s/",
+        spares_per_team=spares,
     )
 
 

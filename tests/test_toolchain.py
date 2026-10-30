@@ -1,5 +1,8 @@
-"""Proves the PDF test approach used from Phase 1 on: a QR code and Cyrillic text
-drawn into a PDF can be read back (text via pypdf, QR via pypdfium2 + zxing-cpp)."""
+"""Proves the PDF test approach used from Phase 1 on.
+
+A QR code and Cyrillic text drawn into a PDF can be read back (text via pypdf, QR via
+pypdfium2 + zxing-cpp).
+"""
 
 import io
 

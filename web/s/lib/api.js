@@ -9,10 +9,10 @@ export function backend(url, token, fetchImpl = (...a) => fetch(...a)) {
     let response;
     try {
       response = await fetchImpl(url, {
-        method: "POST",
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify({ action, token, ...payload }),
-        redirect: "follow",
+        method: 'POST',
+        headers: {'Content-Type': 'text/plain;charset=utf-8'},
+        body: JSON.stringify({action, token, ...payload}),
+        redirect: 'follow',
       });
     } catch (err) {
       throw new BackendError(`нет связи с сервером (${err && err.message ? err.message : err})`);
@@ -23,7 +23,9 @@ export function backend(url, token, fetchImpl = (...a) => fetch(...a)) {
     } catch {
       throw new BackendError(`сервер ответил не JSON (HTTP ${response.status})`);
     }
-    if (!data.ok) throw new BackendError(data.error || `ошибка сервера (HTTP ${response.status})`);
+    if (!data.ok) {
+      throw new BackendError(data.error || `ошибка сервера (HTTP ${response.status})`);
+    }
     return data;
   };
 }

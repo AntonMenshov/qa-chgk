@@ -5,9 +5,13 @@
 
 /** "+" taken, "−" not (a missing card counts as wrong), "?" not decided yet («?» or only received). */
 export function cellMark(value) {
-  if (value === 1) return "+";
-  if (value === "?" || value === "R") return "?";
-  return "−";
+  if (value === 1) {
+    return '+';
+  }
+  if (value === '?' || value === 'R') {
+    return '?';
+  }
+  return '−';
 }
 
 export function placeLabels(totals) {
@@ -19,9 +23,13 @@ export function placeLabels(totals) {
 }
 
 export function compareStandings(a, b) {
-  if (a.total !== b.total) return b.total - a.total;
+  if (a.total !== b.total) {
+    return b.total - a.total;
+  }
   for (let i = a.rounds.length - 1; i >= 0; i--) {
-    if (a.rounds[i] !== b.rounds[i]) return b.rounds[i] - a.rounds[i];
+    if (a.rounds[i] !== b.rounds[i]) {
+      return b.rounds[i] - a.rounds[i];
+    }
   }
   return a.team_id < b.team_id ? -1 : a.team_id > b.team_id ? 1 : 0;
 }
@@ -38,31 +46,51 @@ export function compareStandings(a, b) {
  *   rows:   [{team_id, name, place, total, sums: [per revealed round], marks: {q: "+"|"−"|"?"}}]
  *   took:   {q: number of teams that took it}
  */
-export function boardModel(data, revealed, { gridMax, view = null }) {
+export function boardModel(data, revealed, {gridMax, view = null}) {
   const sizes = data.tournament.round_sizes;
   const shown = Math.min(Math.max(0, revealed), sizes.length);
   const firstOf = (round) => sizes.slice(0, round - 1).reduce((a, b) => a + b, 1);
-  const questionsOf = (round) => Array.from({ length: sizes[round - 1] }, (_, k) => firstOf(round) + k);
-  const chosen = view || (data.teams.length <= gridMax ? "grid" : "compact");
-  const groupRounds = shown === 0 ? [] : chosen === "grid" ? Array.from({ length: shown }, (_, i) => i + 1) : [shown];
-  const groups = groupRounds.map((round) => ({ round, questions: questionsOf(round) }));
+  const questionsOf = (round) => Array.from({length: sizes[round - 1]}, (_, k) => firstOf(round) + k);
+  const chosen = view || (data.teams.length <= gridMax ? 'grid' : 'compact');
+  const groupRounds = shown === 0 ? [] : chosen === 'grid' ? Array.from({length: shown}, (_, i) => i + 1) : [shown];
+  const groups = groupRounds.map((round) => ({round, questions: questionsOf(round)}));
 
   const rows = data.teams.map((team) => {
     const values = data.marks[team.team_id] || [];
     const sums = [];
-    for (let r = 1; r <= shown; r++) sums.push(questionsOf(r).filter((q) => values[q - 1] === 1).length);
+    for (let r = 1; r <= shown; r++) {
+      sums.push(questionsOf(r).filter((q) => values[q - 1] === 1).length);
+    }
     const marks = {};
-    for (const g of groups) for (const q of g.questions) marks[q] = cellMark(values[q - 1] ?? "");
-    return { team_id: team.team_id, name: team.name, rounds: sums, sums, total: sums.reduce((a, b) => a + b, 0), marks };
+    for (const g of groups) {
+      for (const q of g.questions) {
+        marks[q] = cellMark(values[q - 1] ?? '');
+      }
+    }
+    return {team_id: team.team_id, name: team.name, rounds: sums, sums, total: sums.reduce((a, b) => a + b, 0), marks};
   });
   rows.sort(compareStandings);
   const places = placeLabels(rows.map((r) => r.total));
-  rows.forEach((r, i) => { r.place = places[i]; delete r.rounds; });
+  rows.forEach((r, i) => {
+    r.place = places[i];
+    delete r.rounds;
+  });
 
   const took = {};
-  for (const g of groups) for (const q of g.questions) took[q] = rows.filter((r) => r.marks[q] === "+").length;
+  for (const g of groups) {
+    for (const q of g.questions) {
+      took[q] = rows.filter((r) => r.marks[q] === '+').length;
+    }
+  }
   return {
-    name: data.tournament.name, date: data.tournament.date, rounds: sizes.length, revealed: shown,
-    view: chosen, groups, rows, took, teams: data.teams.length,
+    name: data.tournament.name,
+    date: data.tournament.date,
+    rounds: sizes.length,
+    revealed: shown,
+    view: chosen,
+    groups,
+    rows,
+    took,
+    teams: data.teams.length,
   };
 }

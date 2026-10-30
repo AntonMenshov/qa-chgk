@@ -43,13 +43,22 @@ def new_tournament(folder: Path, profile: Profile, client: BackendClient | None 
     save_state(folder, state)
 
     reply = client.create_tournament(
-        tid=state.tid, name=tournament.name, date=tournament.date.isoformat(),
-        round_sizes=tournament.round_sizes, jury_token=jury_token, teams=_team_dicts(teams),
-        reserve=[t.team_id for t in reserve], board_token=board_token,
+        tid=state.tid,
+        name=tournament.name,
+        date=tournament.date.isoformat(),
+        round_sizes=tournament.round_sizes,
+        jury_token=jury_token,
+        teams=_team_dicts(teams),
+        reserve=[t.team_id for t in reserve],
+        board_token=board_token,
     )
     state = replace(
-        state, backend_url=profile.url, backend_profile=profile.name, backend_account=account,
-        spreadsheet_id=reply["spreadsheet_id"], view_shared=True,  # create_tournament shares it view-only
+        state,
+        backend_url=profile.url,
+        backend_profile=profile.name,
+        backend_account=account,
+        spreadsheet_id=reply["spreadsheet_id"],
+        view_shared=True,  # create_tournament shares it view-only
     )
     save_state(folder, state)
     return NewResult(state, created=not reply.get("existed", False))
@@ -78,7 +87,7 @@ def sync_teams(folder: Path, profiles: Profiles, client: BackendClient | None = 
         raise ValueError("the Teams tab in the Sheet is empty")
     ids = assign_team_ids([(r.get("team_id") or "").strip() or None for r in rows])
     teams = []
-    for row, team_id in zip(rows, ids):
+    for row, team_id in zip(rows, ids, strict=True):
         name = (row.get("name") or "").strip()
         if not name:
             raise ValueError(f"Teams tab: team {team_id} has no name")

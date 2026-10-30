@@ -90,7 +90,9 @@ class Profiles:
 
     def active(self) -> Profile:
         if not self.active_name:
-            raise ValueError("no backend profile yet: deploy the Apps Script, then `chgk backend add` (docs/google-account.md)")
+            raise ValueError(
+                "no backend profile yet: deploy the Apps Script, then `chgk backend add` (docs/google-account.md)"
+            )
         return self.get(self.active_name)
 
     def by_url(self, url: str) -> Profile:
@@ -109,7 +111,9 @@ class BackendClient:
         body = json.dumps({"action": action, "token": self.token, **payload}, ensure_ascii=False)
         try:
             # text/plain: Apps Script web apps don't answer CORS preflights; same as the phone.
-            response = self.http.post(self.url, content=body.encode(), headers={"Content-Type": "text/plain;charset=utf-8"})
+            response = self.http.post(
+                self.url, content=body.encode(), headers={"Content-Type": "text/plain;charset=utf-8"}
+            )
         except httpx.HTTPError as err:
             raise BackendError(f"cannot reach the backend: {err}") from err
         try:
@@ -129,11 +133,29 @@ class BackendClient:
     def ping(self) -> dict:
         return self.call("ping")
 
-    def create_tournament(self, tid: str, name: str, date: str, round_sizes: list[int], jury_token: str,
-                          teams: list[dict], reserve: list[str] = (), board_token: str | None = None) -> dict:
+    def create_tournament(
+        self,
+        tid: str,
+        name: str,
+        date: str,
+        round_sizes: list[int],
+        jury_token: str,
+        teams: list[dict],
+        reserve: list[str] = (),
+        board_token: str | None = None,
+    ) -> dict:
         extra = {"board_token": board_token} if board_token else {}
-        return self.call("create_tournament", tid=tid, name=name, date=date, round_sizes=round_sizes,
-                         jury_token=jury_token, teams=teams, reserve=list(reserve), **extra)
+        return self.call(
+            "create_tournament",
+            tid=tid,
+            name=name,
+            date=date,
+            round_sizes=round_sizes,
+            jury_token=jury_token,
+            teams=teams,
+            reserve=list(reserve),
+            **extra,
+        )
 
     def set_board_token(self, tid: str, board_token: str) -> dict:
         return self.call("set_board_token", tid=tid, board_token=board_token)
@@ -167,9 +189,9 @@ def bundle_apps_script(out: Path) -> tuple[Path, str]:
     for name in BUNDLE_ORDER:
         text = (APPS_SCRIPT_DIR / name).read_text(encoding="utf-8")
         if name == "Code.js":
-            marker = 'const VERSION = "dev";'
+            marker = "const VERSION = 'dev';"  # Prettier's quotes (.prettierrc)
             assert marker in text, "Code.js must define VERSION"
-            text = text.replace(marker, f'const VERSION = "{version}";')
+            text = text.replace(marker, f"const VERSION = '{version}';")
         parts.append(f"\n// ===== {name} =====\n\n{text}")
     out = Path(out)
     out.parent.mkdir(parents=True, exist_ok=True)

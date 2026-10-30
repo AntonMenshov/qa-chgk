@@ -3,8 +3,10 @@ import re
 import pypdfium2
 import pytest
 import zxingcpp
+from conftest import LONG_NAME, TEAM_ROWS, write_teams_file
 from PIL import Image
 from pypdf import PdfReader
+from reportlab.pdfbase import pdfmetrics
 from typer.testing import CliRunner
 
 from chgk.cards.build import build_cards
@@ -14,21 +16,19 @@ from chgk.cards.model import Card
 from chgk.cards.render import (
     ELLIPSIS,
     FONT,
-    spare_box,
     fit_text,
     logo_key,
     missing_glyphs,
     printable,
+    spare_box,
 )
 from chgk.cli import app
 from chgk.config import CardFields, Layout, LogoMode
 from chgk.ids import CardId, decode_payload
 from chgk.state import load_or_create_state
 from chgk.teams import Team
-from reportlab.pdfbase import pdfmetrics
 
 DPI = 200
-from conftest import LONG_NAME, TEAM_ROWS, write_teams_file
 
 
 def page_images(pdf_path):
@@ -65,7 +65,9 @@ def test_every_qr_decodes_from_the_pdf_and_sits_in_its_slot(folder, mode, tmp_pa
     assert all(card.tid == tid for card in seen)
 
     # Three teams plus the two reserve decks R1, R2 (config default).
-    expected_numbered = {CardId(tid, team, question=q) for team in ("A01", "A02", "A03", "R1", "R2") for q in range(1, 7)}
+    expected_numbered = {
+        CardId(tid, team, question=q) for team in ("A01", "A02", "A03", "R1", "R2") for q in range(1, 7)
+    }
     assert expected_numbered <= set(seen)
     assert (result.teams, result.reserve) == (3, 2)
     if mode is Mode.CUT_STACK:
@@ -103,7 +105,7 @@ def test_team_filter_and_unknown_team(folder, tmp_path):
 
 
 def test_unprintable_characters_warn_and_still_render(folder, tmp_path):
-    write_teams_file(folder, TEAM_ROWS + [("A04", "Звёзды ★", "", "")])
+    write_teams_file(folder, [*TEAM_ROWS, ("A04", "Звёзды ★", "", "")])
     result = build_cards(folder, Mode.CUT_STACK, tmp_path / "out.pdf")
     assert any("★" in w for w in result.warnings)
 
@@ -174,7 +176,9 @@ def test_cli_cards_asks_for_mode_and_reprompts(folder, tmp_path):
 
 
 def test_cli_cards_reports_errors(folder, tmp_path):
-    result = runner.invoke(app, ["cards", str(folder), "--mode", "scissors", "--teams", "Z99", "--out", str(tmp_path / "x.pdf")])
+    result = runner.invoke(
+        app, ["cards", str(folder), "--mode", "scissors", "--teams", "Z99", "--out", str(tmp_path / "x.pdf")]
+    )
     assert result.exit_code == 1
     assert "Z99" in result.output
 
@@ -205,8 +209,9 @@ def test_test_page_has_real_qr_codes_and_marks_chosen_settings(folder, tmp_path)
 
 def test_date_on_the_cards_only_when_switched_on(folder, tmp_path):
     config = folder / "config.py"
-    config.write_text(config.read_text(encoding="utf-8").replace("card=CardFields(", "card=CardFields(date=True, "),
-                      encoding="utf-8")
+    config.write_text(
+        config.read_text(encoding="utf-8").replace("card=CardFields(", "card=CardFields(date=True, "), encoding="utf-8"
+    )
     build_cards(folder, Mode.TEAM_PAGES, tmp_path / "out.pdf")
     text = "\n".join(page.extract_text() for page in PdfReader(tmp_path / "out.pdf").pages)
     assert "Осенний кубок · 15.11.2026" in text
@@ -220,13 +225,19 @@ def test_missing_team_logo_warns_and_falls_back(folder, tmp_path):
 
 def test_team_name_can_be_left_off_the_cards(folder, tmp_path):
     config = folder / "config.py"
-    config.write_text(config.read_text(encoding="utf-8").replace(
-        "card=CardFields(", "card=CardFields(team_name=False, logo_size=1.85, "), encoding="utf-8")
+    config.write_text(
+        config.read_text(encoding="utf-8").replace(
+            "card=CardFields(", "card=CardFields(team_name=False, logo_size=1.85, "
+        ),
+        encoding="utf-8",
+    )
     result = build_cards(folder, Mode.TEAM_PAGES, tmp_path / "out.pdf")
     text = "\n".join(page.extract_text() for page in PdfReader(result.path).pages)
     assert "Синие зайцы" not in text and "Думать быстро" not in text
     assert "Осенний кубок" in text  # the other footer fields stay
-    assert "Синие зайцы" in "\n".join(p.extract_text() for p in PdfReader(result.jury_path).pages)  # jury still sees names
+    assert "Синие зайцы" in "\n".join(
+        p.extract_text() for p in PdfReader(result.jury_path).pages
+    )  # jury still sees names
 
 
 def test_spare_cards_have_an_empty_number_box_and_no_words(folder, tmp_path):
@@ -250,12 +261,17 @@ def test_spare_cards_have_an_empty_number_box_and_no_words(folder, tmp_path):
 
 
 def test_spare_box_is_white_inside_over_a_big_centred_logo(folder, tmp_path):
-    """User report: the box outline ran across the logo. The logo is now centred on the
-    card and the box is filled white, so nothing of the logo shows inside it."""
+    """User report: the box outline ran across the logo.
+
+    The logo is now centred on the card and the box is filled white, so nothing of the
+    logo shows inside it.
+    """
     config = folder / "config.py"
     text = config.read_text(encoding="utf-8")
     assert "card=CardFields(" in text
-    config.write_text(text.replace("card=CardFields(", "card=CardFields(logo_size=1.85, logo_grey=0.5, "), encoding="utf-8")
+    config.write_text(
+        text.replace("card=CardFields(", "card=CardFields(logo_size=1.85, logo_grey=0.5, "), encoding="utf-8"
+    )
     out = tmp_path / "out.pdf"
     build_cards(folder, Mode.TEAM_PAGES, out)
     image = page_images(out)[0].convert("L")
@@ -264,8 +280,11 @@ def test_spare_box_is_white_inside_over_a_big_centred_logo(folder, tmp_path):
     parts = card_parts(rect, 0.65 * 72, 1.85 * 72)
     box = spare_box(parts.number)
     assert parts.logo.intersects(box)  # the logo does reach under the box ...
-    inside = [image.getpixel((round(x * scale), round((PAGE_H - y) * scale)))
-              for x in range(round(box.x + 4), round(box.right - 4), 3) for y in range(round(box.y + 4), round(box.top - 4), 3)]
+    inside = [
+        image.getpixel((round(x * scale), round((PAGE_H - y) * scale)))
+        for x in range(round(box.x + 4), round(box.right - 4), 3)
+        for y in range(round(box.y + 4), round(box.top - 4), 3)
+    ]
     assert min(inside) > 245  # ... but the box stays white
 
 
@@ -283,19 +302,23 @@ def test_reserve_cards_have_a_name_line_and_the_generic_logo(folder, tmp_path):
     # A reserve team has no logo of its own: tournament logo first, then the fallback.
     card = Card(Team("R1", "", reserve=True), CardId("K7M2Q", "R1", question=1), 1)
     loaded = {key: Image.new("L", (1, 1)) for key in ("A01", "tournament", "fallback")}
-    assert logo_key(card, CardFields(logo=LogoMode.TEAM_ELSE_TOURNAMENT, tournament_logo="t.png"), loaded) == "tournament"
+    assert (
+        logo_key(card, CardFields(logo=LogoMode.TEAM_ELSE_TOURNAMENT, tournament_logo="t.png"), loaded) == "tournament"
+    )
 
 
 def test_reserve_cards_without_team_names_on_cards(folder, tmp_path):
     config = folder / "config.py"
-    config.write_text(config.read_text(encoding="utf-8").replace("card=CardFields(", "card=CardFields(team_name=False, "),
-                      encoding="utf-8")
+    config.write_text(
+        config.read_text(encoding="utf-8").replace("card=CardFields(", "card=CardFields(team_name=False, "),
+        encoding="utf-8",
+    )
     result = build_cards(folder, Mode.TEAM_PAGES, tmp_path / "out.pdf")
     pages = [page.extract_text() for page in PdfReader(result.path).pages]
     assert "Команда:" not in "\n".join(pages)
     # Without a name line, each reserve card still carries its deck's ID (user request);
     # registered teams' cards don't show theirs.
-    for deck, text in zip(("R1", "R2"), pages[3:]):
+    for deck, text in zip(("R1", "R2"), pages[3:], strict=True):
         assert len(re.findall(rf"\b{deck}\b", text)) == 15, deck
         assert text.count("Осенний кубок") == 15
     assert not re.search(r"\b(A0[123]|R[12])\b", "\n".join(pages[:3]))
@@ -307,7 +330,7 @@ def test_reserve_decks_can_be_printed_alone(folder, tmp_path):
 
 
 def test_a_team_id_that_clashes_with_a_reserve_id_is_an_error(folder, tmp_path):
-    write_teams_file(folder, TEAM_ROWS[:2] + [("R2", "Думать быстро", "", "")])
+    write_teams_file(folder, [*TEAM_ROWS[:2], ("R2", "Думать быстро", "", "")])
     with pytest.raises(ValueError, match="R2 is kept for reserve teams"):
         build_cards(folder, Mode.TEAM_PAGES, tmp_path / "out.pdf")
     result = runner.invoke(app, ["cards", str(folder), "--mode", "team-pages", "--out", str(tmp_path / "x.pdf")])

@@ -37,6 +37,7 @@ def _fail(err: Exception) -> typer.Exit:
     typer.secho(f"Error: {err}", fg="red", err=True)
     return typer.Exit(1)
 
+
 MODE_HELP = {
     Mode.TEAM_PAGES: "one team per page, cut along the lines",
     Mode.CUT_STACK: "guillotine: stack all sheets, cut once, piles come out sorted",
@@ -85,7 +86,9 @@ def cards(
     for warning in result.warnings:
         typer.secho(f"Warning: {warning}", fg="yellow", err=True)
     reserve = f" + {result.reserve} reserve decks" if result.reserve else ""
-    typer.echo(f"{result.path}: {result.teams} teams{reserve}, {result.cards} cards, {result.pages} pages ({mode.value}).")
+    typer.echo(
+        f"{result.path}: {result.teams} teams{reserve}, {result.cards} cards, {result.pages} pages ({mode.value})."
+    )
     typer.echo(f"{result.jury_path}: jury sheet (contains the secret jury access QR once `chgk new` has run).")
     typer.echo("Print on Letter at 100% / Actual size.")
     typer.echo(INSTRUCTIONS[mode])
@@ -204,8 +207,11 @@ def backend_check(name: str | None = typer.Argument(None, help="Profile (default
     typer.echo(f"Backend '{profile.name}' OK: account {reply.get('account') or '?'}, version {reply.get('version')}.")
     _warn_permissions(reply)
     if reply.get("version") != local:
-        typer.secho(f"Local code is version {local}: run `chgk backend bundle` and paste it into the script, "
-                    "then Deploy → Manage deployments → edit → New version.", fg="yellow")
+        typer.secho(
+            f"Local code is version {local}: run `chgk backend bundle` and paste it into the script, "
+            "then Deploy → Manage deployments → edit → New version.",
+            fg="yellow",
+        )
 
 
 # ---- tournaments on the backend ----
@@ -267,4 +273,3 @@ def view_cmd(folder: Path = typer.Argument(..., help="Tournament folder")) -> No
     typer.echo("Results, view-only for anyone with the link (marks appear as the jury enters them):")
     typer.echo(state.view_url)
     typer.echo("Its QR code is on page 2 of the jury sheet: run `chgk jury-sheet` (or `chgk cards`) to refresh it.")
-

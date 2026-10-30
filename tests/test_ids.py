@@ -31,7 +31,10 @@ INVALID = [c for c in VECTORS["cases"] if not c["valid"]]
 def test_valid_payloads_decode(case):
     card = decode_payload(case["payload"])
     assert (card.tid, card.team_id, card.question, card.spare) == (
-        case["tid"], case["team_id"], case["question"], case["spare"]
+        case["tid"],
+        case["team_id"],
+        case["question"],
+        case["spare"],
     )
 
 
@@ -85,8 +88,9 @@ def test_given_ids_are_normalised():
     assert assign_team_ids([" a07 ", "  ", "b1"]) == ["A07", "A01", "B1"]
 
 
-@pytest.mark.parametrize("bad", [["A01", "A01"], ["645", " 645"], ["a01", "A01"], ["A-1"], ["ABCDEFGHI"], ["58 746"],
-                                 ["А01"], ["A.1"]])
+@pytest.mark.parametrize(
+    "bad", [["A01", "A01"], ["645", " 645"], ["a01", "A01"], ["A-1"], ["ABCDEFGHI"], ["58 746"], ["А01"], ["A.1"]]
+)
 def test_assign_team_ids_rejects_bad_input(bad):
     with pytest.raises(ValueError):
         assign_team_ids(bad)
@@ -116,7 +120,9 @@ def test_generated_jury_token_round_trips():
 
 def test_jury_link_rejects_non_apps_script_backend():
     with pytest.raises(ValueError):
-        encode_jury_link("https://e.github.io/qa-chgk/s/", JuryAccess("K7M2Q", generate_jury_token(), "https://evil.example/exec"))
+        encode_jury_link(
+            "https://e.github.io/qa-chgk/s/", JuryAccess("K7M2Q", generate_jury_token(), "https://evil.example/exec")
+        )
 
 
 BOARD = json.loads((Path(__file__).parent / "vectors" / "board_links.json").read_text(encoding="utf-8"))

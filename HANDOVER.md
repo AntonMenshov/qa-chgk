@@ -103,6 +103,15 @@ checks that the decks come out in order.
 - **Printed labels are in Russian.** Card labels may say «Тур», but never «Вопрос»
   (a test enforces this).
 
+- **Lint and format before committing** (user request, Google style where it applies,
+  120 columns; CI checks both):
+  - Python: `uv run ruff format . && uv run ruff check .` (pyproject: pycodestyle,
+    pyflakes, isort, naming, bugbear, pyupgrade, Google-convention docstrings; missing
+    docstrings are not errors).
+  - JS/HTML/CSS: `npm run format && npm run lint` (Prettier in Google's layout: single
+    quotes, `{a, b}` without inner spaces; ESLint recommended + Google's checkable rules,
+    braces on every `if`). `chgk backend bundle` looks for `const VERSION = 'dev';`.
+
 ## Key decisions (details in SPEC.md)
 
 - **Backend:** one Apps Script web app per Google account. It creates one Sheet and

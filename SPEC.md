@@ -98,18 +98,18 @@ tournament = Tournament(
     name="Осенний кубок",
     date=date(2026, 11, 15),
     rounds=3,
-    questions_per_round=12,          # int, or a list per round: [12, 12, 15]
-    scanner_url="https://<user>.github.io/qa-chgk/s/",   # printed inside every QR
-    spares_per_team=3,               # unnumbered spare cards per team, whole game
+    questions_per_round=12,  # int, or a list per round: [12, 12, 15]
+    scanner_url="https://<user>.github.io/qa-chgk/s/",  # printed inside every QR
+    spares_per_team=3,  # unnumbered spare cards per team, whole game
     card=CardFields(
         team_name=True,
         tournament_name=True,
-        date=False,                  # True prints the date after the tournament name
-        logo=LogoMode.TEAM_ELSE_TOURNAMENT,   # NONE | TEAM | TOURNAMENT | TEAM_ELSE_TOURNAMENT
+        date=False,  # True prints the date after the tournament name
+        logo=LogoMode.TEAM_ELSE_TOURNAMENT,  # NONE | TEAM | TOURNAMENT | TEAM_ELSE_TOURNAMENT
         tournament_logo="logos/tournament.png",
         logo_grey=0.12,
     ),
-    layout=Layout(cols=3, rows=5, qr_size=0.65),   # 15 cards per Letter page
+    layout=Layout(cols=3, rows=5, qr_size=0.65),  # 15 cards per Letter page
 )
 ```
 

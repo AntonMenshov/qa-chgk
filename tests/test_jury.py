@@ -13,7 +13,17 @@ from chgk.cards.render import missing_glyphs
 from chgk.cli import app
 from chgk.config import Tournament
 from chgk.ids import decode_board_link, decode_jury_link
-from chgk.jury import APPEALS_HOWTO, BOARD_HOWTO, FORMS_NOTE, FORMS_RESERVE_NOTE, GRID_LEGEND, JUROR_HOWTO, NOT_YET, RESERVE_HOWTO, _questions_line
+from chgk.jury import (
+    APPEALS_HOWTO,
+    BOARD_HOWTO,
+    FORMS_NOTE,
+    FORMS_RESERVE_NOTE,
+    GRID_LEGEND,
+    JUROR_HOWTO,
+    NOT_YET,
+    RESERVE_HOWTO,
+    _questions_line,
+)
 from chgk.state import load_or_create_state
 
 BACKEND = "https://script.google.com/macros/s/AKfycbTEST_deployment_0000000/exec"
@@ -23,8 +33,15 @@ runner = CliRunner()
 def with_backend(folder):
     state = json.loads((folder / "state.json").read_text()) if (folder / "state.json").exists() else {}
     state.setdefault("tid", load_or_create_state(folder).tid)
-    state.update(backend_url=BACKEND, backend_profile="club", backend_account="club@gmail.com",
-                 spreadsheet_id="SHEET123", jury_token="secretTOKEN_0123456789ab", board_token="boardTOKEN_0123456789ab", view_shared=True)
+    state.update(
+        backend_url=BACKEND,
+        backend_profile="club",
+        backend_account="club@gmail.com",
+        spreadsheet_id="SHEET123",
+        jury_token="secretTOKEN_0123456789ab",
+        board_token="boardTOKEN_0123456789ab",
+        view_shared=True,
+    )
     (folder / "state.json").write_text(json.dumps(state))
     return state
 
@@ -78,7 +95,11 @@ def test_page_one_is_for_the_jury_page_two_for_everyone(folder, tmp_path):
     access = decode_jury_link(setup[0])
     assert (access.tid, access.jury_token, access.backend_url) == (state["tid"], state["jury_token"], BACKEND)
     assert set(page1) == {setup[0], EDIT, SCANNER} and len(page1) == 3
-    board = "https://example.github.io/qa-chgk/b/?grid=5#board=" + state["tid"] + ".boardTOKEN_0123456789ab.AKfycbTEST_deployment_0000000"
+    board = (
+        "https://example.github.io/qa-chgk/b/?grid=5#board="
+        + state["tid"]
+        + ".boardTOKEN_0123456789ab.AKfycbTEST_deployment_0000000"
+    )
     assert sorted(qr_texts(out, 1)) == sorted([board, VIEW])
     assert decode_board_link(board).board_token == "boardTOKEN_0123456789ab"
     # The jury token is on page 1 only, and no other page has a QR code.
@@ -131,8 +152,10 @@ def test_team_forms_have_id_name_and_player_lines_only(folder, tmp_path):
     assert forms.count("Фамилия и имя игрока") == 5
     # Two columns (user request): all five forms fit on one page.
     from reportlab.pdfbase.pdfmetrics import stringWidth
+
     from chgk.cards.render import FONT_BOLD
     from chgk.jury import FORM_ID_W
+
     for team_id, size in (("58746", 13), ("ABCDEFGH", 9.5)):  # the longest IDs stay on one line
         assert stringWidth(team_id, FONT_BOLD, size) <= FORM_ID_W - 12, team_id
     assert sum("Фамилия и имя игрока" in t for t in page_texts(out)) == 1
@@ -146,14 +169,16 @@ def test_reserve_section_and_grid_rows(folder, tmp_path):
     text = text_of(out)
     assert "Команда без регистрации" in text
     assert "+ запасных комплектов: 2" in text
-    grid = text[text.index("Бумажная сетка"):]
+    grid = text[text.index("Бумажная сетка") :]
     assert "R1" in grid and "R2" in grid
 
 
 def test_no_reserve_teams_no_reserve_forms(folder, tmp_path):
     config = folder / "config.py"
-    config.write_text(config.read_text(encoding="utf-8").replace("spares_per_team=2,", "spares_per_team=2, reserve_teams=0,"),
-                      encoding="utf-8")
+    config.write_text(
+        config.read_text(encoding="utf-8").replace("spares_per_team=2,", "spares_per_team=2, reserve_teams=0,"),
+        encoding="utf-8",
+    )
     out, _ = build_jury_sheet(folder, out=tmp_path / "jury.pdf")
     text = text_of(out)
     assert "Название команды:" not in text and "Команда без регистрации" not in text and "R1" not in text
@@ -167,14 +192,26 @@ def test_backup_grid_has_every_round_and_totals(folder, tmp_path):
 
 
 def test_static_text_is_printable():
-    everything = "".join(JUROR_HOWTO + APPEALS_HOWTO + RESERVE_HOWTO + BOARD_HOWTO) + GRID_LEGEND + NOT_YET + FORMS_NOTE + FORMS_RESERVE_NOTE
+    everything = (
+        "".join(JUROR_HOWTO + APPEALS_HOWTO + RESERVE_HOWTO + BOARD_HOWTO)
+        + GRID_LEGEND
+        + NOT_YET
+        + FORMS_NOTE
+        + FORMS_RESERVE_NOTE
+    )
     assert missing_glyphs(everything) == set()
 
 
 @pytest.mark.parametrize("sizes,expected", [(12, "3 × 12 = 36 вопросов"), ([12, 12, 15], "12 + 12 + 15 = 39 вопросов")])
 def test_questions_line(sizes, expected):
-    t = Tournament(slug="t", name="T", date=date(2026, 1, 1), rounds=3, questions_per_round=sizes,
-                   scanner_url="https://e.github.io/qa-chgk/s/")
+    t = Tournament(
+        slug="t",
+        name="T",
+        date=date(2026, 1, 1),
+        rounds=3,
+        questions_per_round=sizes,
+        scanner_url="https://e.github.io/qa-chgk/s/",
+    )
     assert _questions_line(t) == expected
 
 

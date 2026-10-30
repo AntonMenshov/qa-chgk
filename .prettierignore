@@ -1,0 +1,8 @@
+node_modules/
+out/
+.venv/
+spikes/
+web/s/vendor/
+*.md
+tests/vectors/
+package-lock.json

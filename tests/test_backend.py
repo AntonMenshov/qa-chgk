@@ -53,8 +53,16 @@ class FakeBackend:
         assert request.headers["content-type"].startswith("text/plain")
         action = req["action"]
         if action == "ping":
-            return httpx.Response(200, json={"ok": True, "version": "v1", "account": self.account,
-                                             "authorized": self.authorized, "sheets_api": self.sheets_api})
+            return httpx.Response(
+                200,
+                json={
+                    "ok": True,
+                    "version": "v1",
+                    "account": self.account,
+                    "authorized": self.authorized,
+                    "sheets_api": self.sheets_api,
+                },
+            )
         if action == "create_tournament":
             t = self.tournaments.get(req["tid"])
             if t:
@@ -137,7 +145,9 @@ def test_client_sends_text_plain_json_with_token():
 
 @respx.mock
 def test_client_reports_backend_errors():
-    respx.post(URL_A).mock(return_value=httpx.Response(200, json={"ok": False, "error": "forbidden: admin token required"}))
+    respx.post(URL_A).mock(
+        return_value=httpx.Response(200, json={"ok": False, "error": "forbidden: admin token required"})
+    )
     with pytest.raises(BackendError, match="forbidden"):
         BackendClient(URL_A, "bad").ping()
 
@@ -213,8 +223,9 @@ def test_switching_accounts_keeps_existing_tournaments_on_their_backend(folder, 
     # A new tournament goes to account B; its jury link points the phones there.
     other = tmp_path / "other"
     other.mkdir()
-    (other / "config.py").write_text((folder / "config.py").read_text(encoding="utf-8").replace("test-cup", "other-cup"),
-                                     encoding="utf-8")
+    (other / "config.py").write_text(
+        (folder / "config.py").read_text(encoding="utf-8").replace("test-cup", "other-cup"), encoding="utf-8"
+    )
     new_state = new_tournament(other, Profiles().active()).state
     assert new_state.backend_url == URL_B
     link = encode_jury_link("https://e.github.io/qa-chgk/s/", new_state.jury_access)
@@ -243,8 +254,10 @@ def test_sync_teams_leaves_reserve_teams_on_the_backend(folder, backends):
     profiles.save()
     state = new_tournament(folder, profiles.active()).state
     # The jury named reserve team R1 in the Sheet; R2 is still unused.
-    a.tournaments[state.tid]["teams"] += [{"team_id": "R1", "name": "Новенькие", "reserve": True},
-                                          {"team_id": "R2", "name": "", "reserve": True}]
+    a.tournaments[state.tid]["teams"] += [
+        {"team_id": "R1", "name": "Новенькие", "reserve": True},
+        {"team_id": "R2", "name": "", "reserve": True},
+    ]
     teams = sync_teams(folder, Profiles())
     assert [t.team_id for t in teams] == ["A01", "A02", "A03"]
     assert "R1" not in (folder / "teams.py").read_text(encoding="utf-8")
@@ -264,14 +277,20 @@ def test_bundle_contains_both_files_and_a_stable_version(tmp_path):
     out, version = bundle_apps_script(tmp_path / "Code.gs")
     text = out.read_text(encoding="utf-8")
     assert version == source_version() and len(version) == 12
-    assert f'const VERSION = "{version}";' in text and 'const VERSION = "dev";' not in text
-    for name in ("function mergeCell", "function applyEvents", "function doPost", "function setup", "function onSheetEdit"):
+    assert f"const VERSION = '{version}';" in text and "const VERSION = 'dev';" not in text
+    for name in (
+        "function mergeCell",
+        "function applyEvents",
+        "function doPost",
+        "function setup",
+        "function onSheetEdit",
+    ):
         assert name in text
     # The editor's Run button starts on the first function, so that must be setup().
     assert re.search(r"^function (\w+)", text, re.M).group(1) == "setup"
     assert text.index("// ===== Code.js") < text.index("// ===== logic.js")
     assert bundle_apps_script(tmp_path / "again.gs")[1] == version
-    assert (APPS_SCRIPT_DIR / "Code.js").read_text().count('const VERSION = "dev";') == 1
+    assert (APPS_SCRIPT_DIR / "Code.js").read_text().count("const VERSION = 'dev';") == 1
 
 
 # ---- CLI ----

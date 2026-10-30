@@ -1,5 +1,8 @@
-"""One calibration page for a tournament: print scale, QR sizes, logo shades and a
-row of real cards, so the organizer can check a printer before printing everything."""
+"""One calibration page for a tournament.
+
+Print scale, QR sizes, logo shades and a row of real cards, so the organizer can check a
+printer before printing everything.
+"""
 
 from pathlib import Path
 
@@ -38,8 +41,11 @@ def render_test_page(
     source_logo: Image.Image | None = None,
     logos: dict[str, Image.Image] | None = None,
 ) -> None:
-    """`source_logo` (unprocessed) is shown at every shade in GREYS; the sample cards use
-    the tournament's configured logos and shade."""
+    """Draw the test page.
+
+    `source_logo` (unprocessed) is shown at every shade in GREYS; the sample cards use the
+    tournament's configured logos and shade.
+    """
     _fonts()
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -49,7 +55,9 @@ def render_test_page(
     c.setFont(FONT_BOLD, 13)
     c.drawString(0.5 * INCH, 10.35 * INCH, f"{tournament.name}: тестовая страница")
     c.setFont(FONT, 9)
-    c.drawString(0.5 * INCH, 10.15 * INCH, "Print on Letter at 100% / Actual size. Both rulers must measure exactly 2 in.")
+    c.drawString(
+        0.5 * INCH, 10.15 * INCH, "Print on Letter at 100% / Actual size. Both rulers must measure exactly 2 in."
+    )
     _ruler(c, 0.5 * INCH, 9.7 * INCH, vertical=False)
     _ruler(c, 7.6 * INCH, 7.6 * INCH, vertical=True)
 
@@ -82,7 +90,7 @@ def render_test_page(
     # A row of real cards, as they will print: first numbered card, last numbered card, a spare.
     deck = team_deck(tournament, tid, team)
     numbered = [card for card in deck if not card.is_spare]
-    samples = [numbered[0], numbered[-1]] + [card for card in deck if card.is_spare][:1]
+    samples = [numbered[0], numbered[-1], *[card for card in deck if card.is_spare][:1]]
     logos = logos or {}
     readers = {k: ImageReader(v) for k, v in logos.items()}
     rects = card_rects(tournament.layout)
@@ -91,7 +99,7 @@ def render_test_page(
     warnings: list[str] = []
     c.setStrokeGray(0.65)
     c.setLineWidth(0.3)
-    for card, rect in zip(samples, bottom_row):
+    for card, rect in zip(samples, bottom_row, strict=False):  # fewer samples than slots is fine
         key = logo_key(card, tournament.card, logos)
         logo_pt = tournament.card.logo_size * INCH if tournament.card.logo_size else None
         _draw_card(c, card, card_parts(rect, qr_pt, logo_pt), tournament, readers.get(key), warnings)

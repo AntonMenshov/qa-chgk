@@ -3,7 +3,8 @@
 Page 1 (secret, jury only): QR codes for jury access, the editable Sheet and the scanner.
 Page 2: QR codes for the projector board and the view-only Sheet. Page 3: details, links,
 how-to. Then one form per team (ID, name, players) in two columns, blank forms for reserve
-teams, and the paper backup grid."""
+teams, and the paper backup grid.
+"""
 
 from pathlib import Path
 from xml.sax.saxutils import escape
@@ -47,8 +48,7 @@ JUROR_HOWTO = [
     "и уже стоящую отметку, ничего не записывая. «Готово» — назад к проверке.",
     "Пропал интернет — продолжайте работать: отметки отправятся сами, когда связь "
     "вернётся (вверху — число неотправленных; «отправлено» — всё дошло).",
-    "Телефон не работает — отмечайте на бумажной сетке в конце этого листа "
-    "и перенесите отметки в таблицу позже.",
+    "Телефон не работает — отмечайте на бумажной сетке в конце этого листа и перенесите отметки в таблицу позже.",
 ]
 
 APPEALS_HOWTO = [
@@ -82,13 +82,16 @@ RESERVE_HOWTO = [
     "Название появится на всех листах.",
 ]
 
-PUBLIC_NOTE = ("Без секретов. Таблицу «только просмотр» можно показать командам: отметки видны в ней сразу, "
-               "как их ставит жюри, а табло показывает тур только после нажатия стрелки.")
+PUBLIC_NOTE = (
+    "Без секретов. Таблицу «только просмотр» можно показать командам: отметки видны в ней сразу, "
+    "как их ставит жюри, а табло показывает тур только после нажатия стрелки."
+)
 GRID_LEGEND = "+ верно,  − неверно,  ? спорно,  пусто — нет карточки."
 PLAYER_LINES = 8
 FORMS_NOTE = "Раздайте бланки командам и соберите заполненные."
-FORMS_RESERVE_NOTE = ("Бланки с ID R1, R2, … — для команд, пришедших без регистрации: название команды "
-                      "впишите в таблицу (см. стр. 3).")
+FORMS_RESERVE_NOTE = (
+    "Бланки с ID R1, R2, … — для команд, пришедших без регистрации: название команды впишите в таблицу (см. стр. 3)."
+)
 
 
 def _styles() -> dict[str, ParagraphStyle]:
@@ -101,8 +104,12 @@ def _styles() -> dict[str, ParagraphStyle]:
         "hint": ParagraphStyle("hint", parent=base, fontSize=9, leading=11, alignment=1),
         "panel": ParagraphStyle("panel", parent=base, fontName=FONT_BOLD, fontSize=15, leading=18, alignment=1),
         "h1": ParagraphStyle("h1", parent=base, fontName=FONT_BOLD, fontSize=17, leading=21, spaceAfter=4),
-        "h2": ParagraphStyle("h2", parent=base, fontName=FONT_BOLD, fontSize=12.5, leading=16, spaceBefore=8, spaceAfter=4),
-        "h3": ParagraphStyle("h3", parent=base, fontName=FONT_BOLD, fontSize=10.5, leading=13, spaceBefore=6, spaceAfter=3),
+        "h2": ParagraphStyle(
+            "h2", parent=base, fontName=FONT_BOLD, fontSize=12.5, leading=16, spaceBefore=8, spaceAfter=4
+        ),
+        "h3": ParagraphStyle(
+            "h3", parent=base, fontName=FONT_BOLD, fontSize=10.5, leading=13, spaceBefore=6, spaceAfter=3
+        ),
         "secret": ParagraphStyle("secret", parent=base, fontName=FONT_BOLD, fontSize=12, leading=15),
         "cell": ParagraphStyle("cell", parent=base, fontSize=8.5, leading=10),
         "form_id": ParagraphStyle("form_id", parent=base, fontName=FONT_BOLD, fontSize=13, leading=15),
@@ -112,8 +119,11 @@ def _styles() -> dict[str, ParagraphStyle]:
 
 
 def _link(url: str) -> str:
-    """Paragraph markup for a clickable URL. Long URLs wrap over lines; without a real
-    link annotation a PDF viewer would only link the first line (a cut-off address)."""
+    """Paragraph markup for a clickable URL.
+
+    Long URLs wrap over lines; without a real link annotation a PDF viewer would only link
+    the first line (a cut-off address).
+    """
     return f'<a href="{escape(url, {chr(34): "&quot;"})}" color="#1a4fa0">{escape(url)}</a>'
 
 
@@ -129,12 +139,20 @@ def _jury_panels(t: Tournament, state: State) -> list[Panel]:
     """Page 1, jury only: access (secret), the Sheet with edit rights, the scanner."""
     access = state.jury_access
     return [
-        ("Доступ жюри — секретно",
-         "Один раз на каждом телефоне жюри: отсканируйте камерой iPhone." if access
-         else "Ещё не создан: выполните «uv run chgk new» и распечатайте лист заново.",
-         encode_jury_link(t.scanner_url, access) if access else None, True),
-        ("Таблица — редактирование", "Google Sheet под аккаунтом турнира: апелляции, названия команд.",
-         state.spreadsheet_url or None, False),
+        (
+            "Доступ жюри — секретно",
+            "Один раз на каждом телефоне жюри: отсканируйте камерой iPhone."
+            if access
+            else "Ещё не создан: выполните «uv run chgk new» и распечатайте лист заново.",
+            encode_jury_link(t.scanner_url, access) if access else None,
+            True,
+        ),
+        (
+            "Таблица — редактирование",
+            "Google Sheet под аккаунтом турнира: апелляции, названия команд.",
+            state.spreadsheet_url or None,
+            False,
+        ),
         ("Сканер", "Открыть приложение жюри (без доступа к турниру).", t.scanner_url, False),
     ]
 
@@ -149,14 +167,21 @@ def _public_panels(t: Tournament, state: State) -> list[Panel]:
     """Page 2: the projector board and the Sheet, view-only."""
     return [
         ("Табло для проектора", "На компьютере у проектора. После тура: стрелка вправо.", board_link(t, state), False),
-        ("Таблица — только просмотр", "Можно показать командам: «Итоги» и листы туров без права правки.",
-         state.view_url, False),
+        (
+            "Таблица — только просмотр",
+            "Можно показать командам: «Итоги» и листы туров без права правки.",
+            state.view_url,
+            False,
+        ),
     ]
 
 
 class QrPage(Flowable):
-    """QR codes filling the rest of the page: `rows` of panels, each panel with its title,
-    hint, the QR code as large as its box allows and the address under it."""
+    """QR codes filling the rest of the page.
+
+    `rows` of panels, each panel with its title, hint, the QR code as large as its box
+    allows and the address under it.
+    """
 
     GAP = 0.15 * INCH
     PAD = 0.25 * INCH
@@ -182,7 +207,9 @@ class QrPage(Flowable):
     def _texts(self, panel, inner):
         """Heights of the text above the QR code and of the address under it."""
         title, hint, payload, _ = panel
-        above = self._height(escape(title), self.s["panel"], inner) + 4 + self._height(escape(hint), self.s["hint"], inner)
+        above = (
+            self._height(escape(title), self.s["panel"], inner) + 4 + self._height(escape(hint), self.s["hint"], inner)
+        )
         below = self._height(_link(payload), self.s["url"], inner) if payload else 0
         return above, below
 
@@ -255,10 +282,14 @@ def _links_table(t: Tournament, state: State, s) -> Table:
     ]
     data = [[Paragraph(name, s["cell"]), Paragraph(value, s["small"])] for name, value in rows]
     table = Table(data, colWidths=[1.6 * INCH, WIDTH - 1.6 * INCH])
-    table.setStyle(TableStyle([
-        ("GRID", (0, 0), (-1, -1), 0.4, colors.grey),
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-    ]))
+    table.setStyle(
+        TableStyle(
+            [
+                ("GRID", (0, 0), (-1, -1), 0.4, colors.grey),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ]
+        )
+    )
     return table
 
 
@@ -280,30 +311,39 @@ FORM_ID_W = 0.85 * INCH
 
 def _player_form(team: Team, s, warnings: list[str]) -> Table:
     """ID and team name, then lines for the players. A reserve team writes its name in."""
-    name = (Paragraph("Название команды:", s["form_hint"]) if team.reserve
-            else Paragraph(escape(printable(team.name, warnings)), s["form_name"]))
+    name = (
+        Paragraph("Название команды:", s["form_hint"])
+        if team.reserve
+        else Paragraph(escape(printable(team.name, warnings)), s["form_name"])
+    )
     # IDs are 1-8 characters (rating numbers such as 58746): smaller type for long ones, never wrapped.
-    id_style = s["form_id"] if len(team.team_id) <= 5 else ParagraphStyle("form_id_long", parent=s["form_id"], fontSize=9.5)
-    rows = [[Paragraph(escape(team.team_id), id_style), name],
-            ["№", "Фамилия и имя игрока"]]
+    id_style = (
+        s["form_id"] if len(team.team_id) <= 5 else ParagraphStyle("form_id_long", parent=s["form_id"], fontSize=9.5)
+    )
+    rows = [[Paragraph(escape(team.team_id), id_style), name], ["№", "Фамилия и имя игрока"]]
     rows += [[str(i), ""] for i in range(1, PLAYER_LINES + 1)]
     # The name row grows for a long name (wrapped); the player lines are fixed.
-    table = Table(rows, colWidths=[FORM_ID_W, FORM_W - FORM_ID_W],
-                  rowHeights=[None, 0.2 * INCH] + [0.26 * INCH] * PLAYER_LINES)
-    table.setStyle(TableStyle([
-        ("BOX", (0, 0), (-1, -1), 1.0, colors.black),
-        ("LINEBELOW", (0, 0), (-1, 0), 1.0, colors.black),
-        ("LINEBELOW", (0, 1), (-1, -1), 0.4, colors.grey),
-        ("LINEAFTER", (0, 0), (0, -1), 0.4, colors.grey),
-        ("FONT", (0, 1), (-1, -1), FONT, 9),
-        ("FONT", (0, 1), (-1, 1), FONT, 7.5),
-        ("TEXTCOLOR", (0, 1), (-1, 1), colors.grey),
-        ("VALIGN", (0, 0), (-1, 0), "MIDDLE"),
-        ("TOPPADDING", (0, 0), (-1, 0), 6),
-        ("BOTTOMPADDING", (0, 0), (-1, 0), 6),
-        ("VALIGN", (0, 2), (-1, -1), "BOTTOM"),
-        ("ALIGN", (0, 1), (0, -1), "CENTER"),
-    ]))
+    table = Table(
+        rows, colWidths=[FORM_ID_W, FORM_W - FORM_ID_W], rowHeights=[None, 0.2 * INCH] + [0.26 * INCH] * PLAYER_LINES
+    )
+    table.setStyle(
+        TableStyle(
+            [
+                ("BOX", (0, 0), (-1, -1), 1.0, colors.black),
+                ("LINEBELOW", (0, 0), (-1, 0), 1.0, colors.black),
+                ("LINEBELOW", (0, 1), (-1, -1), 0.4, colors.grey),
+                ("LINEAFTER", (0, 0), (0, -1), 0.4, colors.grey),
+                ("FONT", (0, 1), (-1, -1), FONT, 9),
+                ("FONT", (0, 1), (-1, 1), FONT, 7.5),
+                ("TEXTCOLOR", (0, 1), (-1, 1), colors.grey),
+                ("VALIGN", (0, 0), (-1, 0), "MIDDLE"),
+                ("TOPPADDING", (0, 0), (-1, 0), 6),
+                ("BOTTOMPADDING", (0, 0), (-1, 0), 6),
+                ("VALIGN", (0, 2), (-1, -1), "BOTTOM"),
+                ("ALIGN", (0, 1), (0, -1), "CENTER"),
+            ]
+        )
+    )
     return table
 
 
@@ -312,11 +352,19 @@ def _player_forms(teams: list[Team], s, warnings: list[str]) -> list[Flowable]:
     forms = [_player_form(t, s, warnings) for t in teams]
     rows = []
     for i in range(0, len(forms), 2):
-        pair = forms[i:i + 2] + [""] * (2 - len(forms[i:i + 2]))
+        pair = forms[i : i + 2] + [""] * (2 - len(forms[i : i + 2]))
         row = Table([[pair[0], "", pair[1]]], colWidths=[FORM_W, FORM_GAP, FORM_W])
-        row.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"),
-                                 ("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0),
-                                 ("TOPPADDING", (0, 0), (-1, -1), 0), ("BOTTOMPADDING", (0, 0), (-1, -1), 12)]))
+        row.setStyle(
+            TableStyle(
+                [
+                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                    ("TOPPADDING", (0, 0), (-1, -1), 0),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 12),
+                ]
+            )
+        )
         rows.append(row)
     return rows
 
@@ -324,17 +372,21 @@ def _player_forms(teams: list[Team], s, warnings: list[str]) -> list[Flowable]:
 def _grid(header: list[str], teams: list[Team], name_w: float, s, warnings: list[str]) -> Table:
     n = len(header)
     other_w = (WIDTH - name_w) / n
-    rows = [["Команда"] + header] + [[_team_label(t, name_w, warnings)] + [""] * n for t in teams]
+    rows = [["Команда", *header]] + [[_team_label(t, name_w, warnings)] + [""] * n for t in teams]
     table = Table(rows, colWidths=[name_w] + [other_w] * n, rowHeights=0.25 * INCH, repeatRows=1)
-    table.setStyle(TableStyle([
-        ("FONT", (0, 0), (-1, -1), FONT, 8.5),
-        ("FONT", (0, 0), (-1, 0), FONT_BOLD, 8.5),
-        ("GRID", (0, 0), (-1, -1), 0.4, colors.grey),
-        ("BACKGROUND", (0, 0), (-1, 0), colors.Color(0.92, 0.92, 0.92)),
-        ("BACKGROUND", (-1, 1), (-1, -1), colors.Color(0.96, 0.96, 0.96)),
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("ALIGN", (1, 0), (-1, -1), "CENTER"),
-    ]))
+    table.setStyle(
+        TableStyle(
+            [
+                ("FONT", (0, 0), (-1, -1), FONT, 8.5),
+                ("FONT", (0, 0), (-1, 0), FONT_BOLD, 8.5),
+                ("GRID", (0, 0), (-1, -1), 0.4, colors.grey),
+                ("BACKGROUND", (0, 0), (-1, 0), colors.Color(0.92, 0.92, 0.92)),
+                ("BACKGROUND", (-1, 1), (-1, -1), colors.Color(0.96, 0.96, 0.96)),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("ALIGN", (1, 0), (-1, -1), "CENTER"),
+            ]
+        )
+    )
     return table
 
 
@@ -363,7 +415,8 @@ def render_jury_sheet(tournament: Tournament, state: State, teams: list[Team], o
         Paragraph(f"{name} — жюри", s["h1"]),
         Paragraph(
             f"{day} · {_questions_line(tournament)} · "
-            f"команд: {registered}" + (f" + запасных комплектов: {reserve}" if reserve else "")
+            f"команд: {registered}"
+            + (f" + запасных комплектов: {reserve}" if reserve else "")
             + f" · ID турнира: <b>{state.tid}</b>",
             s["base"],
         ),
@@ -378,7 +431,12 @@ def render_jury_sheet(tournament: Tournament, state: State, teams: list[Team], o
     ]
     if reserve:
         story += [Paragraph("Команда без регистрации", s["h2"]), *_numbered(RESERVE_HOWTO, s)]
-    story += [PageBreak(), Paragraph("Команды и составы", s["h2"]), Paragraph(FORMS_NOTE + (" " + FORMS_RESERVE_NOTE if reserve else ""), s["base"]), Spacer(1, 8)]
+    story += [
+        PageBreak(),
+        Paragraph("Команды и составы", s["h2"]),
+        Paragraph(FORMS_NOTE + (" " + FORMS_RESERVE_NOTE if reserve else ""), s["base"]),
+        Spacer(1, 8),
+    ]
     story += _player_forms(teams, s, warnings)
     story += [
         PageBreak(),
@@ -390,14 +448,22 @@ def render_jury_sheet(tournament: Tournament, state: State, teams: list[Team], o
     for round_no, size in enumerate(tournament.round_sizes, start=1):
         questions = list(range(first, first + size))
         first += size
-        story.append(KeepTogether([
-            Paragraph(f"Тур {round_no} (вопросы {questions[0]}–{questions[-1]})", s["h3"]),
-            _grid([str(q) for q in questions] + ["Сумма"], teams, name_w, s, warnings),
-        ]))
-    story.append(KeepTogether([
-        Paragraph("Итого", s["h3"]),
-        _grid([f"Тур {r}" for r in range(1, tournament.rounds + 1)] + ["Итого"], teams, name_w, s, warnings),
-    ]))
+        story.append(
+            KeepTogether(
+                [
+                    Paragraph(f"Тур {round_no} (вопросы {questions[0]}–{questions[-1]})", s["h3"]),
+                    _grid([str(q) for q in questions] + ["Сумма"], teams, name_w, s, warnings),
+                ]
+            )
+        )
+    story.append(
+        KeepTogether(
+            [
+                Paragraph("Итого", s["h3"]),
+                _grid([f"Тур {r}" for r in range(1, tournament.rounds + 1)] + ["Итого"], teams, name_w, s, warnings),
+            ]
+        )
+    )
 
     def footer(label):
         def draw(canvas, doc):
@@ -405,13 +471,19 @@ def render_jury_sheet(tournament: Tournament, state: State, teams: list[Team], o
             canvas.setFillGray(0.4)
             canvas.drawString(MARGIN, 0.3 * INCH, f"{printable(tournament.name, [])} · {day} · {label}")
             canvas.drawRightString(PAGE_W - MARGIN, 0.3 * INCH, f"стр. {doc.page}")
+
         return draw
 
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     doc = SimpleDocTemplate(
-        str(out_path), pagesize=(PAGE_W, PAGE_H), leftMargin=MARGIN, rightMargin=MARGIN,
-        topMargin=MARGIN, bottomMargin=0.6 * INCH, title=f"{tournament.name} — жюри",
+        str(out_path),
+        pagesize=(PAGE_W, PAGE_H),
+        leftMargin=MARGIN,
+        rightMargin=MARGIN,
+        topMargin=MARGIN,
+        bottomMargin=0.6 * INCH,
+        title=f"{tournament.name} — жюри",
     )
     # Only page 1 holds the secret access QR.
     doc.build(story, onFirstPage=footer("лист жюри · секретно"), onLaterPages=footer("лист жюри"))

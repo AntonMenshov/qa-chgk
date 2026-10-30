@@ -16,6 +16,7 @@ import urllib.request
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from typing import ClassVar
 
 import pypdfium2
 import pytest
@@ -30,8 +31,18 @@ from chgk.ids import JuryAccess, encode_jury_link
 from chgk.state import load_or_create_state
 
 ROOT = Path(__file__).resolve().parent.parent
-CHROME = next((p for p in ("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-                           shutil.which("google-chrome"), shutil.which("google-chrome-stable")) if p and Path(p).exists()), None)
+CHROME = next(
+    (
+        p
+        for p in (
+            "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+            shutil.which("google-chrome"),
+            shutil.which("google-chrome-stable"),
+        )
+        if p and Path(p).exists()
+    ),
+    None,
+)
 playwright = pytest.importorskip("playwright.sync_api")
 pytestmark = pytest.mark.skipif(not (CHROME and shutil.which("node")), reason="needs Google Chrome and Node")
 
@@ -77,13 +88,25 @@ def write_video(path: Path, cards: list[Image.Image]) -> None:
 def backend_server(folder):
     state = load_or_create_state(folder)
     create = {
-        "tid": state.tid, "name": "Осенний кубок", "date": "2026-11-15", "round_sizes": [3, 3], "jury_token": JURY_TOKEN,
-        "teams": [{"team_id": "A01", "name": "Синие зайцы"}, {"team_id": "A02", "name": "Команда с очень-очень длинным названием «Правило трёх буравчиков»"},
-                  {"team_id": "A03", "name": "Думать быстро"}],
-        "reserve": ["R1", "R2"], "board_token": BOARD_TOKEN,
+        "tid": state.tid,
+        "name": "Осенний кубок",
+        "date": "2026-11-15",
+        "round_sizes": [3, 3],
+        "jury_token": JURY_TOKEN,
+        "teams": [
+            {"team_id": "A01", "name": "Синие зайцы"},
+            {"team_id": "A02", "name": "Команда с очень-очень длинным названием «Правило трёх буравчиков»"},
+            {"team_id": "A03", "name": "Думать быстро"},
+        ],
+        "reserve": ["R1", "R2"],
+        "board_token": BOARD_TOKEN,
     }
-    proc = subprocess.Popen(["node", str(ROOT / "tests/js/fake_backend_server.mjs"), json.dumps(create, ensure_ascii=False)],
-                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    proc = subprocess.Popen(
+        ["node", str(ROOT / "tests/js/fake_backend_server.mjs"), json.dumps(create, ensure_ascii=False)],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
     line = proc.stdout.readline()
     assert line.startswith("READY"), proc.stderr.read()
     url = f"http://127.0.0.1:{line.split()[1]}"
@@ -100,8 +123,12 @@ def backend_server(folder):
 @pytest.fixture
 def web_server():
     class Handler(SimpleHTTPRequestHandler):
-        extensions_map = {**SimpleHTTPRequestHandler.extensions_map, ".wasm": "application/wasm",
-                          ".js": "text/javascript", ".webmanifest": "application/manifest+json"}
+        extensions_map: ClassVar[dict[str, str]] = {
+            **SimpleHTTPRequestHandler.extensions_map,
+            ".wasm": "application/wasm",
+            ".js": "text/javascript",
+            ".webmanifest": "application/manifest+json",
+        }
 
         def log_message(self, *args):
             pass
@@ -121,7 +148,7 @@ def test_jury_scans_cards_and_marks_reach_the_backend(folder, tmp_path, backend_
         card_image(pdf, 1, 0),  # A02, question 1
         card_image(pdf, 0, 6),  # A01, spare S1 → the juror says question 2
         card_image(pdf, 3, 1),  # R1 (reserve deck), question 2
-        qr_image(f"https://example.github.io/qa-chgk/s/#ZZZZZ.A01.1"),  # another tournament's card
+        qr_image("https://example.github.io/qa-chgk/s/#ZZZZZ.A01.1"),  # another tournament's card
     ]
     video = tmp_path / "cards.mjpeg"
     write_video(video, cards)
@@ -130,17 +157,27 @@ def test_jury_scans_cards_and_marks_reach_the_backend(folder, tmp_path, backend_
     link = encode_jury_link(scanner, JuryAccess(tid, JURY_TOKEN, BACKEND))
     console = []
     with playwright.sync_playwright() as p:
-        browser = p.chromium.launch(executable_path=CHROME, headless=True, args=[
-            "--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream",
-            f"--use-file-for-fake-video-capture={video}", "--autoplay-policy=no-user-gesture-required"])
+        browser = p.chromium.launch(
+            executable_path=CHROME,
+            headless=True,
+            args=[
+                "--use-fake-ui-for-media-stream",
+                "--use-fake-device-for-media-stream",
+                f"--use-file-for-fake-video-capture={video}",
+                "--autoplay-policy=no-user-gesture-required",
+            ],
+        )
         context = browser.new_context(permissions=["camera"], viewport={"width": 390, "height": 844})
 
         def to_backend(route):
             request = route.request
             body = request.post_data.encode() if request.method == "POST" else None
             with urllib.request.urlopen(urllib.request.Request(backend_url, data=body, method=request.method)) as r:
-                route.fulfill(status=200, body=r.read(), headers={"Content-Type": "application/json",
-                                                                  "Access-Control-Allow-Origin": "*"})
+                route.fulfill(
+                    status=200,
+                    body=r.read(),
+                    headers={"Content-Type": "application/json", "Access-Control-Allow-Origin": "*"},
+                )
 
         context.route("https://script.google.com/**", to_backend)
         page = context.new_page()
@@ -158,8 +195,12 @@ def test_jury_scans_cards_and_marks_reach_the_backend(folder, tmp_path, backend_
         assert page.inner_text("#q-num") == "1"
         page.click("#start")
 
-        verdicts = {("Синие зайцы", 1): "#v-correct", ("Команда с", 1): "#v-incorrect",
-                    ("Синие зайцы", 2): "#v-disputed", ("R1 · впишите название", 2): "#v-correct"}
+        verdicts = {
+            ("Синие зайцы", 1): "#v-correct",
+            ("Команда с", 1): "#v-incorrect",
+            ("Синие зайцы", 2): "#v-disputed",
+            ("R1 · впишите название", 2): "#v-correct",
+        }
         handled, warnings, foreign = {}, {}, False
         deadline = time.time() + 90
         while time.time() < deadline and (len(handled) < len(verdicts) or not foreign):
@@ -225,7 +266,11 @@ def test_jury_scans_cards_and_marks_reach_the_backend(folder, tmp_path, backend_
     assert marks["A03"] == [""] * 6
     standings = call("get_results", tid=tid, token=JURY_TOKEN)["standings"]
     assert [(r["team_id"], r["total"], r["place"]) for r in standings] == [
-        ("A01", 1, "1-2"), ("R1", 1, "1-2"), ("A02", 0, "3-4"), ("A03", 0, "3-4")]  # 1 and 1, both in round 1: ID order
+        ("A01", 1, "1-2"),
+        ("R1", 1, "1-2"),
+        ("A02", 0, "3-4"),
+        ("A03", 0, "3-4"),
+    ]  # 1 and 1, both in round 1: ID order
     assert not [line for line in console if "pageerror" in line], console
 
 
@@ -233,11 +278,19 @@ def test_projector_board_reveals_round_by_round(folder, tmp_path, backend_server
     """The board shows nothing until → is pressed; then each round, with places from revealed rounds only."""
     tid, backend_url, call = backend_server
     marks = {  # rounds of 3 questions: (team, question) → status
-        ("A01", 1): "correct", ("A01", 2): "correct", ("A02", 1): "correct", ("A03", 3): "incorrect",
-        ("A03", 4): "correct", ("A03", 5): "correct", ("A03", 6): "correct", ("A02", 4): "disputed",
+        ("A01", 1): "correct",
+        ("A01", 2): "correct",
+        ("A02", 1): "correct",
+        ("A03", 3): "incorrect",
+        ("A03", 4): "correct",
+        ("A03", 5): "correct",
+        ("A03", 6): "correct",
+        ("A02", 4): "disputed",
     }
-    events = [{"scan_id": f"e{i}", "team_id": t, "question": q, "status": st, "client_ts": 1_700_000_000_000 + i}
-              for i, ((t, q), st) in enumerate(marks.items())]
+    events = [
+        {"scan_id": f"e{i}", "team_id": t, "question": q, "status": st, "client_ts": 1_700_000_000_000 + i}
+        for i, ((t, q), st) in enumerate(marks.items())
+    ]
     assert call("record_events", tid=tid, token=JURY_TOKEN, events=events)["ok"]
 
     link = f"{web_server}/b/?grid=5#board={tid}.{BOARD_TOKEN}.AKfycbE2E_TEST_DEPLOYMENT_0001"
@@ -248,23 +301,34 @@ def test_projector_board_reveals_round_by_round(folder, tmp_path, backend_server
         page.on("pageerror", lambda e: errors.append(str(e)))
 
         def to_backend(route):
-            with urllib.request.urlopen(urllib.request.Request(backend_url, data=route.request.post_data.encode(), method="POST")) as r:
-                route.fulfill(status=200, body=r.read(), headers={"Content-Type": "application/json", "Access-Control-Allow-Origin": "*"})
+            with urllib.request.urlopen(
+                urllib.request.Request(backend_url, data=route.request.post_data.encode(), method="POST")
+            ) as r:
+                route.fulfill(
+                    status=200,
+                    body=r.read(),
+                    headers={"Content-Type": "application/json", "Access-Control-Allow-Origin": "*"},
+                )
 
         page.route("https://script.google.com/**", to_backend)
         page.goto(link)
         page.wait_for_selector("text=Результаты появятся после первого тура")
 
         def rows():
-            return [[td.inner_text() for td in tr.query_selector_all("td.place, td.team, td.total")]
-                    for tr in page.query_selector_all("tbody tr")]
+            return [
+                [td.inner_text() for td in tr.query_selector_all("td.place, td.team, td.total")]
+                for tr in page.query_selector_all("tbody tr")
+            ]
 
         page.keyboard.press("ArrowRight")
         page.wait_for_selector("text=после 1-го тура из 2")
         # Round 1 only: A01 2, A02 1, A03 0 (its round-2 points stay hidden).
-        assert [r[:2] + [r[2]] for r in rows()] == [["1", "Синие зайцы", "2"], ["2", "Команда с очень-очень длинным названием «Правило трёх буравчиков»", "1"],
-                                                    ["3", "Думать быстро", "0"]]
-        assert page.inner_text("tfoot") .split()[:4] == ["Взяли", "2", "1", "0"]
+        assert [[*r[:2], r[2]] for r in rows()] == [
+            ["1", "Синие зайцы", "2"],
+            ["2", "Команда с очень-очень длинным названием «Правило трёх буравчиков»", "1"],
+            ["3", "Думать быстро", "0"],
+        ]
+        assert page.inner_text("tfoot").split()[:4] == ["Взяли", "2", "1", "0"]
 
         page.keyboard.press(" ")
         page.wait_for_selector("text=после 2 туров из 2")
