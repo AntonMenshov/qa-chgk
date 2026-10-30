@@ -6,14 +6,13 @@ from pypdf import PdfReader
 from typer.testing import CliRunner
 
 from chgk.cards.build import build_cards
-from chgk.cards.geometry import PAGE_H, card_rects
+from chgk.cards.geometry import PAGE_H, card_parts, card_rects
 from chgk.cards.impose import Mode
 from chgk.cards.model import Card
 from chgk.cards.render import (
     ELLIPSIS,
     FONT,
-    SPARE_LABEL,
-    SPARE_NUMBER_LABEL,
+    spare_box,
     fit_text,
     logo_key,
     missing_glyphs,
@@ -86,7 +85,7 @@ def test_pdf_text_contains_labels_and_cyrillic(folder, tmp_path):
     out = tmp_path / "out.pdf"
     build_cards(folder, Mode.TEAM_PAGES, out)
     text = "\n".join(page.extract_text() for page in PdfReader(out).pages)
-    for expected in ("Синие зайцы", "Думать быстро", "Осенний кубок · 15.11.2026", "Тур 1", "Тур 2", SPARE_LABEL):
+    for expected in ("Синие зайцы", "Думать быстро", "Осенний кубок · 15.11.2026", "Тур 1", "Тур 2"):
         assert expected in text
     assert "Вопрос" not in text  # the user asked for no «Вопрос» label
 
@@ -106,7 +105,7 @@ def test_unprintable_characters_warn_and_still_render(folder, tmp_path):
 
 
 def test_all_fixed_labels_have_glyphs():
-    labels = [SPARE_LABEL, SPARE_NUMBER_LABEL, "Тур 0123456789", " · ", ELLIPSIS, "«»—.,-!?ёЁ"]
+    labels = ["Тур 0123456789", " · ", ELLIPSIS, "«»—.,-!?ёЁ"]
     assert missing_glyphs("".join(labels)) == set()
     assert missing_glyphs("АБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдежзийклмнопрстуфхцчшщъыьэюя") == set()
     assert missing_glyphs("″→★") == {"″", "→", "★"}  # the gaps found in Phase 0
@@ -217,3 +216,23 @@ def test_team_name_can_be_left_off_the_cards(folder, tmp_path):
     assert "Синие зайцы" not in text and "Думать быстро" not in text
     assert "Осенний кубок · 15.11.2026" in text  # the other footer fields stay
     assert "Синие зайцы" in "\n".join(p.extract_text() for p in PdfReader(result.jury_path).pages)  # jury still sees names
+
+
+def test_spare_cards_have_an_empty_number_box_and_no_words(folder, tmp_path):
+    out = tmp_path / "out.pdf"
+    build_cards(folder, Mode.TEAM_PAGES, out)
+    text = "\n".join(page.extract_text() for page in PdfReader(out).pages)
+    assert "Запас" not in text and "№" not in text
+
+    # Page 1 is team A01: slots 0-5 are questions 1-6, slot 6 is the first spare.
+    image = page_images(out)[0].convert("L")
+    scale = DPI / 72
+    rect = card_rects(Layout())[6]
+    box = spare_box(card_parts(rect, 0.65 * 72).number)
+
+    def px(x, y):
+        return image.getpixel((round(x * scale), round((PAGE_H - y) * scale)))
+
+    mid_x, mid_y = box.x + box.w / 2, box.y + box.h / 2
+    assert max(px(box.x, mid_y), px(box.right, mid_y), px(mid_x, box.y), px(mid_x, box.top)) < 160  # the outline
+    assert min(px(mid_x, mid_y), px(box.x + 8, box.top - 8)) > 200  # empty inside

@@ -127,7 +127,8 @@ checks that the decks come out in order.
       Звезды сошлись), set up the way they asked: **no team name on cards, logo
       10%, logo_size 1.85 in**. The defaults elsewhere stay team name on, 12%, auto size.
 - **Teams:** one stack per team for the whole game, plus spares (3 by default). Empty
-  slots on a team's last page become extra spares.
+  slots on a team's last page become extra spares. Spare cards carry no words: an
+  empty box where the number goes (user request).
 - **Juror view:** the app doesn't show the official answer.
 - **Jury printout** (user request, SPEC §8.6), in Russian, written with every
   `cards` run:

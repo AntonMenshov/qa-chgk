@@ -233,8 +233,8 @@ The app doesn't show it (decided).
 │ Синие зайцы · Осенний кубок · 15.11.2026 │   optional footer
 └───────────────────────────────┘
 ```
-- Spare cards show «Запасной» instead of a number, and a «№ ____» line for the team to
-  write the question number.
+- Spare cards have no words: an empty box sits where the question number goes, and the
+  team writes the number in it.
 - Characters the font can't draw (e.g. emoji in a team name) print as `?`, with a
   warning.
 - An embedded Unicode TTF font (OFL licence, e.g. PT Sans or Noto Sans) is used for

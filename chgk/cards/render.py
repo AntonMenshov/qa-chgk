@@ -34,8 +34,8 @@ FONT, FONT_BOLD = "PTSans", "PTSans-Bold"
 GUIDE_GREY = 0.65  # cut lines for a guillotine: 0 = black, 1 = white
 SCISSORS_GREY = 0.35  # darker, dashed cut lines that are easy to follow with scissors
 ELLIPSIS = "…"
-SPARE_LABEL = "Запасной"
-SPARE_NUMBER_LABEL = "№ ____"
+SPARE_BOX_W = 0.9 * 72  # pt: room for a handwritten two- or three-digit number
+SPARE_BOX_GREY = 0.35
 
 
 @lru_cache(maxsize=None)
@@ -137,6 +137,11 @@ def _draw_guides(c: Canvas, tournament: Tournament, mode: Mode, rects: list[Rect
         c.line(PAGE_W - 2, y, PAGE_W - m + 3, y)
 
 
+def spare_box(number: Rect) -> Rect:
+    """The blank box for the question number on a spare card."""
+    return Rect(number.x, number.y, min(SPARE_BOX_W, number.w), number.h)
+
+
 def _draw_card(c: Canvas, card: Card, parts: CardParts, tournament: Tournament, logo: ImageReader | None,
                warnings: list[str]) -> None:
     fields = tournament.card
@@ -149,11 +154,12 @@ def _draw_card(c: Canvas, card: Card, parts: CardParts, tournament: Tournament, 
     nr = parts.number
     c.setFillGray(0)
     if card.is_spare:
-        label, size = fit_text(SPARE_LABEL, FONT_BOLD, 14, nr.w, 8)
-        c.setFont(FONT_BOLD, size)
-        c.drawString(nr.x, nr.top - pdfmetrics.getAscent(FONT_BOLD, size), label)
-        c.setFont(FONT, ROUND_SIZE + 2)
-        c.drawString(nr.x, nr.y + 1, SPARE_NUMBER_LABEL)
+        # An empty box where the number sits on every other card: the team writes it in.
+        box = spare_box(nr)
+        c.setStrokeGray(SPARE_BOX_GREY)
+        c.setLineWidth(1)
+        c.roundRect(box.x, box.y, box.w, box.h, 4)
+        c.setStrokeGray(0)
     else:
         c.setFont(FONT_BOLD, NUMBER_SIZE)
         c.drawString(nr.x, nr.top - pdfmetrics.getAscent(FONT_BOLD, NUMBER_SIZE), str(card.id.question))
