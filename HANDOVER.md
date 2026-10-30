@@ -204,6 +204,12 @@ checks that the decks come out in order.
   and checks them against the marks (`m.sortKeysOk`); if they disagree (a formula broken
   by hand) the slow sort, which repairs formulas first, is used. The fake now treats
   formulas written earlier in the same call as blank sort keys, which reproduces the bug.
+- Backend 7621fb64ef82 deployed and checked live: 10 rounds of order-changing marks on
+  HVTXT, «Итоги» order, round sums, totals and places equal to a reference computed from
+  the raw marks. Live medians: board 1.1 s, phone refresh 1.1 s, 1 mark 1.6 s, a mark
+  that re-sorts 1.7-2.2 s, 15 marks 1.4 s (this morning: 2.6 / 2.8 / 4.3 / 5.0 / 5.9 s).
+  ~0.7-1.0 s of each is Google outside the script. 3 phones at once: the 3rd waits ~1.1 s
+  (was ~2.0 s). Next idea, parked by the user: cache for board/phone reads (#2).
 - Backend (lazy open + one-call sort, first deployed as 271296487de6): the spreadsheet is opened only when needed
   (`open_` returns a lazy wrapper); a re-sort is one Sheets API spreadsheets.batchUpdate per
   request (per tab: updateCells formulas, sortRange, updateCells formulas; formulas depend
