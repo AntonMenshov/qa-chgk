@@ -8,14 +8,14 @@ See [SPEC.md](SPEC.md). Each phase ends with:
 Tests are written alongside the code, not after it.
 
 ## Phase 0 — Skeleton and spikes
-- `uv init` package layout (`src/chgk`, `tests/`), `pyproject.toml` with dev deps,
+- `uv init` package layout (`chgk/` at repo root, `tests/`), `pyproject.toml` with dev deps,
   `.gitignore` (`state.json`, `out/`, `.venv`).
 - CI workflow (pytest + `node --test`).
 - Shared test vectors folder `tests/vectors/`.
 - Spikes (throwaway, findings noted in `docs/spikes.md`):
   1. POST from a GitHub Pages page to an Apps Script web app (CORS, `text/plain`,
      a 200 KB photo payload).
-  2. QR library on iPhone Safari: scan speed on a 0.75″ code; frame capture
+  2. QR library on iPhone Safari: scan speed on a 0.65″ code; frame capture
      resolution.
   3. A single printed test card on a real printer.
 - **Tests:** a trivial import test, so CI is green from day one.

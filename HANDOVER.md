@@ -99,7 +99,7 @@ approach: Cyrillic text and QR codes are read back from a rendered PDF.
 2. Record the findings in `docs/spikes.md`; choose the QR library and the logo grey
    shade.
 3. Phase 1 can start in parallel. It doesn't depend on the spike results except the
-   minimum QR size (assume 0.75 in until spike 2 says otherwise).
+   QR size, which the user set from the test print: **0.65 in**, logo **3% grey**.
 
 Lessons so far: PT Sans lacks `″` and `→`. Phase 1 must test that every drawn
 character exists in the font.

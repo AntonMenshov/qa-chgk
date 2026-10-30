@@ -52,10 +52,10 @@ Camera resolution: ____; photo size per card: ____ KB.
 
 | Check | Printer | Result |
 |---|---|---|
-| Rulers measure exactly 2 in | | |
-| Palest grey still visible | | |
-| Grey you'd pick for the logo watermark | | |
-| Sample cards: enough room to write? | | |
+| Grey you'd pick for the logo watermark | (user, 2026-10-29) | **3%** |
+| QR size | (user, 2026-10-29) | **0.65 in** (between the 0.6 and 0.7 samples) |
+| Rulers measure exactly 2 in | | not reported |
+| Sample cards: enough room to write? | | not reported |
 
 ## Findings so far (automated)
 

@@ -118,7 +118,8 @@ A missing card scores as incorrect, but the sheet always shows whether a card wa
   - `TID`: random 5-char tournament code; `TEAM`: `team_id`; `Q`: question number,
     or `S1…Sn` for spare cards.
   - Example: `…/s/#K7M2Q.A07.27`. This is short enough for a small, robust QR
-    (error correction M, quiet zone ≥ 4 modules, printed ≥ 0.75″).
+    (error correction M, quiet zone 4 modules). Printed at **0.65″** including the
+    quiet zone (user's choice from the test print; configurable).
 - The QR contains no secret. Submitting a mark requires the jury token (§7.4).
 - When a **spare card** is scanned, the app assumes the current question and asks for
   one-tap confirmation, or lets the juror pick another question.
@@ -187,6 +188,7 @@ The app doesn't show it (decided).
 - An embedded Unicode TTF font (OFL licence, e.g. PT Sans or Noto Sans) is used for
   Cyrillic.
 - The logo never overlaps the QR quiet zone.
+- Logo watermark default: **3% grey** (user's choice from the test print; configurable).
 
 ### 8.3 Imposition: all three modes are available, and the CLI **asks which one** before generating unless it's passed
 | Mode | Description |
@@ -236,7 +238,7 @@ stays a thin layer.
 
 | Layer | Runner | What is unit-tested |
 |---|---|---|
-| Python (`src/chgk`) | `uv run pytest` | config validation and question/round numbering; QR payload encode/decode; imposition (every card placed exactly once; simulated cut-and-stack yields sorted decks; page count); layout geometry (everything inside margins, QR ≥ min size, QR and logo don't overlap); logo processing (greyscale, darkest pixel ≤ chosen shade); Apps Script client with mocked HTTP (`respx`) |
+| Python (`chgk/`) | `uv run pytest` | config validation and question/round numbering; QR payload encode/decode; imposition (every card placed exactly once; simulated cut-and-stack yields sorted decks; page count); layout geometry (everything inside margins, QR ≥ min size, QR and logo don't overlap); logo processing (greyscale, darkest pixel ≤ chosen shade); Apps Script client with mocked HTTP (`respx`) |
 | PDF output | `uv run pytest` | smoke tests: page count; Cyrillic text extractable (`pypdf`); **QR codes decoded back from the rendered PDF** (`pypdfium2` + `zxing-cpp`) and matching the expected payloads |
 | Apps Script logic (`apps_script/`) | `node --test` | last-write-wins merge, status → cell mapping, request validation, token check, idempotency by `scan_id`. Pure functions live in a file that runs both in Apps Script and in Node |
 | Web app logic (`web/`) | `node --test` | payload parsing, offline queue (retry, dedupe), missing-teams computation, question-mismatch / duplicate warnings, spare-card handling |
