@@ -68,6 +68,9 @@ class FakeBackend:
         if action == "set_board_token":
             self.tournaments[req["tid"]]["board_token"] = req["board_token"]
             return httpx.Response(200, json={"ok": True})
+        if action == "share_view":
+            self.tournaments[req["tid"]]["view_shared"] = True
+            return httpx.Response(200, json={"ok": True})
         return httpx.Response(200, json={"ok": False, "error": "unknown action"})
 
 
@@ -342,6 +345,29 @@ def test_cli_board_gives_an_older_tournament_a_board_link(folder, backends):
     # Running it again keeps the same link.
     assert link in runner.invoke(app, ["board", str(folder)]).output
     assert sum(c["action"] == "set_board_token" for c in a.calls) == 1
+
+
+def test_new_tournament_is_view_only_shared(folder, backends):
+    runner.invoke(app, ["backend", "add", "personal", "--url", URL_A, "--token", "tokA"])
+    runner.invoke(app, ["new", str(folder)])
+    state = load_or_create_state(folder)
+    assert state.view_url == f"https://docs.google.com/spreadsheets/d/{state.spreadsheet_id}/htmlview"
+
+
+def test_cli_view_shares_an_older_tournament_once(folder, backends):
+    a, _ = backends
+    runner.invoke(app, ["backend", "add", "personal", "--url", URL_A, "--token", "tokA"])
+    runner.invoke(app, ["new", str(folder)])
+    state = json.loads((folder / "state.json").read_text())
+    state.pop("view_shared")  # created before the backend shared new Sheets
+    (folder / "state.json").write_text(json.dumps(state))
+    assert load_or_create_state(folder).view_url is None
+    result = runner.invoke(app, ["view", str(folder)])
+    assert result.exit_code == 0, result.output
+    assert f"https://docs.google.com/spreadsheets/d/{state['spreadsheet_id']}/htmlview" in result.output
+    assert a.tournaments[state["tid"]]["view_shared"] is True
+    runner.invoke(app, ["view", str(folder)])
+    assert sum(c["action"] == "share_view" for c in a.calls) == 1
 
 
 def test_cli_board_needs_a_backend(folder):

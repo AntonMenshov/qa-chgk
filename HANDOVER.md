@@ -200,9 +200,11 @@ checks that the decks come out in order.
 - Reserve decks (SPEC §8.7): R1, R2 are on the Teams tab from the start but join the
   other tabs only on first scan or when named, so they never distort places. Names typed
   on any tab are propagated by team ID (`propagateNames_`), like marks.
-- Jury sheet (user requests): page 1 holds every QR code, one per quarter (tested ≥ 3″
-  apart, none on other pages); the roster became per-team player forms (ID + name +
-  8 lines), no town or card counts.
+- Jury sheet (user requests): page 1 = jury only (access, editable Sheet, scanner);
+  page 2 = projector board + view-only Sheet (`htmlview`, shared "anyone with the link
+  can view" at creation or by `chgk view`); no QR on other pages. The spreading-apart of
+  QR codes was dropped (user: "no need"). The roster became per-team player forms
+  (ID + name + 8 lines), two per row, no town or card counts.
 
 - Team IDs are the organiser's (user request: rating numbers such as 58746) or assigned
   A01…; format 1-8 of `[0-9A-Z]`, which keeps the QR at version 4-M. Column A on every

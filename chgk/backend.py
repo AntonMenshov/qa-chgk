@@ -131,6 +131,10 @@ class BackendClient:
     def set_board_token(self, tid: str, board_token: str) -> dict:
         return self.call("set_board_token", tid=tid, board_token=board_token)
 
+    def share_view(self, tid: str) -> dict:
+        """Anyone with the link may view the tournament's Sheet."""
+        return self.call("share_view", tid=tid)
+
     def get_teams(self, tid: str) -> list[dict]:
         return self.call("get_teams", tid=tid)["teams"]
 

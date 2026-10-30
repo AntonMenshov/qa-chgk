@@ -289,16 +289,20 @@ Every `chgk cards` run also writes the jury sheet, `out/<slug>/jury.pdf`, as a
 separate file so the secret never ends up on team cards. It's also available alone
 as `chgk jury-sheet <folder>`.
 
-- **Page 1, every QR code and nothing else** (user request): the secret jury access
-  (§7.4, framed, marked secret), scanner, results Sheet, projector board. One per
-  quarter of the page, at least 3″ apart, so the wrong one is hard to scan. A link that
-  doesn't exist yet gets a dashed empty box. Only this page's footer says «секретно».
-- **Page 2:** tournament name, date, rounds × questions, teams (+ reserve decks), TID;
+- **Page 1, jury only** (user request): QR codes for the secret jury access (§7.4,
+  framed, marked secret), the Sheet with edit rights, and the scanner, side by side.
+  Only this page's footer says «секретно».
+- **Page 2, no secrets** (user request): QR codes for the projector board and the
+  **view-only Sheet** (`…/htmlview`; the backend shares every new Sheet as "anyone with
+  the link can view", `chgk view` does it for older ones). It may be shown to teams;
+  the view-only Sheet shows marks as soon as they're entered, the board only after a
+  round is revealed. A link that doesn't exist yet gets a dashed empty box.
+- **Page 3:** tournament name, date, rounds × questions, teams (+ reserve decks), TID;
   the links as text (no QR codes) with the backend profile and Google-account label;
   juror how-to; «?» and appeals how-to; how to handle a team that turns up
   unregistered (when reserve decks exist).
 - **Team forms** (user request; replaces the old roster): one per team with only the
-  ID and name, then 8 numbered lines for the players' names. Blank forms for the
+  ID and name, then 8 numbered lines for the players' names, two forms per row. Blank forms for the
   reserve decks (R1, R2, …) with a «Название команды:» field. Handed to the teams.
 - **Then a paper backup grid,** for when phones or internet fail: one block per round
   (teams × questions + a «Сумма» column), then an «Итого» block (teams × rounds +
@@ -367,7 +371,7 @@ The Claude API does not output raster images, but it can write SVG.
 
 ### 10.1 Projector board (user decisions)
 - A web page next to the scanner (`…/b/`), opened on the projector laptop from the board
-  link (QR on page 1 of the jury sheet, or `chgk board`). Read-only: its board token can
+  link (QR on page 2 of the jury sheet, or `chgk board`). Read-only: its board token can
   read teams and marks but nothing else, and is separate from the jury token.
 - **Shown only after each round.** Nothing appears until the person at the projector
   presses → (or space, or «Показать тур N»); each press reveals the next round, ← takes

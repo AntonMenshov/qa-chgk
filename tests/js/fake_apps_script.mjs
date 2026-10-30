@@ -170,6 +170,7 @@ export function loadBackend({ account = "me@gmail.com", serviceUrl = "https://sc
   const spreadsheets = new Map();
   const root = new FakeFolder("root");
   const triggers = [];
+  const sharing = new Map(); // spreadsheet id → "ACCESS:PERMISSION"
   const ctx = {
     console,
     JSON, Date, Math, Number, String, Object, Array, Set, Map, Error,
@@ -191,7 +192,12 @@ export function loadBackend({ account = "me@gmail.com", serviceUrl = "https://sc
       newConditionalFormatRule: chain,
       BorderStyle: { SOLID_MEDIUM: "SOLID_MEDIUM" },
     },
-    DriveApp: { getRootFolder: () => root, getFileById: () => ({ moveTo() {} }) },
+    DriveApp: {
+      getRootFolder: () => root,
+      getFileById: (id) => ({ moveTo() {}, setSharing(access, permission) { sharing.set(id, `${access}:${permission}`); } }),
+      Access: { ANYONE_WITH_LINK: "ANYONE_WITH_LINK" },
+      Permission: { VIEW: "VIEW" },
+    },
     ScriptApp: {
       newTrigger: (fn) => { triggers.push(fn); return chain(); },
       getService: () => ({ getUrl: () => serviceUrl }),
@@ -208,7 +214,7 @@ export function loadBackend({ account = "me@gmail.com", serviceUrl = "https://sc
   const dir = new URL("../../apps_script/", import.meta.url);
   const source = readFileSync(new URL("logic.js", dir), "utf8") + "\n" + readFileSync(new URL("Code.js", dir), "utf8");
   vm.runInContext(source, ctx, { filename: "apps_script bundle" });
-  ctx.$ = { props, spreadsheets, root, triggers, scopeRequests: [] };
+  ctx.$ = { props, spreadsheets, root, triggers, sharing, scopeRequests: [] };
   ctx.post = (body) => ctx.doPost({ postData: { contents: JSON.stringify(body) } }).json();
   return ctx;
 }

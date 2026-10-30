@@ -90,6 +90,10 @@ function handle_(req) {
         props.setProperty("t:" + req.tid, JSON.stringify(reg));
         return { ok: true };
       });
+    case "share_view":
+      requireAdmin_(props, req);
+      shareView_(reg.spreadsheet_id);
+      return { ok: true };
   }
   fail("unhandled action");
 }
@@ -185,6 +189,7 @@ function createTournament_(props, req) {
   const ss = SpreadsheetApp.create(`${req.name} ${req.date} (${req.tid})`);
   DriveApp.getFileById(ss.getId()).moveTo(folder);
   buildTabs_(ss, req);
+  shareView_(ss.getId());
   ScriptApp.newTrigger("onSheetEdit").forSpreadsheet(ss).onEdit().create();
 
   const reg = {
@@ -193,6 +198,11 @@ function createTournament_(props, req) {
   };
   props.setProperty("t:" + req.tid, JSON.stringify(reg));
   return { ok: true, existed: false, spreadsheet_id: reg.spreadsheet_id, folder_id: reg.folder_id };
+}
+
+/** Anyone with the link may view the Sheet (the view-only QR on the jury sheet); only the owner edits. */
+function shareView_(spreadsheetId) {
+  DriveApp.getFileById(spreadsheetId).setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
 }
 
 function buildTabs_(ss, req) {

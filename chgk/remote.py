@@ -49,7 +49,7 @@ def new_tournament(folder: Path, profile: Profile, client: BackendClient | None 
     )
     state = replace(
         state, backend_url=profile.url, backend_profile=profile.name, backend_account=account,
-        spreadsheet_id=reply["spreadsheet_id"],
+        spreadsheet_id=reply["spreadsheet_id"], view_shared=True,  # create_tournament shares it view-only
     )
     save_state(folder, state)
     return NewResult(state, created=not reply.get("existed", False))
@@ -97,5 +97,17 @@ def ensure_board(folder: Path, profiles: Profiles, client: BackendClient | None 
     client = client or default_client
     state = replace(state, board_token=generate_jury_token())
     client.set_board_token(state.tid, state.board_token)
+    save_state(folder, state)
+    return state
+
+
+def ensure_view(folder: Path, profiles: Profiles, client: BackendClient | None = None) -> State:
+    """Share the Sheet view-only with anyone who has the link (tournaments created before it was done at creation)."""
+    folder = Path(folder)
+    state, default_client = tournament_client(folder, profiles)
+    if state.view_shared:
+        return state
+    (client or default_client).share_view(state.tid)
+    state = replace(state, view_shared=True)
     save_state(folder, state)
     return state

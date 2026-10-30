@@ -24,7 +24,7 @@ def with_backend(folder):
     state = json.loads((folder / "state.json").read_text()) if (folder / "state.json").exists() else {}
     state.setdefault("tid", load_or_create_state(folder).tid)
     state.update(backend_url=BACKEND, backend_profile="club", backend_account="club@gmail.com",
-                 spreadsheet_id="SHEET123", jury_token="secretTOKEN_0123456789ab", board_token="boardTOKEN_0123456789ab")
+                 spreadsheet_id="SHEET123", jury_token="secretTOKEN_0123456789ab", board_token="boardTOKEN_0123456789ab", view_shared=True)
     (folder / "state.json").write_text(json.dumps(state))
     return state
 
@@ -63,29 +63,43 @@ def test_without_backend_shows_placeholder_and_no_secret(folder, tmp_path):
     assert qr_texts(out) == ["https://example.github.io/qa-chgk/s/"]  # only the scanner link
 
 
-def test_all_qr_codes_on_page_one_far_apart(folder, tmp_path):
+VIEW = "https://docs.google.com/spreadsheets/d/SHEET123/htmlview"
+EDIT = "https://docs.google.com/spreadsheets/d/SHEET123/edit"
+SCANNER = "https://example.github.io/qa-chgk/s/"
+
+
+def test_page_one_is_for_the_jury_page_two_for_everyone(folder, tmp_path):
+    """User request: page 1 = jury access, editable Sheet, scanner; page 2 = board and view-only Sheet."""
     state = with_backend(folder)
     out, _ = build_jury_sheet(folder, out=tmp_path / "jury.pdf")
-    qrs = qr_positions(out)
-    setup = [q for q in qrs if "#setup=" in q]
+    page1 = qr_texts(out, 0)
+    setup = [q for q in page1 if "#setup=" in q]
     assert len(setup) == 1
     access = decode_jury_link(setup[0])
     assert (access.tid, access.jury_token, access.backend_url) == (state["tid"], state["jury_token"], BACKEND)
+    assert set(page1) == {setup[0], EDIT, SCANNER} and len(page1) == 3
     board = "https://example.github.io/qa-chgk/b/?grid=5#board=" + state["tid"] + ".boardTOKEN_0123456789ab.AKfycbTEST_deployment_0000000"
-    assert set(qrs) == {setup[0], "https://example.github.io/qa-chgk/s/", "https://docs.google.com/spreadsheets/d/SHEET123/edit", board}
+    assert sorted(qr_texts(out, 1)) == sorted([board, VIEW])
     assert decode_board_link(board).board_token == "boardTOKEN_0123456789ab"
-    # Spread out: every pair of codes is at least 3 inches apart (centre to centre).
-    points = list(qrs.values())
-    for i, (x1, y1) in enumerate(points):
-        for x2, y2 in points[i + 1:]:
-            assert ((x1 - x2) ** 2 + (y1 - y2) ** 2) ** 0.5 >= 3.0
-    # ... and no other page has a QR code.
-    for page in range(1, len(PdfReader(out).pages)):
+    # The jury token is on page 1 only, and no other page has a QR code.
+    for page in range(2, len(PdfReader(out).pages)):
         assert qr_texts(out, page) == [], f"page {page + 1}"
-    text = text_of(out)
-    assert "Доступ жюри — секретно" in text
-    assert "club · club@gmail.com" in text
-    assert state["tid"] in text
+    texts = [" ".join(t.split()) for t in page_texts(out)]
+    assert "Доступ жюри — секретно" in texts[0] and "Таблица — редактирование" in texts[0]
+    assert "Табло для проектора" in texts[1] and "Таблица — только просмотр" in texts[1]
+    assert state["jury_token"] not in texts[1]
+    assert "разнесены" not in "".join(texts)
+    assert "club · club@gmail.com" in texts[2]
+    assert state["tid"] in texts[2]
+
+
+def test_view_only_qr_waits_for_sharing(folder, tmp_path):
+    state = with_backend(folder)
+    state["view_shared"] = False
+    (folder / "state.json").write_text(json.dumps(state))
+    out, _ = build_jury_sheet(folder, out=tmp_path / "jury.pdf")
+    assert VIEW not in qr_texts(out, 1) and len(qr_texts(out, 1)) == 1
+    assert NOT_YET in page_texts(out)[1]
 
 
 def test_only_the_qr_page_is_marked_secret(folder, tmp_path):
@@ -93,7 +107,7 @@ def test_only_the_qr_page_is_marked_secret(folder, tmp_path):
     out, _ = build_jury_sheet(folder, out=tmp_path / "jury.pdf")
     texts = page_texts(out)
     assert "лист жюри · секретно" in texts[0]
-    assert all("секретно" not in t for t in texts[2:])
+    assert all("секретно" not in t for t in texts[1:])
 
 
 def test_team_forms_have_id_name_and_player_lines_only(folder, tmp_path):
@@ -104,6 +118,13 @@ def test_team_forms_have_id_name_and_player_lines_only(folder, tmp_path):
     # Reserve decks R1, R2 get blank forms.
     assert forms.count("Название команды:") == 2 and "R1" in forms and "R2" in forms
     assert forms.count("Фамилия и имя игрока") == 5
+    # Two columns (user request): all five forms fit on one page.
+    from reportlab.pdfbase.pdfmetrics import stringWidth
+    from chgk.cards.render import FONT_BOLD
+    from chgk.jury import FORM_ID_W
+    for team_id, size in (("58746", 13), ("ABCDEFGH", 9.5)):  # the longest IDs stay on one line
+        assert stringWidth(team_id, FONT_BOLD, size) <= FORM_ID_W - 12, team_id
+    assert sum("Фамилия и имя игрока" in t for t in page_texts(out)) == 1
     # No town, no card counts (user request).
     text = text_of(out)
     assert "Бостон" not in text and "Город" not in text and "Карточек" not in text and "Выдано" not in text
@@ -169,11 +190,11 @@ def test_links_are_clickable_with_the_full_address(folder, tmp_path):
     state = with_backend(folder)
     out, _ = build_jury_sheet(folder, out=tmp_path / "jury.pdf")
     setup = next(q for q in qr_texts(out) if "#setup=" in q)
-    sheet = "https://docs.google.com/spreadsheets/d/SHEET123/edit"
-    scanner = "https://example.github.io/qa-chgk/s/"
-    page1 = link_targets(out, 0)
-    for url in (setup, sheet, scanner):
+    page1, page2 = link_targets(out, 0), link_targets(out, 1)
+    for url in (setup, EDIT, SCANNER):
         assert page1.count(url) >= 2, url  # the QR code and the text under it
-    assert set(page1) == {setup, sheet, scanner, next(u for u in page1 if "#board=" in u)}
+    assert set(page1) == {setup, EDIT, SCANNER}
+    board = next(u for u in page2 if "#board=" in u)
+    assert page2.count(board) >= 2 and page2.count(VIEW) >= 2 and set(page2) == {board, VIEW}
     assert decode_jury_link(setup).jury_token == state["jury_token"]
-    assert {sheet, scanner} <= set(link_targets(out, 1))  # page 2 links table
+    assert {EDIT, SCANNER, VIEW, board} <= set(link_targets(out, 2))  # page 3 links table

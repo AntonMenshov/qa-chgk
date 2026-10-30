@@ -458,6 +458,17 @@ test("get_board: the board token reads teams and marks but can't write; unused r
   assert.match(b.post({ action: "set_board_token", tid: TID, token: BOARD, board_token: "x".repeat(20) }).error, /forbidden/);
 });
 
+test("the Sheet is view-only for anyone with the link: at creation, and share_view for older tournaments (admin only)", () => {
+  const { b, admin } = world();
+  const id = JSON.parse(b.$.props.get(`t:${TID}`)).spreadsheet_id;
+  assert.equal(b.$.sharing.get(id), "ANYONE_WITH_LINK:VIEW");
+  b.$.sharing.clear();
+  assert.match(b.post({ action: "share_view", tid: TID, token: JURY }).error, /forbidden/);
+  assert.equal(b.$.sharing.size, 0);
+  assert.equal(b.post({ action: "share_view", tid: TID, token: admin }).ok, true);
+  assert.equal(b.$.sharing.get(id), "ANYONE_WITH_LINK:VIEW");
+});
+
 test("set_board_token gives an older tournament a board link (admin only); a weak token is refused", () => {
   const { b, admin } = world();
   const NEW = "new-board-token-abcdefgh";

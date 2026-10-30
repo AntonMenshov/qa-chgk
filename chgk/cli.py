@@ -18,7 +18,7 @@ from chgk.cards.build import INSTRUCTIONS, build_cards, build_jury_sheet, build_
 from chgk.cards.impose import Mode
 from chgk.config import load_config
 from chgk.ids import encode_board_link
-from chgk.remote import ensure_board, new_tournament, sync_teams
+from chgk.remote import ensure_board, ensure_view, new_tournament, sync_teams
 
 app = typer.Typer(help="ЧГК answer cards and jury scanning.", no_args_is_help=True)
 backend_app = typer.Typer(help="Google backends: one named profile per Google account.", no_args_is_help=True)
@@ -251,5 +251,17 @@ def board_cmd(folder: Path = typer.Argument(..., help="Tournament folder")) -> N
     link = encode_board_link(tournament.scanner_url, state.board_access, tournament.board_grid_max_teams)
     typer.echo("Open on the projector laptop (read-only; → shows the next round):")
     typer.echo(link)
-    typer.echo("Its QR code is on page 1 of the jury sheet: run `chgk jury-sheet` (or `chgk cards`) to refresh it.")
+    typer.echo("Its QR code is on page 2 of the jury sheet: run `chgk jury-sheet` (or `chgk cards`) to refresh it.")
+
+
+@app.command("view")
+def view_cmd(folder: Path = typer.Argument(..., help="Tournament folder")) -> None:
+    """Print the Sheet's view-only link (sharing it "anyone with the link can view" if not yet)."""
+    try:
+        state = ensure_view(folder, Profiles())
+    except (ValueError, BackendError) as err:
+        raise _fail(err) from err
+    typer.echo("Results, view-only for anyone with the link (marks appear as the jury enters them):")
+    typer.echo(state.view_url)
+    typer.echo("Its QR code is on page 2 of the jury sheet: run `chgk jury-sheet` (or `chgk cards`) to refresh it.")
 

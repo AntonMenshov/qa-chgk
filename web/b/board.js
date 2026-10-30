@@ -99,7 +99,7 @@ function render() {
   if (!access) {
     stage.replaceChildren(el("section", { className: "title" },
       el("h1", { textContent: "Табло" }),
-      el("div", { className: "wait", textContent: "Откройте ссылку табло с первой страницы листа жюри." })));
+      el("div", { className: "wait", textContent: "Откройте ссылку табло со второй страницы листа жюри." })));
     $("controls").hidden = true;
     return fit();
   }
