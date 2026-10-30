@@ -297,6 +297,10 @@ checks that the decks come out in order.
   board token, jury.pdf regenerated (board QR on page 1). Headless Chrome on the Pages
   board against the real backend: title screen, then → reveals Тур 1 and Тур 2 (grid, 4
   teams, all «1-4» with no marks yet), no page errors.
+  2026-10-30: version 426c987342e1 deployed (share_view; new Sheets shared view-only at
+  creation). `chgk view` shared QHZJ8; its `/htmlview` opens without a Google login in
+  headless Chrome (Итоги + round tabs, Meta stays hidden). jury.pdf regenerated: page 1
+  jury QRs, page 2 board + view-only QR, both pages filled.
   **Still to confirm by the user (needs the edit trigger):** typing a name over
   «R1 · впишите название», and a mark edit on a round tab (`+` → `1`, row moves, Log row).
 - Delete the old example folder `ЧГК/… (5R547)` (single Results layout) from Drive.

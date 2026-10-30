@@ -136,6 +136,12 @@ def _jury_panels(t: Tournament, state: State) -> list[Panel]:
     ]
 
 
+def _jury_rows(t: Tournament, state: State) -> list[list[Panel]]:
+    """Page 1: the secret access QR alone across the top half, the other two below it."""
+    access, sheet, scanner = _jury_panels(t, state)
+    return [[access], [sheet, scanner]]
+
+
 def _public_panels(t: Tournament, state: State) -> list[Panel]:
     """Page 2: the projector board and the Sheet, view-only."""
     return [
@@ -145,53 +151,83 @@ def _public_panels(t: Tournament, state: State) -> list[Panel]:
     ]
 
 
-class QrRow(Flowable):
-    """QR codes side by side, each with its title, hint and the address under it."""
+class QrPage(Flowable):
+    """QR codes filling the rest of the page: `rows` of panels, each panel with its title,
+    hint, the QR code as large as its box allows and the address under it."""
 
-    def __init__(self, panels: list[Panel], styles, qr_size: float, height: float):
+    GAP = 0.15 * INCH
+    PAD = 0.25 * INCH
+    MAX_QR = 4.0 * INCH
+
+    def __init__(self, rows: list[list[Panel]], styles):
         super().__init__()
-        self.panels, self.s, self.qr_size, self.height = panels, styles, qr_size, height
+        self.rows, self.s = rows, styles
 
     def wrap(self, avail_w, avail_h):
-        self.w, self.h = avail_w, self.height
-        return self.w, self.h
+        self.w, self.h = avail_w, avail_h
+        return avail_w, avail_h
+
+    def _height(self, text, style, width):
+        return Paragraph(text, style).wrap(width, 10000)[1]
 
     def _para(self, text, style, x, top, width):
         para = Paragraph(text, style)
-        _, height = para.wrap(width, 1000)
+        _, height = para.wrap(width, 10000)
         para.drawOn(self.canv, x, top - height)
         return height
 
+    def _texts(self, panel, inner):
+        """Heights of the text above the QR code and of the address under it."""
+        title, hint, payload, _ = panel
+        above = self._height(escape(title), self.s["panel"], inner) + 4 + self._height(escape(hint), self.s["hint"], inner)
+        below = self._height(_link(payload), self.s["url"], inner) if payload else 0
+        return above, below
+
+    def boxes(self):
+        """(panel, x, y, w, h, qr_size, text_above) for every panel; one QR size per row."""
+        out = []
+        row_h = (self.h - self.GAP * (len(self.rows) - 1)) / len(self.rows)
+        for r, row in enumerate(self.rows):
+            y = self.h - (r + 1) * row_h - r * self.GAP
+            w = (self.w - self.GAP * (len(row) - 1)) / len(row)
+            inner = w - 2 * self.PAD
+            texts = [self._texts(p, inner) for p in row]
+            above = max(a for a, _ in texts)
+            below = max(b for _, b in texts)
+            size = min(inner, row_h - 2 * self.PAD - above - below - 0.35 * INCH, self.MAX_QR)
+            for k, panel in enumerate(row):
+                out.append((panel, k * (w + self.GAP), y, w, row_h, size, above))
+        return out
+
     def draw(self):
         c = self.canv
-        size = self.qr_size
-        cw = self.w / len(self.panels)
-        for k, (title, hint, payload, secret) in enumerate(self.panels):
-            x, top = k * cw, self.h
-            inner = cw - 0.4 * INCH
-            left = x + 0.2 * INCH
+        for (title, hint, payload, secret), x, y, w, h, size, above in self.boxes():
+            inner = w - 2 * self.PAD
+            left = x + self.PAD
             c.setStrokeGray(0 if secret else 0.7)
-            c.setLineWidth(1.6 if secret else 0.5)
-            c.rect(x + 0.06 * INCH, 0, cw - 0.12 * INCH, self.h)
-            y = top - 0.2 * INCH
-            y -= self._para(escape(title), self.s["panel"], left, y, inner) + 4
-            # Same QR height in every panel, whatever the hint's length.
-            self._para(escape(hint), self.s["hint"], left, y, inner)
-            y -= 0.5 * INCH
-            qr_x = x + (cw - size) / 2
+            c.setLineWidth(1.8 if secret else 0.6)
+            c.rect(x, y, w, h)
+            top = y + h - self.PAD
+            top -= self._para(escape(title), self.s["panel"], left, top, inner) + 4
+            self._para(escape(hint), self.s["hint"], left, top, inner)
+            # The QR code (and the address under it) centred in the space under the text.
+            space_top = y + h - self.PAD - above
+            url_h = self._height(_link(payload), self.s["url"], inner) if payload else 0
+            block = size + (8 + url_h if payload else 0)
+            qr_top = space_top - (space_top - (y + self.PAD) - block) / 2
+            qr_x = x + (w - size) / 2
             if payload:
-                draw_qr(c, payload, Rect(qr_x, y - size, size, size))
+                draw_qr(c, payload, Rect(qr_x, qr_top - size, size, size))
                 # The QR code itself is clickable too (full URL).
-                c.linkURL(payload, (qr_x, y - size, qr_x + size, y), relative=1)
-                y -= size + 8
-                self._para(_link(payload), self.s["url"], left, y, inner)
+                c.linkURL(payload, (qr_x, qr_top - size, qr_x + size, qr_top), relative=1)
+                self._para(_link(payload), self.s["url"], left, qr_top - size - 8, inner)
             else:
                 c.setStrokeGray(0.6)
                 c.setLineWidth(0.8)
                 c.setDash(2, 2)
-                c.rect(qr_x, y - size, size, size)
+                c.rect(qr_x, qr_top - size, size, size)
                 c.setDash()
-                self._para(NOT_YET, self.s["hint"], qr_x, y - size / 2 + 6, size)
+                self._para(NOT_YET, self.s["hint"], qr_x, qr_top - size / 2 + 6, size)
 
 
 def _questions_line(t: Tournament) -> str:
@@ -313,12 +349,12 @@ def render_jury_sheet(tournament: Tournament, state: State, teams: list[Team], o
         Paragraph(f"{name} — QR-коды жюри", s["h1"]),
         Paragraph("Секретно: только для жюри, не оставляйте этот лист на виду у команд.", s["base"]),
         Spacer(1, 12),
-        QrRow(_jury_panels(tournament, state), s, qr_size=2.15 * INCH, height=4.3 * INCH),
+        QrPage(_jury_rows(tournament, state), s),
         PageBreak(),
         Paragraph(f"{name} — табло и результаты", s["h1"]),
         Paragraph(PUBLIC_NOTE, s["base"]),
         Spacer(1, 12),
-        QrRow(_public_panels(tournament, state), s, qr_size=2.6 * INCH, height=4.7 * INCH),
+        QrPage([[p] for p in _public_panels(tournament, state)], s),
         PageBreak(),
         Paragraph(f"{name} — жюри", s["h1"]),
         Paragraph(
