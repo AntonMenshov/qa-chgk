@@ -273,6 +273,11 @@ checks that the decks come out in order.
   (incl. spare → keypad, reserve R1), foreign card refused, marks and places correct in
   the Sheet, no page errors. Sending took ~14 s after the last tap (background); the
   sort-skipping speedup is in 34a5241c5813, not yet deployed.
+  34a5241c5813 deployed (user re-ran `setup` after `backend check` reported a missing
+  permission; now clean). Measured live: 3.3–4.8 s per record_events request whether or
+  not the order changes, so the sort was not the main cost; it is fixed per-request
+  overhead. Background-only for the juror. Next backend update: add a timing breakdown to
+  the reply, then optimise the biggest part.
   **Still to confirm by the user (needs the edit trigger):** typing a name over
   «R1 · впишите название», and a mark edit on a round tab (`+` → `1`, row moves, Log row).
 - Delete the old example folder `ЧГК/… (5R547)` (single Results layout) from Drive.
