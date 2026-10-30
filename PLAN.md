@@ -88,7 +88,7 @@ Tests are written alongside the code, not after it.
   view-only table and of the board itself (the jury sheet's links).
 - **Tests:** ranking/sorting and tie display logic in a pure module (`npm test`).
 
-## Phase 6 — Logos (decisions: user, 2026-10-30; started only when the user says)
+## Phase 6 — Logos (decisions: user, 2026-10-30; built 2026-10-30)
 - Builds on what Phase 1 made: PNG/JPG → pale greyscale, the shared library `logos/`
   with the fallback owl, one logo plan and loader (`chgk/logos.py`).
 - SVG files wherever PNG is accepted (rasterised, then the same pale step; lettering in

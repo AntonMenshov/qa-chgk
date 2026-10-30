@@ -2,15 +2,17 @@
 
 A logo name is looked up in the tournament folder first, then in the shared library
 `logos/` at the repo root. Team logos in the library stay local (git-ignored); only
-`logos/nologo.png`, the fallback, is in the repo.
+`logos/nologo.png`, the fallback, is in the repo. PNG, JPG and SVG are accepted.
 """
 
+from dataclasses import dataclass
 from pathlib import Path
 
 from PIL import Image
 
 from chgk import PROJECT_DIR
 from chgk.config import CardFields, LogoMode
+from chgk.svg import open_svg
 
 LOGO_LIBRARY = PROJECT_DIR / "logos"
 MAX_SIDE = 600  # px; the default logo is about 1.3 in across, so this is ~450 dpi and keeps PDFs small
@@ -80,7 +82,7 @@ def open_logo(path: Path) -> Image.Image:
     """A logo file as an image at most MAX_SIDE px across; ValueError if it can't be used."""
     path = Path(path)
     if path.suffix.lower() == ".svg":
-        raise ValueError("SVG logos are not supported yet (Phase 6); export it as PNG")
+        return open_svg(path, MAX_SIDE)
     try:
         with Image.open(path) as image:
             image.thumbnail((MAX_SIDE, MAX_SIDE))
@@ -112,3 +114,40 @@ def load_logos(folder: Path, fields: CardFields, teams: list) -> tuple[dict[str,
         except ValueError as err:
             warnings.append(f"{what}: logo {name!r}: {err}; using the next fallback")
     return images, warnings
+
+
+SHOWN = {TOURNAMENT_KEY: "tournament logo", FALLBACK_KEY: "fallback logo", None: "no logo"}
+
+
+@dataclass(frozen=True)
+class LogoStatus:
+    team_id: str
+    name: str
+    logo_file: str
+    problem: str | None  # why the team's own logo can't be used ("not set", "not found", …); None if it can
+    shown: str  # what the team's cards show: "own logo", "tournament logo", "fallback logo" or "no logo"
+
+
+def own_logo_problem(team, folder: Path) -> str | None:
+    """Why a team's own logo can't be used, or None if it loads."""
+    if not team.logo_file:
+        return "not set"
+    path = resolve_logo(team.logo_file, folder)
+    if path is None:
+        return "not found"
+    try:
+        open_logo(path)
+    except ValueError as err:
+        return str(err)
+    return None
+
+
+def logo_report(folder: Path, fields: CardFields, teams: list) -> tuple[list[LogoStatus], list[str]]:
+    """Each team's own logo and what its cards show, plus the warnings the cards would print."""
+    images, warnings = load_logos(folder, fields, teams)
+    rows = []
+    for t in teams:
+        key = first_logo(fields, t.team_id, images)
+        shown = "own logo" if key == t.team_id else SHOWN[key]
+        rows.append(LogoStatus(t.team_id, t.name, t.logo_file, own_logo_problem(t, folder), shown))
+    return rows, warnings

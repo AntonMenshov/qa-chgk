@@ -25,7 +25,7 @@ Full design: [SPEC.md](SPEC.md). Build order: [PLAN.md](PLAN.md).
 | 3 — Scanner web app | 🔶 built and tested (unit + integration + headless-Chrome end-to-end with a fake camera), checked live on Pages against the real backend; the iPhone check is in Phase 7 |
 | 4 — Card photos | ✅ built, tested (phone queue, backend `upload_photo`, headless-Chrome check that each photo shows its card) and checked live (API upload to Drive); the iPhone check is in Phase 7 |
 | 5 — Projector board + stats | ✅ built, tested and checked live |
-| 6 — Logos | planned (PLAN.md), not started: SVG input, `chgk logos`, Claude-drawn drafts (API key from `ANTHROPIC_API_KEY` only), preview then accept. Done earlier: PNG/JPG → pale greyscale, shared private library, fallback owl. Image-API logos: Phase 9. Started only when the user says |
+| 6 — Logos | ✅ built and tested (SPEC §9.1): SVG logos (resvg, PT Sans lettering, unsafe SVGs refused), `chgk logos` report, Claude-drawn drafts (Claude Opus 5.5, key from `ANTHROPIC_API_KEY` only; a brief for Claude Code without it), preview PDF, `--accept`. Not yet run against the real API (no key here); the no-key path was run on the example (draft A01 drawn in a session, preview made, not accepted). Image-API logos: Phase 9 |
 | 7 — Internal test at home (printouts) | not started: the manual checks (docs/manual-checks.md), a mock game, feedback, bug analysis and fixes, then a docs/comments check |
 | 8 — External test at a tournament | not started: the same loop with real teams |
 | 9 — Next version | the deferred list in PLAN.md |
@@ -44,21 +44,23 @@ Full design: [SPEC.md](SPEC.md). Build order: [PLAN.md](PLAN.md).
 chgk/                 Python package (at repo root, no src/ — user's preference)
   cli/                typer app, one module per group: common.py (app, errors, version), cards.py
                       (cards, test-page, jury-sheet), profiles.py (backend add|use|list|check|remove|bundle),
-                      tournament.py (new, teams, board, view)
+                      tournament.py (new, teams, board, view), logos.py (logos)
   backend.py          backend profiles (~/.config/chgk/backends.json, CHGK_CONFIG_DIR), HTTP client, Code.gs bundler
   remote.py           new_tournament / sync_teams (a tournament keeps its own backend)
   config.py           Tournament / CardFields / Layout / LogoMode dataclasses + load_config
   ids.py              TID, team IDs, QR payload, jury and board links
   teams.py            teams.py loader/writer (keeps given team_ids, assigns + writes back missing ones)
   state.py            tournaments/<slug>/state.json (TID, backend URL/profile, sheet ID, jury and board tokens)
-  logos.py            which logo a card uses (logo_chain), loading (warnings, not crashes), pale watermark
+  logos.py            which logo a card uses (logo_chain), loading (warnings, not crashes), pale watermark, logo_report
+  svg.py              SVG logos: safety check (check_svg), rendering with PT Sans only (render_svg)
+  logo_drafts.py      Claude-drawn drafts: the API request, style rules, the no-key brief, accept into logos/
   jury.py             jury printout (platypus): QR pages, links, how-to, team forms, backup grid
   cards/
     model.py          a team's deck: numbered cards, then spares
     impose.py         team-pages / cut-stack / scissors slot assignment
     geometry.py       page grid and card parts (QR, number, writing area, logo, footer)
     render.py         reportlab drawing: vector QR, fonts, glyph check, fit-to-width
-    build.py          folder → PDF (cards and test page)
+    build.py          folder → PDF (cards, test page, logo preview)
     testpage.py       calibration page
   assets/fonts/       PT Sans Regular/Bold (OFL) — Cyrillic
 apps_script/          backend, one global scope, joined in the order of bundle.json into one Code.gs:
@@ -66,7 +68,7 @@ apps_script/          backend, one global scope, joined in the order of bundle.j
                       sheet_io.js (batched read/write), marks.js, sort.js, teams.js, drive.js,
                       disputed.js, photos.js, trigger.js. logic.js is an ES module (package.json);
                       the bundler and the Node fake drop its `export`s, since Apps Script has none
-logos/                shared logo library (team logos git-ignored; nologo.png public)
+logos/                shared logo library (team logos git-ignored; nologo.png public); drafts/<slug>/<team_id>.svg
 tournaments/example/  working example: config.py, teams.py (the user's real teams)
 tournaments/example-15/  the same teams, 3 rounds of 15 questions
 tests/                pytest (tests/test_*.py) and node:test (tests/js/*.test.mjs), e.g.:
@@ -105,7 +107,7 @@ README.md             organiser guide (end to end) and contributor commands
 ```
 
 ### How to run
-- Tests: `uv run pytest` (412, incl. 3 browser tests that need Google Chrome + Node) and
+- Tests: `uv run pytest` (476, incl. 3 browser tests that need Google Chrome + Node) and
   `npm test` (205, then 73 backend tests again with the Sheets API off).
 - Lint and format: `uv run ruff format . && uv run ruff check .`, `npm run format && npm run lint`.
 - Backend: `uv run chgk backend add|use|list|check|remove|bundle` (docs/google-account.md).
@@ -115,6 +117,8 @@ README.md             organiser guide (end to end) and contributor commands
 - Cards: `uv run chgk cards tournaments/example [--mode team-pages|cut-stack|scissors] [--teams A01,A02]`
   → `out/<slug>/cards-<mode>.pdf` + `out/<slug>/jury.pdf`. Without `--mode` it asks.
 - Jury sheet alone: `uv run chgk jury-sheet <folder>`; calibration page: `uv run chgk test-page <folder>`.
+- Logos: `uv run chgk logos <folder> [--draw [--team A01]] [--accept all|A01,A02]` (report; drafts;
+  `out/<slug>/logo-preview.pdf`). The tests never call the API: the SDK runs on a mocked transport.
 
 The render tests decode every QR code back from the rendered PDF and check it sits in
 the slot the imposition assigned. The cut-stack test simulates the guillotine and
@@ -167,7 +171,8 @@ One line each; SPEC has the details. Decisions recorded only here are written ou
   user rejected gutters in scissors mode), the CLI asks the cut mode, no date unless
   `CardFields(date=True)` (user: "I never asked for it"), at least 2 spares and free slots
   as extra spares, reserve decks R1, R2… (§8.7), the jury printout (§8.6).
-- **Logos** — SPEC §9: private library `logos/`, fallback chain, 12% shade; Phase 6 plan §9.1.
+- **Logos** — SPEC §9: private library `logos/`, fallback chain, 12% shade; SVG and Claude-drawn
+  drafts §9.1 (Claude Opus 5.5 with `fallbacks: "default"`; the key only from `ANTHROPIC_API_KEY`).
   The example tournament has no team name on cards, logo 10%, logo_size 1.85 in (user);
   elsewhere the defaults stay.
 - **Board** — SPEC §10.1. **Juror view:** no official answer (§7.5). **Jurors:** one at a
@@ -180,9 +185,9 @@ Kept in one place: [SPEC.md §14](SPEC.md) (defaults used unless the user says o
 
 ## Next steps
 
-1. **Phase 6 — logos** (PLAN.md, agreed with the user 2026-10-30), **only when the user
-   says**: SVG input and `chgk logos` (report, preview, accept), then Claude-drawn SVG
-   drafts (API, or in a session without a key) in the style of the existing logos.
+1. **Phase 6 follow-up:** the first real `chgk logos --draw` with the user's key (needs
+   `ANTHROPIC_API_KEY`); judge the drafts against the library's style and tune `style_rules`
+   if needed. The logo checks are in docs/manual-checks.md.
 2. **Phase 7** internal test at home with printouts: it starts with the user's manual
    checks ([docs/manual-checks.md](docs/manual-checks.md)), then a mock game. Then **Phase 8**,
    an external test at a tournament. Each with feedback entry, bug analysis and fixes, and a
@@ -190,6 +195,15 @@ Kept in one place: [SPEC.md §14](SPEC.md) (defaults used unless the user says o
 3. **Phase 9 — next version:** the deferred list in PLAN.md.
 
 ## Lessons learned
+
+- **resvg drops text in a font it doesn't have** (no fallback when `skip_system_fonts`):
+  a `font-family="Helvetica"` name vanished. `render_svg` forces PT Sans with a style sheet
+  (`!important` beats `style=` and `font=`); a test renders four font names identically.
+- **The anthropic SDK 2.x runs on `httpx2`**, so respx can't mock it: the tests give a real
+  client an `httpx2.MockTransport` that answers with SSE text. It sends the key as
+  `Authorization: Bearer`.
+- **reportlab stores identical images once:** two teams with the same draft gave one image
+  in the PDF; tests that count images need different drawings.
 
 - **Redeploying:** run `chgk backend bundle` right before pasting; a stale
   `out/apps_script/Code.gs` was pasted once and the backend stayed old (`chgk backend check`

@@ -1,16 +1,17 @@
 """From a tournament folder to a printable PDF."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from chgk.cards.impose import Mode, impose
 from chgk.cards.model import team_deck
 from chgk.cards.render import render_cards
 from chgk.cards.testpage import render_test_page
-from chgk.config import Tournament, load_config
+from chgk.config import LogoMode, Tournament, load_config
+from chgk.ids import generate_tid
 from chgk.jury import render_jury_sheet
-from chgk.logos import first_logo, load_logos, pale
-from chgk.state import load_or_create_state
+from chgk.logos import first_logo, load_logos, open_logo, pale
+from chgk.state import load_or_create_state, load_state
 from chgk.teams import TEAMS_FILE, Team, read_teams, reserve_teams
 
 INSTRUCTIONS = {
@@ -96,3 +97,32 @@ def build_test_page(folder: Path, out: Path | None = None) -> Path:
     out = Path(out) if out else Path("out") / tournament.slug / "test-page.pdf"
     render_test_page(tournament, state.tid, team, out, sources.get(key), _pale(sources, tournament.card.logo_grey))
     return out
+
+
+def build_logo_preview(folder: Path, drafts: dict[str, Path], out: Path | None = None) -> tuple[Path | None, list[str]]:
+    """One real card per drafted team, the draft at the tournament's shade and size; plus warnings.
+
+    Drawn on the tournament's own card layout whatever its logo mode, so a draft can be
+    judged before it is accepted. A draft that can't be drawn is a warning and left out; with
+    none left, no PDF is written (None).
+    """
+    folder = Path(folder)
+    tournament = load_config(folder)
+    teams = [t for t in read_teams(folder / TEAMS_FILE) if t.team_id in drafts]
+    images, warnings = {}, []
+    for t in teams:
+        try:
+            images[t.team_id] = pale(open_logo(drafts[t.team_id]), tournament.card.logo_grey)
+        except ValueError as err:
+            warnings.append(f"draft {drafts[t.team_id]}: {err}")
+    preview = replace(tournament, card=replace(tournament.card, logo=LogoMode.TEAM, fallback_logo=None))
+    state = load_state(folder)
+    tid = state.tid if state else generate_tid()  # no tournament yet: the QR codes are only for show
+    cards = [team_deck(preview, tid, t)[0] for t in teams if t.team_id in images]
+    if not cards:
+        return None, warnings
+    per_page = preview.layout.per_page
+    pages = [cards[i : i + per_page] for i in range(0, len(cards), per_page)]
+    out = Path(out) if out else Path("out") / tournament.slug / "logo-preview.pdf"
+    warnings += render_cards(pages, preview, Mode.TEAM_PAGES, out, images)
+    return out, warnings

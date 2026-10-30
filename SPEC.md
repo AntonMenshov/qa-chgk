@@ -407,7 +407,7 @@ as `chgk jury-sheet <folder>`.
 - **Fallback chain** per card: team logo → tournament logo (if the mode uses it) →
   `fallback_logo` (default `nologo.png`) → none. `LogoMode.NONE` disables logos
   entirely.
-- A logo file that can't be found or read (a broken image, or an SVG until Phase 6) prints a warning and the card uses the next
+- A logo file that can't be found or read (a broken image, a refused SVG) prints a warning and the card uses the next
   fallback. A fresh clone without the private logos still prints, with owls.
 - Logos are downscaled to 600 px before embedding, which keeps PDFs small.
 - **Size:** `CardFields.logo_size` (inches). `None` (the default) fits the logo into
@@ -423,27 +423,41 @@ A pale greyscale watermark. The source is chosen per team and per tournament:
 | Source | How |
 |---|---|
 | none | no logo |
-| provided file | PNG/JPG (SVG later) in the tournament folder or `logos/` → greyscale → flatten → lightened to the chosen shade |
-| Claude-drawn SVG (Phase 6, planned, §9.1) | the ЧГК owl acting out the team name, in the style of the existing logos (via the Claude API with the user's key, or drawn in a Claude Code session) |
+| provided file | PNG/JPG/SVG in the tournament folder or `logos/` → greyscale → flatten → lightened to the chosen shade |
+| Claude-drawn SVG (Phase 6, §9.1) | the ЧГК owl acting out the team name, in the style of the existing logos (via the Claude API with the user's key, or drawn in a Claude Code session) |
 | image API (next version, PLAN Phase 9) | prompt → OpenAI / Google image model (user's API key) → same post-processing |
 
 The Claude API does not output raster images, but it can write SVG.
 
-### 9.1 Phase 6 (planned; user decisions, 2026-10-30)
-- **SVG input** wherever PNG/JPG is accepted: rasterised, then the same pale step;
-  lettering in the cards' font (PT Sans); unsafe SVGs (scripts, external references)
-  are refused.
-- **`chgk logos <folder>`:** which logo each team's cards use, and missing or broken files.
-- **Claude-drawn drafts** (`--draw`, `--draw --team A01` for one): the style of the
-  existing logos, i.e. the ЧГК owl acting out the team name, question marks or an
-  hourglass, flat light grey, the name in bold capitals below; the existing logos go to
-  the Claude API as references. Without an API key, a brief (`out/<slug>/logo-brief.md`)
-  for drawing them in a Claude Code session instead.
-- **API key only from the environment** (user, 2026-10-30): `ANTHROPIC_API_KEY`, e.g.
-  set in the shell profile. chgk never stores, prints or logs it; `chgk logos` says
-  whether it is set. Without it, `--draw` writes the brief instead.
-- **Preview, then accept:** drafts in `logos/drafts/<slug>/`, a preview PDF on real
-  cards at the tournament's shade, `--accept all|A01,A02` records them in teams.py.
+### 9.1 Phase 6: SVG and Claude-drawn logos (user decisions, 2026-10-30)
+- **SVG input** wherever PNG/JPG is accepted (`chgk/svg.py`): rendered by resvg (`resvg-py`,
+  no system libraries) to 600 px, then the same pale step. Every text is set in PT Sans,
+  the cards' font, whatever font the file names; no system font is used, so a logo looks
+  the same on every machine. Unsafe SVGs are refused: `<script>`, `<foreignObject>` and
+  other embedding tags, `on…` handlers, references outside the file (`href` or `url(…)`
+  other than `#id` or an embedded PNG/JPEG), `@import`, DOCTYPE/entities, over 2 MB.
+- **`chgk logos <folder>`:** per team, its own logo file and what is wrong with it (not set,
+  not found, unreadable, refused), what its cards show (own / tournament / fallback / no
+  logo), and whether a draft is waiting; whether `ANTHROPIC_API_KEY` is set.
+- **Claude-drawn drafts** (`--draw`): for registered teams whose own logo can't be used and
+  that have no draft yet; `--draw --team A01` draws (or redraws) those teams whatever
+  their logo. The request (`chgk/logo_drafts.py`): Claude Opus 5.5 (`claude-opus-5-5`),
+  streamed, effort `high`, server-side `fallbacks: "default"` (a declined request is re-run
+  on Anthropic's fallback model). Up to 4 library logos (the owl first, no drafts) go as
+  512 px PNG references, cached across the teams of one run. The style rules (owl acting
+  out the name, question marks or hourglass, flat light grey, the name in bold PT Sans
+  capitals below, viewBox 0 0 1000 1000, plain drawing only) are one text, shared by the
+  request and the brief. A reply without a usable SVG (none, refused, cut off, declined)
+  is reported for that team and the others go on; a refused key stops the run.
+- **Without a key:** `--draw` sends nothing and writes `out/<slug>/logo-brief.md`, the same
+  rules with the reference paths and each draft's path, for a Claude Code session.
+- **API key only from the environment** (user, 2026-10-30): `ANTHROPIC_API_KEY`, e.g. set in
+  the shell profile. chgk never stores, prints or logs it.
+- **Preview, then accept:** drafts are `logos/drafts/<slug>/<team_id>.svg` (private). Whenever
+  drafts exist, `chgk logos` writes `out/<slug>/logo-preview.pdf`: one real card per drafted
+  team at the tournament's layout, size and shade. `--accept all|A01,A02` checks the drafts
+  again, moves them to `logos/<latin-name>.svg` (`zvezdy-soshlis.svg`; `-<team_id>` added if
+  another team's file has that name) and records them in teams.py.
 
 ## 10. Outputs
 
@@ -492,7 +506,7 @@ stays a thin layer.
 
 | Layer | Runner | What is unit-tested |
 |---|---|---|
-| Python (`chgk/`) | `uv run pytest` | config validation and question/round numbering; QR payload encode/decode; imposition (every card placed exactly once; simulated cut-and-stack yields sorted decks; page count); layout geometry (everything inside margins, QR ≥ min size, a sized logo centred on the card); logo processing (greyscale, darkest pixel ≤ chosen shade); the Apps Script client and the CLI with mocked HTTP (`respx`), answered by the real backend code running in Node on fake Google services (`tests/node_backend.py`) |
+| Python (`chgk/`) | `uv run pytest` | config validation and question/round numbering; QR payload encode/decode; imposition (every card placed exactly once; simulated cut-and-stack yields sorted decks; page count); layout geometry (everything inside margins, QR ≥ min size, a sized logo centred on the card); logo processing (greyscale, darkest pixel ≤ chosen shade; SVG rendering, PT Sans lettering, unsafe SVGs refused); Claude-drawn logos with the Anthropic SDK on mocked HTTP (request, refusals, key never printed), the brief, preview and accept; the Apps Script client and the CLI with mocked HTTP (`respx`), answered by the real backend code running in Node on fake Google services (`tests/node_backend.py`) |
 | PDF output | `uv run pytest` | smoke tests: page count; Cyrillic text extractable (`pypdf`); **QR codes decoded back from the rendered PDF** (`pypdfium2` + `zxing-cpp`) and matching the expected payloads |
 | Apps Script logic (`apps_script/`) | `npm test` (node:test) | last-write-wins merge, status → cell mapping, request validation, token check, idempotency by `scan_id`. Pure functions live in a file that runs both in Apps Script and in Node |
 | Backend in Node (`apps_script/*.js`) | `npm test` (node:test) | every action against in-memory fakes of Sheets, Drive and the Sheets API (`tests/js/fake_apps_script.mjs`): tabs, sums and places vs the logic.js reference on random tournaments, sorting (one-call API sort vs the slow sort), «Спорные», `upload_photo`, Latin Drive names; run again with the Sheets API off |
@@ -517,7 +531,8 @@ CI (`.github/workflows/tests.yml`) runs on every push: `ruff check`, `ruff forma
 ## 12. Tech stack
 
 - **Python ≥ 3.12, uv**:
-  - `typer` (CLI), `reportlab` (PDF), `segno` (QR), `Pillow` (logos), `httpx`;
+  - `typer` (CLI), `reportlab` (PDF), `segno` (QR), `Pillow` (logos), `resvg-py` (SVG logos), `httpx`,
+    `anthropic` (Claude-drawn logos);
   - dev: `pytest`, `respx`, `pypdf`, `pypdfium2`, `zxing-cpp`, `playwright`, `ruff`.
 - **Apps Script** (`apps_script/`): deployed once as a web app ("execute as me",
   "anyone"). `chgk backend bundle` writes one `Code.gs` that is pasted into the script
@@ -536,7 +551,7 @@ CI (`.github/workflows/tests.yml`) runs on every push: `ruff check`, `ruff forma
 uv run chgk backend add|use|list|check|remove|bundle  # named Google-account backends (§3.1)
 uv run chgk new tournaments/<slug> [--backend <profile>]  # Sheet + Drive folder; state.json + jury sheet
 uv run chgk teams tournaments/<slug>        # pull the Teams tab into teams.py, assign team_ids
-uv run chgk logos tournaments/<slug> [--draw [--team A01]] [--accept all|A01,…]  # logos (Phase 6, planned, §9.1)
+uv run chgk logos tournaments/<slug> [--draw [--team A01]] [--accept all|A01,…]  # logos: report, drafts, preview (§9.1)
 uv run chgk cards tournaments/<slug> [--mode team-pages|cut-stack|scissors] [--teams A01,A07] [--out file.pdf]
 uv run chgk test-page tournaments/<slug> [--out file.pdf]
 uv run chgk jury-sheet tournaments/<slug> [--out file.pdf]  # jury printout (also written by `cards`)

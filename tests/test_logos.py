@@ -1,4 +1,5 @@
 import pytest
+from conftest import TEAM_ROWS, write_teams_file
 from PIL import Image, ImageDraw
 
 from chgk.config import CardFields, LogoMode
@@ -55,12 +56,15 @@ def test_invalid_grey(grey):
         pale(sample_logo(), grey)
 
 
-def test_load_png_and_reject_svg(tmp_path):
+def test_load_png_and_svg_refuse_unsafe_svg(tmp_path):
     sample_logo().save(tmp_path / "logo.png")
     assert pale(open_logo(tmp_path / "logo.png"), 0.03).mode == "L"
-    (tmp_path / "logo.svg").write_text("<svg/>")
-    with pytest.raises(ValueError, match="SVG"):
-        open_logo(tmp_path / "logo.svg")
+    svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 20">{}</svg>'
+    (tmp_path / "logo.svg").write_text(svg.format('<rect width="10" height="10"/>'))
+    assert open_logo(tmp_path / "logo.svg").size == (600, 400)
+    (tmp_path / "bad.svg").write_text(svg.format("<script>alert(1)</script>"))
+    with pytest.raises(ValueError, match="refused"):
+        open_logo(tmp_path / "bad.svg")
 
 
 def test_resolve_prefers_tournament_folder_then_library(tmp_path, monkeypatch):
@@ -104,3 +108,27 @@ def test_logo_chain_per_mode(mode, chain):
     assert logo_chain(fields, "A01") == chain
     loaded = {FALLBACK_KEY: None, TOURNAMENT_KEY: None}  # A01's own logo missing
     assert first_logo(fields, "A01", loaded) == next((k for k in chain if k in loaded), None)
+
+
+def test_logo_report_says_what_each_team_shows(folder):
+    from chgk.config import load_config
+    from chgk.logos import logo_report
+    from chgk.teams import read_teams
+
+    (folder / "broken.png").write_bytes(b"not a png")
+    write_teams_file(folder, [TEAM_ROWS[0], ("A02", "Вторые", "", "broken.png"), ("A03", "Третьи", "", "gone.png")])
+    teams = read_teams(folder / "teams.py")
+    fields = load_config(folder).card
+    rows, warnings = logo_report(folder, fields, teams)
+    assert [(r.team_id, r.problem and r.problem[:20], r.shown) for r in rows] == [
+        ("A01", None, "own logo"),
+        ("A02", "not a readable image", "tournament logo"),
+        ("A03", "not found", "tournament logo"),
+    ]
+    assert len(warnings) == 2
+    (folder / "t.png").unlink()  # no tournament logo either: the owl from the library
+    rows, _ = logo_report(folder, fields, teams)
+    assert [r.shown for r in rows] == ["own logo", "fallback logo", "fallback logo"]
+    rows, _ = logo_report(folder, CardFields(logo=LogoMode.NONE), teams)
+    assert {r.shown for r in rows} == {"no logo"}
+    assert rows[0].problem is None  # the team's own logo is fine, the mode just doesn't show it

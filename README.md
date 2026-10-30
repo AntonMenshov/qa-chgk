@@ -40,6 +40,14 @@ Needs [uv](https://docs.astral.sh/uv/) and a Gmail account for the results.
 6. **Teams that turn up unregistered** get a reserve deck (R1, R2, …) and name themselves
    on the Sheet later.
 
+**Logos** (a pale watermark on each team's cards): put PNG, JPG or SVG files in `logos/` (shared
+by all tournaments, kept off GitHub) and name them in teams.py (`logo="fiasko.png"`).
+`uv run chgk logos tournaments/<slug>` shows which logo each team's cards use. With
+`--draw`, Claude draws SVG drafts in the style of your logos for teams without one (with
+`ANTHROPIC_API_KEY` set in your shell; without it you get a brief to hand to Claude Code);
+`out/<slug>/logo-preview.pdf` shows them on real cards, and `--accept all` (or `--accept A01,A02`)
+keeps them.
+
 Changed the Teams tab in the Sheet? `uv run chgk teams tournaments/<slug>` pulls it back.
 More commands: `uv run chgk --help`. Before a real game: [docs/manual-checks.md](docs/manual-checks.md).
 

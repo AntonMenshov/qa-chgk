@@ -282,7 +282,12 @@ def test_missing_team_logo_warns_and_falls_back(folder, tmp_path):
 
 
 @pytest.mark.parametrize(
-    "name,content,why", [("broken.png", b"not a png", "not a readable image"), ("a.svg", b"<svg/>", "SVG")]
+    "name,content,why",
+    [
+        ("broken.png", b"not a png", "not a readable image"),
+        ("a.svg", b'<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>', "refused"),
+        ("b.svg", b"<svg", "not a valid SVG"),
+    ],
 )
 def test_unusable_team_logo_warns_and_falls_back(folder, tmp_path, name, content, why):
     (folder / name).write_bytes(content)
@@ -290,6 +295,15 @@ def test_unusable_team_logo_warns_and_falls_back(folder, tmp_path, name, content
     result = build_cards(folder, Mode.TEAM_PAGES, tmp_path / "out.pdf")  # no crash
     assert any("team A01" in w and name in w and why in w for w in result.warnings)
     assert build_test_page(folder, tmp_path / "test.pdf").is_file()  # the test page copes too
+
+
+def test_svg_team_logo_prints_like_a_png(folder, tmp_path):
+    svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><circle cx="5" cy="5" r="4"/></svg>'
+    (folder / "owl.svg").write_text(svg, encoding="utf-8")
+    write_teams_file(folder, [(TEAM_ROWS[0][0], TEAM_ROWS[0][1], "", "owl.svg"), *TEAM_ROWS[1:]])
+    result = build_cards(folder, Mode.TEAM_PAGES, tmp_path / "out.pdf", ["A01"])
+    assert not any("A01" in w for w in result.warnings)
+    assert len(PdfReader(result.path).pages[0].images) == 1  # one logo image, shared by A01's cards
 
 
 def test_team_name_can_be_left_off_the_cards(folder, tmp_path):

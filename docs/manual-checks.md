@@ -52,3 +52,15 @@ that records marks, and delete its Drive folder afterwards (`docs/google-account
       codes at every size scan, the chosen logo shade stays pale.
 - [ ] A full card set on the real printer: cut lines line up, cards come apart in order
       in the chosen mode, the number box on spare cards is easy to write in.
+
+## Logos (Phase 6)
+
+- [ ] `uv run chgk logos <folder>`: every team's row matches its logo file; an SVG logo
+      prints with its lettering in PT Sans.
+- [ ] With `ANTHROPIC_API_KEY` set: `--draw --team <id>` on a throwaway tournament gives a
+      draft in the style of the library's logos (owl acting out the name, the name in bold
+      capitals below); the key appears nowhere in the output.
+- [ ] Without the key: `--draw` writes `out/<slug>/logo-brief.md`; a Claude Code session
+      following it writes drafts that `chgk logos` accepts.
+- [ ] `out/<slug>/logo-preview.pdf` printed: the drafts are pale enough to write over and
+      the names readable.
