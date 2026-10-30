@@ -118,6 +118,7 @@ def backend_server(folder):
 
     yield state.tid, url, call
     proc.kill()
+    proc.communicate(timeout=10)  # reap it and close its pipes
 
 
 @pytest.fixture
@@ -137,6 +138,7 @@ def web_server():
     threading.Thread(target=server.serve_forever, daemon=True).start()
     yield f"http://127.0.0.1:{server.server_address[1]}"
     server.shutdown()
+    server.server_close()
 
 
 def test_jury_scans_cards_and_marks_reach_the_backend(folder, tmp_path, backend_server, web_server):

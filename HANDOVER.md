@@ -111,6 +111,7 @@ checks that the decks come out in order.
   - JS/HTML/CSS: `npm run format && npm run lint` (Prettier in Google's layout: single
     quotes, `{a, b}` without inner spaces; ESLint recommended + Google's checkable rules,
     braces on every `if`). `chgk backend bundle` looks for `const VERSION = 'dev';`.
+  - pytest runs with `filterwarnings = error`: any warning fails the run.
 
 ## Key decisions (details in SPEC.md)
 
@@ -204,8 +205,10 @@ checks that the decks come out in order.
   text). Sorting and notes stay on SpreadsheetApp, after the flush. Any API failure (quota
   60/min/account, a tab past its grid — Log grows by 1000 rows — or missing) falls back to
   SpreadsheetApp, so nothing is lost. Log times are now text "yyyy-MM-dd HH:mm:ss" in the
-  script's time zone. `npm test` runs the backend suites again with the API off. Not yet
-  measured live. #2 (cache) kept for later, #4 (ARRAYFORMULA) rejected, #1 (timings) next.
+  script's time zone. `npm test` runs the backend suites again with the API off.
+  Measured live (0de817fbb468, same HVTXT profile, medians): get_board 2.6 → 1.6 s,
+  get_state 2.8 → 1.8 s, 1 mark 4.3 → 2.0 s, 1 mark + sort 5.0 → 2.9 s, duplicate
+  3.2 → 2.0 s, 15 marks 5.9 → 4.4 s; ping ~1.0-1.2 s is the platform floor. #2 (cache) kept for later, #4 (ARRAYFORMULA) rejected, #1 (timings) next.
 
 - «Спорные» (user request): hidden tab listing every «?» (Тур, Вопрос, Команда, Фото from
   Log) with totals overall / per round / per team. Written by the backend only when the
