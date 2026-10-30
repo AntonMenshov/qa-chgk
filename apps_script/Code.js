@@ -122,48 +122,47 @@ function doPost(e) {
   }
 }
 
-function handle_(req) {
-  validateRequest(req);
-  const props = timed_('access', () => PropertiesService.getScriptProperties());
-  if (req.action === 'ping') {
-    requireAdmin_(props, req);
-    return {
+// Every action: who may call it (admin, jury or board; each stronger token works too),
+// whether it holds the script lock while it writes, and what it does. `noTournament`:
+// it runs before any tournament exists. logic.js validateRequest checks each action's body.
+const ACTIONS = {
+  ping: {
+    who: 'admin',
+    noTournament: true,
+    run: () => ({
       ok: true,
       version: VERSION,
       account: Session.getEffectiveUser().getEmail(),
       authorized: authorized_(),
       sheets_api: sheetsApi_(),
-    };
+    }),
+  },
+  create_tournament: {
+    who: 'admin',
+    noTournament: true,
+    lock: true,
+    run: (req, reg, props) => createTournament_(props, req),
+  },
+  get_teams: {who: 'admin', run: (req, reg) => ({ok: true, teams: readTeams_(open_(reg))})},
+  set_teams: {who: 'admin', lock: true, run: (req, reg) => setTeams_(open_(reg), reg, req.teams)},
+  get_state: {who: 'jury', run: (req, reg) => readState_(open_(reg), reg)},
+  get_results: {who: 'jury', run: (req, reg) => readResults_(open_(reg), reg)},
+  record_events: {who: 'jury', lock: true, run: (req, reg) => recordEvents_(open_(reg), reg, req)},
+  upload_photo: {who: 'jury', run: (req, reg) => uploadPhoto_(open_(reg), reg, req)}, // locks only its Log write
+  get_board: {who: 'board', run: (req, reg) => readBoard_(open_(reg), reg)},
+};
+
+function handle_(req) {
+  validateRequest(req);
+  const action = ACTIONS[req.action];
+  if (!action) {
+    fail('unhandled action');
   }
-  if (req.action === 'create_tournament') {
-    requireAdmin_(props, req);
-    return withLock_(() => createTournament_(props, req));
-  }
-  const reg = timed_('access', () => registry_(props, req.tid));
-  switch (req.action) {
-    case 'get_teams':
-      requireAdmin_(props, req);
-      return {ok: true, teams: readTeams_(open_(reg))};
-    case 'set_teams':
-      requireAdmin_(props, req);
-      return withLock_(() => setTeams_(open_(reg), reg, req.teams));
-    case 'get_state':
-      requireJury_(props, reg, req);
-      return readState_(open_(reg), reg);
-    case 'get_results':
-      requireJury_(props, reg, req);
-      return readResults_(open_(reg), reg);
-    case 'record_events':
-      requireJury_(props, reg, req);
-      return withLock_(() => recordEvents_(open_(reg), reg, req));
-    case 'get_board':
-      requireBoard_(props, reg, req);
-      return readBoard_(open_(reg), reg);
-    case 'upload_photo':
-      requireJury_(props, reg, req);
-      return uploadPhoto_(open_(reg), reg, req);
-  }
-  fail('unhandled action');
+  const props = timed_('access', () => PropertiesService.getScriptProperties());
+  const reg = action.noTournament ? null : timed_('access', () => registry_(props, req.tid));
+  requireToken_(action.who, props, reg, req);
+  const run = () => action.run(req, reg, props);
+  return action.lock ? withLock_(run) : run();
 }
 
 // ---- access ----
@@ -178,25 +177,17 @@ function authorized_() {
   }
 }
 
-function requireAdmin_(props, req) {
-  if (!tokensEqual(req.token, props.getProperty('ADMIN_TOKEN'))) {
-    fail('forbidden: admin token required');
+/** The admin token works everywhere, the jury's for jury and board actions, the board's for board ones. */
+function requireToken_(who, props, reg, req) {
+  const accepted = [props.getProperty('ADMIN_TOKEN')];
+  if (who !== 'admin') {
+    accepted.push(reg.jury_token);
   }
-}
-
-function requireJury_(props, reg, req) {
-  if (!tokensEqual(req.token, reg.jury_token) && !tokensEqual(req.token, props.getProperty('ADMIN_TOKEN'))) {
-    fail('forbidden: jury token required');
+  if (who === 'board') {
+    accepted.push(reg.board_token);
   }
-}
-
-/** The projector board's read-only token; the jury and admin tokens work too. */
-function requireBoard_(props, reg, req) {
-  if (reg.board_token && tokensEqual(req.token, reg.board_token)) {
-    return;
-  }
-  if (!tokensEqual(req.token, reg.jury_token) && !tokensEqual(req.token, props.getProperty('ADMIN_TOKEN'))) {
-    fail('forbidden: board token required');
+  if (!accepted.some((token) => tokensEqual(req.token, token))) {
+    fail(`forbidden: ${who} token required`);
   }
 }
 

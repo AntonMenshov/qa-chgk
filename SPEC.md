@@ -285,6 +285,9 @@ only, not data-model changes.
 - Jury link format: `<scanner_url>#setup=<TID>.<JURY_TOKEN>.<DEPLOYMENT_ID>`. It's
   encoded in Python, decoded by the JS scanner, and has shared test vectors in
   `tests/vectors/jury_links.json`.
+- Tokens, strongest first: admin (the CLI) → jury → board (read-only). Each backend action
+  names the weakest it takes in one table (`ACTIONS`, apps_script/Code.js); the tests pin
+  that rule separately (tests/js/backend_access.test.mjs).
 - Next version (PLAN Phase 9): Google sign-in with an allow-list of emails.
 - Caveat: on iOS a Home-Screen app and Safari keep separate storage, so after adding the
   app to the Home Screen the jury QR is scanned once more inside it (the printed how-to

@@ -33,6 +33,7 @@ Full design: [SPEC.md](SPEC.md). Build order: [PLAN.md](PLAN.md).
 - **Deployed backend:** version **ac4a2b56a43a** (2026-10-30) under the user's Gmail (local
   profile `personal`), with the «Google Sheets API» service on. `uv run chgk backend check`
   compares it with the local code, and says when `out/apps_script/Code.gs` is an old bundle.
+  The local code is **cf91a9af927e** (the ACTIONS table): redeploy when convenient.
 - **Example tournament:** `tournaments/example/` (the user's four teams 645 «42», 58746
   Фиаско, 40400 Совхоз Победа, A01 Звезды сошлись; reserve decks R1, R2), TID **UYDJ7** (re-created 2026-10-30 after the user deleted the old folder)
   on that backend; `out/example/` holds its cards (team-pages, 3×4, 24 pages) and jury.pdf.
@@ -79,7 +80,7 @@ tests/                pytest (tests/test_*.py) and node:test (tests/js/*.test.mj
   js/sheet_formulas.mjs    evaluator for the Sheets formulas the backend writes
   js/calculations.test.mjs sums, places («2-3»), «Статистика» vs the logic.js reference; random tournaments
   js/sort_api.test.mjs     the one-call API sort against the slow sort and logic.js
-  js/backend*.test.mjs     the backend by topic (core, photos, «Спорные», Sheets API I/O) on
+  js/backend*.test.mjs     the backend by topic (core, access, photos, «Спорные», Sheets API I/O) on
                            the fake; shared helpers in js/backend_world.mjs
   js/logic.test.mjs, scanner.test.mjs, photos.test.mjs, board.test.mjs, vectors.test.mjs
   js/fake_backend_server.mjs  the fake backend over HTTP (for the browser and CLI tests)
@@ -106,7 +107,7 @@ README.md             organiser guide (end to end) and contributor commands
 
 ### How to run
 - Tests: `uv run pytest` (412, incl. 3 browser tests that need Google Chrome + Node) and
-  `npm test` (201, then 69 backend tests again with the Sheets API off).
+  `npm test` (205, then 73 backend tests again with the Sheets API off).
 - Lint and format: `uv run ruff format . && uv run ruff check .`, `npm run format && npm run lint`.
 - Backend: `uv run chgk backend add|use|list|check|remove|bundle` (docs/google-account.md).
 - A tournament: `uv run chgk new <folder>` (Sheet + Drive folder), `uv run chgk teams <folder>`
