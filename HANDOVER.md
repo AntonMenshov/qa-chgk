@@ -30,10 +30,9 @@ Full design: [SPEC.md](SPEC.md). Build order: [PLAN.md](PLAN.md).
 | 8 — External test at a tournament | not started: the same loop with real teams |
 | 9 — Next version | the deferred list in PLAN.md |
 
-- **Deployed backend:** version **ac4a2b56a43a** (2026-10-30) under the user's Gmail (local
+- **Deployed backend:** version **cf91a9af927e** (2026-10-30) under the user's Gmail (local
   profile `personal`), with the «Google Sheets API» service on. `uv run chgk backend check`
   compares it with the local code, and says when `out/apps_script/Code.gs` is an old bundle.
-  The local code is **cf91a9af927e** (the ACTIONS table): redeploy when convenient.
 - **Example tournament:** `tournaments/example/` (the user's four teams 645 «42», 58746
   Фиаско, 40400 Совхоз Победа, A01 Звезды сошлись; reserve decks R1, R2), TID **UYDJ7** (re-created 2026-10-30 after the user deleted the old folder)
   on that backend; `out/example/` holds its cards (team-pages, 3×4, 24 pages) and jury.pdf.
@@ -290,5 +289,7 @@ Live checks done so far, all against the user's backend:
   3.4 s, board, example OK.
 - **2026-10-30, ac4a2b56a43a:** board and phone data for both examples (UYDJ7, U9FP4);
   `set_board_token` refused as unknown.
+- **2026-10-30, cf91a9af927e (ACTIONS table):** admin, jury, board and a wrong token against
+  get_teams / get_state / get_board on the example: each token reaches exactly its level.
 
 Throwaway tournaments: the user deletes them.
