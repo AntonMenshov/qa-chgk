@@ -42,8 +42,9 @@ Full design: [SPEC.md](SPEC.md). Build order: [PLAN.md](PLAN.md).
 ### Repository layout
 ```
 chgk/                 Python package (at repo root, no src/ — user's preference)
-  cli.py              typer app: version, cards, test-page, jury-sheet, new, teams, board, view,
-                      backend add|use|list|check|remove|bundle
+  cli/                typer app, one module per group: common.py (app, errors, version), cards.py
+                      (cards, test-page, jury-sheet), profiles.py (backend add|use|list|check|remove|bundle),
+                      tournament.py (new, teams, board, view)
   backend.py          backend profiles (~/.config/chgk/backends.json, CHGK_CONFIG_DIR), HTTP client, Code.gs bundler
   remote.py           new_tournament / sync_teams (a tournament keeps its own backend)
   config.py           Tournament / CardFields / Layout / LogoMode dataclasses + load_config
