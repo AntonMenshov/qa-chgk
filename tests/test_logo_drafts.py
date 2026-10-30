@@ -363,7 +363,7 @@ def test_brief_lists_the_teams_paths_and_references(folder, tmp_path):
     assert f"chgk logos {folder} --accept all" in text
     assert drafts.system_prompt(look) in text and drafts.review_checklist("<the team name>") in text  # as the API
     assert "pale(im, 0.07)" in text and f"up to {drafts.REVIEW_ROUNDS} times" in text  # the tournament's shade
-    assert "/tmp" not in text and str(tmp_path / "review-card.png") in text
+    assert "/tmp/" not in text.replace(str(tmp_path), "") and str(tmp_path / "review-card.png") in text
     assert "never overwritten" in text
 
 
