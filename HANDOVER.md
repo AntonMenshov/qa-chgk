@@ -182,6 +182,10 @@ checks that the decks come out in order.
   5 teams, else total + last round's grid; «Взяли» row. Read-only board token
   (`get_board`); `chgk board` adds one to tournaments created before Phase 5.
 
+- Cards: a sized logo is centred on the card (user: it looked shifted left); its corner
+  may go under the QR, which is drawn on top with its white quiet zone. The spare number
+  box is filled white (its outline crossed the logo).
+
 - Scanner «Чья карточка?» (user request, SPEC §7.1 item 5): read-only lookup of a card —
   team, question, current mark; records nothing. Leaving its sheet (or opening any other)
   ends the mode. In the e2e test the looping video shows judged cards again and the
@@ -303,6 +307,9 @@ checks that the decks come out in order.
   jury QRs, page 2 board + view-only QR, both pages filled.
   **Still to confirm by the user (needs the edit trigger):** typing a name over
   «R1 · впишите название», and a mark edit on a round tab (`+` → `1`, row moves, Log row).
+- Backend a90ec10bb671 (built, NOT yet deployed): Teams, Log, Settings, Meta hidden at
+  creation and by `share_view`, so the view-only link shows only «Итоги», rounds and Stats
+  (user request). After the deploy: `chgk view tournaments/example` hides them on QHZJ8.
 - Delete the old example folder `ЧГК/… (5R547)` (single Results layout) from Drive.
 - A real print of the cards.
 - Delete `spike.jpg` from the root of their Google Drive (left by spike 1).

@@ -135,6 +135,11 @@ Created by `chgk new`. Tabs:
 | **Тур 1 … Тур N** | Apps Script + jury edits | one tab per round (user request): teams × that round's questions (continuous numbers) and «Сумма», sorted by «Сумма» (equal sums in team ID order). Narrow question columns; tab and header coloured, alternating by round |
 | **Stats** | formulas | per question: number of teams that took it, % |
 
+Only «Итоги», the round tabs and Stats are visible (user request): Settings, Teams, Log
+and Meta are hidden, so the view-only link (§8.6) shows just the results. Google hides a
+tab for everyone, so editors open these from the list of sheets (☰). Hiding is not
+access control (a viewer could still export a hidden tab); nothing secret is kept there.
+
 ### Cell values on the round tabs
 
 | Value | Meaning | Counts as |

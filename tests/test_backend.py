@@ -354,7 +354,7 @@ def test_new_tournament_is_view_only_shared(folder, backends):
     assert state.view_url == f"https://docs.google.com/spreadsheets/d/{state.spreadsheet_id}/htmlview"
 
 
-def test_cli_view_shares_an_older_tournament_once(folder, backends):
+def test_cli_view_shares_an_older_tournament(folder, backends):
     a, _ = backends
     runner.invoke(app, ["backend", "add", "personal", "--url", URL_A, "--token", "tokA"])
     runner.invoke(app, ["new", str(folder)])
@@ -366,8 +366,9 @@ def test_cli_view_shares_an_older_tournament_once(folder, backends):
     assert result.exit_code == 0, result.output
     assert f"https://docs.google.com/spreadsheets/d/{state['spreadsheet_id']}/htmlview" in result.output
     assert a.tournaments[state["tid"]]["view_shared"] is True
-    runner.invoke(app, ["view", str(folder)])
-    assert sum(c["action"] == "share_view" for c in a.calls) == 1
+    # Safe to repeat (it also hides the service tabs of tournaments made before that).
+    assert runner.invoke(app, ["view", str(folder)]).exit_code == 0
+    assert load_or_create_state(folder).view_shared
 
 
 def test_cli_board_needs_a_backend(folder):

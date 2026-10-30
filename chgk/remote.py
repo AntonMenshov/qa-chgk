@@ -102,11 +102,12 @@ def ensure_board(folder: Path, profiles: Profiles, client: BackendClient | None 
 
 
 def ensure_view(folder: Path, profiles: Profiles, client: BackendClient | None = None) -> State:
-    """Share the Sheet view-only with anyone who has the link (tournaments created before it was done at creation)."""
+    """Share the Sheet view-only with anyone who has the link and hide the service tabs.
+
+    New tournaments get both at creation; this is for older ones. Safe to repeat.
+    """
     folder = Path(folder)
     state, default_client = tournament_client(folder, profiles)
-    if state.view_shared:
-        return state
     (client or default_client).share_view(state.tid)
     state = replace(state, view_shared=True)
     save_state(folder, state)

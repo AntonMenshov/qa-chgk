@@ -6,6 +6,9 @@ const VERSION = "dev"; // replaced by `chgk backend bundle`
 const ROOT_FOLDER = "ЧГК";
 // Plus one tab per round, «Тур 1» … «Тур N», right after «Итоги» (see logic.js).
 const TABS = { summary: "Итоги", stats: "Stats", teams: "Teams", log: "Log", settings: "Settings", meta: "Meta" };
+// Hidden, so the view-only link (`…/htmlview`) shows only «Итоги», the round tabs and Stats.
+// Google hides a tab for everyone: editors open these from the list of sheets (☰).
+const HIDDEN_TABS = [TABS.teams, TABS.log, TABS.settings, TABS.meta];
 const TEAMS_HEADER = ["team_id", "name", "city", "logo_file", "reserve"];
 const RESERVE_MARK = "да"; // Teams tab, column «reserve»: a deck for a team that turns up unregistered
 const LOG_HEADER = ["server_time", "client_time", "scan_id", "source", "juror", "device", "team_id", "question",
@@ -93,6 +96,7 @@ function handle_(req) {
     case "share_view":
       requireAdmin_(props, req);
       shareView_(reg.spreadsheet_id);
+      hideServiceTabs_(open_(reg));
       return { ok: true };
   }
   fail("unhandled action");
@@ -200,6 +204,13 @@ function createTournament_(props, req) {
   return { ok: true, existed: false, spreadsheet_id: reg.spreadsheet_id, folder_id: reg.folder_id };
 }
 
+function hideServiceTabs_(ss) {
+  for (const name of HIDDEN_TABS) {
+    const sheet = ss.getSheetByName(name);
+    if (sheet && !sheet.isSheetHidden()) sheet.hideSheet();
+  }
+}
+
 /** Anyone with the link may view the Sheet (the view-only QR on the jury sheet); only the owner edits. */
 function shareView_(spreadsheetId) {
   DriveApp.getFileById(spreadsheetId).setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
@@ -239,12 +250,12 @@ function buildTabs_(ss, req) {
   const ml = metaLayout(totalQuestions(sizes));
   ensureSize_(meta, 1, ml.width);
   meta.getRange(1, 1, 1, ml.width).setValues([ml.header]);
-  meta.hideSheet();
 
   formatSheets_(ss, sizes); // first: names must land in plain-text cells
   writeTeams_(ss, req.teams || [], req.reserve || []);
   syncTeamRows_(ss, sizes, req.teams || []); // reserve teams get rows only once used
   ss.setActiveSheet(summary);
+  hideServiceTabs_(ss);
 }
 
 // ---- teams ----

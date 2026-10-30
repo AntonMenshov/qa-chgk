@@ -469,6 +469,20 @@ test("the Sheet is view-only for anyone with the link: at creation, and share_vi
   assert.equal(b.$.sharing.get(id), "ANYONE_WITH_LINK:VIEW");
 });
 
+test("only «Итоги», the round tabs and Stats are visible (the view-only link shows visible tabs only)", () => {
+  const { b, admin } = world();
+  const ss = b.$.spreadsheets.get(JSON.parse(b.$.props.get(`t:${TID}`)).spreadsheet_id);
+  const visible = () => ss.getSheets().filter((s) => !s.isSheetHidden()).map((s) => s.getName());
+  assert.deepEqual(visible(), ["Итоги", "Тур 1", "Тур 2", "Stats"]);
+  // A tournament created before: share_view hides them too; the backend still works with hidden tabs.
+  for (const s of ss.getSheets()) s.hidden = false;
+  assert.equal(b.post({ action: "share_view", tid: TID, token: admin }).ok, true);
+  assert.deepEqual(visible(), ["Итоги", "Тур 1", "Тур 2", "Stats"]);
+  assert.equal(b.post({ action: "record_events", tid: TID, token: JURY, events: [ev({ question: 1 })] }).ok, true);
+  assert.equal(b.post({ action: "set_teams", tid: TID, token: admin, teams: TEAMS }).ok, true);
+  assert.ok(ss.getSheetByName("Log").getLastRow() > 1);
+});
+
 test("set_board_token gives an older tournament a board link (admin only); a weak token is refused", () => {
   const { b, admin } = world();
   const NEW = "new-board-token-abcdefgh";

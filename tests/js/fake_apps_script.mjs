@@ -120,6 +120,7 @@ export class FakeSheet {
   setFrozenRows() {}
   setFrozenColumns() {}
   hideSheet() { this.hidden = true; return this; }
+  isSheetHidden() { return Boolean(this.hidden); }
   setConditionalFormatRules(rules) { this.rules = rules; }
   /** The row of a team (column A = its ID): rows move when the backend sorts a tab. */
   rowOf(teamId) {

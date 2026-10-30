@@ -48,7 +48,7 @@ which holds the results Sheet and a `Фото` folder for card photos.
 
 ```
 uv run chgk new tournaments/<slug>     # Sheet + Drive folder on the active backend; writes state.json + jury sheet
-uv run chgk teams tournaments/<slug>   # after editing the Teams tab in the Sheet
+uv run chgk teams tournaments/<slug>   # after editing the Teams tab (hidden: ☰ list of sheets)
 uv run chgk cards tournaments/<slug>   # cards + jury sheet with the secret access QR
 ```
 
