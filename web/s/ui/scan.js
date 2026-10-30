@@ -1,6 +1,7 @@
 // Scanning: what a code means, the card sheet with the verdicts, the spare card's question, photos.
 
 import {$, beep, sheet, toast} from './dom.js';
+import {sameAccess} from '../lib/payload.js';
 import {firstPhoto} from '../lib/photos.js';
 import {adoptSetup} from './setup.js';
 import {app, K, store} from './state.js';
@@ -18,8 +19,11 @@ export function handleCode(text) {
   const r = app.session.scan(text);
   switch (r.kind) {
     case 'setup':
-      if (r.setup.tid === app.setup.tid) {
+      if (sameAccess(r.setup, app.setup)) {
         return toast('Это QR доступа жюри: телефон уже настроен на этот турнир');
+      }
+      if (r.setup.tid === app.setup.tid) {
+        toast('Новый ключ жюри принят: неотправленные отметки и фото уйдут с ним');
       }
       if (adoptSetup(r.setup)) {
         startTournament();

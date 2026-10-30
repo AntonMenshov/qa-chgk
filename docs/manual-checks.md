@@ -39,6 +39,14 @@ afterwards (`docs/google-account.md` §5).
       photo link is on «Спорные».
 - [ ] Scanning speed: a card on the table is read within about a second.
 
+## A leaked link (`chgk replace-token`, throwaway tournament)
+
+- [ ] With marks and photos waiting on a phone in airplane mode, run `chgk replace-token <folder>
+      jury --yes`; back online, the phone shows «ключ жюри больше не действует…» and keeps
+      them; after scanning the new QR from `jury-v2.pdf` (page 1, with the notice) they arrive.
+- [ ] `chgk replace-token <folder> board --yes`: the open board says its link was replaced;
+      the new link from page 2 of the new sheet works.
+
 ## Projector board
 
 - [ ] Open the board QR (page 2) on the projector laptop: the title screen, then → shows

@@ -302,6 +302,16 @@ only, not data-model changes.
 - Tokens, strongest first: admin (the CLI) → jury → board (read-only). Each backend action
   names the weakest it takes in one table (`ACTIONS`, apps_script/Code.js); the tests pin
   that rule separately (tests/js/backend_access.test.mjs).
+- **A leaked link is replaced** (user, 2026-10-30): `chgk replace-token <folder> jury|board`
+  (asks first; `--yes` skips) gives the tournament a new token through the admin-only
+  `replace_token` action; the old one is refused at once, the board's and jury's stay
+  distinct. `state.json` records each replacement (kind, time). A new jury sheet
+  `out/<slug>/jury-v<N>.pdf` is written beside the old one, «версия N» in its title and
+  footer and a boxed notice of what happened and what to do (page 1; a board one on page 2
+  too); later `jury.pdf` runs carry the same notices. On the phone, scanning the new jury QR
+  of the same tournament takes the new token; marks and photos waiting there are sent with
+  it: a refused token is answered `retry: true`, so nothing is dropped, and the phone and
+  board say in words that the link was replaced.
 - Next version (PLAN Phase 9): Google sign-in with an allow-list of emails.
 - Caveat: on iOS a Home-Screen app and Safari keep separate storage, so after adding the
   app to the Home Screen the jury QR is scanned once more inside it (the printed how-to
@@ -583,6 +593,7 @@ CI (`.github/workflows/tests.yml`) runs on every push: `ruff check`, `ruff forma
 uv run chgk backend add|use|list|check|remove|bundle  # named Google-account backends (§3.1)
 uv run chgk new tournaments/<slug> [--backend <profile>]  # Sheet + Drive folder; state.json + jury sheet (needs teams.py)
 uv run chgk teams tournaments/<slug>        # pull the Teams tab into teams.py, assign team_ids
+uv run chgk replace-token tournaments/<slug> jury|board [--yes]  # a leaked link: new token, jury-v<N>.pdf (§7.4)
 uv run chgk logos tournaments/<slug> [--draw [--team A01]] [--accept all|A01,…]  # logos: report, drafts, preview (§9.1)
 uv run chgk cards tournaments/<slug> [--mode team-pages|cut-stack|scissors] [--teams A01,A07] [--out file.pdf]
 uv run chgk test-page tournaments/<slug> [--out file.pdf]

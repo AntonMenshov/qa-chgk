@@ -2,7 +2,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {decodeCard, decodeSetup} from '../../web/s/lib/payload.js';
+import {decodeCard, decodeSetup, sameAccess} from '../../web/s/lib/payload.js';
 import {overlay, statusOf} from '../../web/s/lib/marks.js';
 import {Session, WARN} from '../../web/s/lib/session.js';
 import {identify} from '../../web/s/lib/lookup.js';
@@ -429,7 +429,11 @@ test('api: text/plain POST with the token; backend errors and network errors bec
     status: 200,
     json: async () => ({ok: false, error: 'forbidden: jury token required'}),
   }));
-  await assert.rejects(refused('get_state'), (err) => err instanceof BackendError && /forbidden/.test(err.message));
+  // A refused token says what to do (the link was replaced), and is retried rather than dropped.
+  await assert.rejects(
+    refused('get_state'),
+    (err) => err instanceof BackendError && /новый QR «Доступ жюри»/.test(err.message) && err.retry,
+  );
   const html = backend('u', 't', async () => ({
     status: 200,
     json: async () => {
@@ -627,4 +631,13 @@ test('api: a request the server never answers fails after the time limit, and ca
   q.add({scan_id: 'a', team_id: 'A01', question: 1, status: 'correct', client_ts: 1});
   assert.equal(await q.flush(), null);
   assert.deepEqual([q.status.pending, q.status.failing, q.inFlight], [1, true, false]);
+});
+
+test('the same tournament with a new jury token (a replaced link) is a new access the phone takes on', () => {
+  const a = {tid: TID, juryToken: 'old-jury-token-0123456', backendUrl: 'https://script.google.com/macros/s/X/exec'};
+  assert.equal(sameAccess(a, {...a}), true);
+  assert.equal(sameAccess(a, {...a, juryToken: 'new-jury-token-0123456'}), false);
+  assert.equal(sameAccess(a, {...a, backendUrl: 'https://script.google.com/macros/s/Y/exec'}), false);
+  assert.equal(sameAccess(a, {...a, tid: 'QHZJ8'}), false);
+  assert.equal(sameAccess(a, null), false);
 });

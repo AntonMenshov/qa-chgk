@@ -117,7 +117,7 @@ function doPost(e) {
     return json_({
       ok: false,
       error: known ? err.message : `server error: ${err && err.message ? err.message : err}`,
-      retry: !known,
+      retry: !known || err.retry === true,
     });
   }
 }
@@ -150,6 +150,7 @@ const ACTIONS = {
   record_events: {who: 'jury', lock: true, run: (req, reg) => recordEvents_(open_(reg), reg, req)},
   upload_photo: {who: 'jury', run: (req, reg) => uploadPhoto_(open_(reg), reg, req)}, // locks only its Log write
   get_board: {who: 'board', run: (req, reg) => readBoard_(open_(reg), reg)},
+  replace_token: {who: 'admin', lock: true, run: (req, reg) => replaceToken_(reg, req)},
 };
 
 function handle_(req) {
@@ -187,8 +188,23 @@ function requireToken_(who, props, reg, req) {
     accepted.push(reg.board_token);
   }
   if (!accepted.some((token) => tokensEqual(req.token, token))) {
-    fail(`forbidden: ${who} token required`);
+    // Worth retrying: after a leaked link is replaced, the phone scans the new jury QR and
+    // sends again; its waiting photos must not be dropped as a hopeless request meanwhile.
+    const err = new RequestError(`forbidden: ${who} token required`);
+    err.retry = true;
+    throw err;
   }
+}
+
+/** A leaked jury or board link: the tournament gets a new token, and the old one stops working at once. */
+function replaceToken_(reg, req) {
+  const field = `${req.which}_token`;
+  const other = req.which === 'jury' ? reg.board_token : reg.jury_token;
+  if (tokensEqual(req.new_token, other)) {
+    fail('the jury and board tokens must differ');
+  }
+  saveRegistry_(Object.assign({}, reg, {[field]: req.new_token}));
+  return {ok: true, which: req.which};
 }
 
 function registry_(props, tid) {

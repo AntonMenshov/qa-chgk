@@ -51,6 +51,10 @@ without one, then reviews its own rendering and fixes it (with
 `out/<slug>/logo-preview.pdf` shows them on real cards, and `--accept all` (or `--accept A01,A02`)
 keeps them.
 
+A jury or board link leaked (someone photographed the jury sheet)?
+`uv run chgk replace-token tournaments/<slug> jury` (or `board`): the old link stops working at once,
+and `out/<slug>/jury-v2.pdf` is the new sheet; each juror's phone scans its new QR once.
+
 Changed the Teams tab in the Sheet? `uv run chgk teams tournaments/<slug>` pulls it back.
 More commands: `uv run chgk --help`. Before a real game: [docs/manual-checks.md](docs/manual-checks.md).
 

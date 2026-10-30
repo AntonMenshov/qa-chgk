@@ -164,6 +164,9 @@ class BackendClient:
     def set_teams(self, tid: str, teams: list[dict]) -> dict:
         return self.call("set_teams", tid=tid, teams=teams)
 
+    def replace_token(self, tid: str, which: str, new_token: str) -> dict:
+        return self.call("replace_token", tid=tid, which=which, new_token=new_token)
+
 
 def bundle_file() -> Path:
     """Where `chgk backend bundle` writes Code.gs by default: the repo's out/apps_script/."""

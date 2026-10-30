@@ -1,6 +1,7 @@
-"""Tournament operations that talk to the Google backend: create, sync teams."""
+"""Tournament operations that talk to the Google backend: create, sync teams, replace a leaked token."""
 
 from dataclasses import dataclass, replace
+from datetime import datetime
 from pathlib import Path
 
 from chgk.backend import BackendClient, Profile, Profiles
@@ -104,3 +105,24 @@ def sync_teams(folder: Path, profiles: Profiles, client: BackendClient | None = 
     write_teams(folder / TEAMS_FILE, teams)
     client.set_teams(state.tid, _team_dicts(teams))  # writes assigned IDs back and adds rows on every tab
     return teams
+
+
+TOKEN_KINDS = ("jury", "board")
+
+
+def replace_token(folder: Path, which: str, profiles: Profiles, client: BackendClient | None = None) -> State:
+    """A leaked jury or board link: give the tournament a new token; the old one stops working at once.
+
+    The backend switches first, then state.json records the new token and the replacement
+    (time and kind). If the reply is lost, running it again simply sets another new token.
+    """
+    if which not in TOKEN_KINDS:
+        raise ValueError(f"which token? one of {', '.join(TOKEN_KINDS)}, got {which!r}")
+    folder = Path(folder)
+    state, default_client = tournament_client(folder, profiles)
+    token = generate_jury_token()
+    (client or default_client).replace_token(state.tid, which, token)
+    record = {"which": which, "at": datetime.now().strftime("%Y-%m-%dT%H:%M")}
+    state = replace(state, **{f"{which}_token": token}, replaced=[*state.replaced, record])
+    save_state(folder, state)
+    return state

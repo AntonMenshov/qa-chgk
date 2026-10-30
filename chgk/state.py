@@ -5,7 +5,7 @@ so a tournament stays on the Google account it was created on.
 """
 
 import json
-from dataclasses import asdict, dataclass, fields
+from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
 
 from chgk.ids import BoardAccess, JuryAccess, generate_tid
@@ -22,6 +22,9 @@ class State:
     spreadsheet_id: str | None = None
     jury_token: str | None = None
     board_token: str | None = None  # read-only token for the projector board
+    # Each token replaced after a leaked link (`chgk replace-token`): {"which": "jury"|"board",
+    # "at": "YYYY-MM-DDTHH:MM"}, oldest first. The jury sheet says what happened.
+    replaced: list[dict] = field(default_factory=list)
 
     @property
     def spreadsheet_url(self) -> str | None:

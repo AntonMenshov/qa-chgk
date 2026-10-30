@@ -1,15 +1,17 @@
-"""A tournament on its backend: create it, sync its teams, its board and view-only links."""
+"""A tournament on its backend: create it, sync its teams, its board and view-only links, replace a leaked link."""
 
+from enum import StrEnum
 from pathlib import Path
 
 import typer
 
+from chgk import out_dir
 from chgk.backend import BackendError, Profiles
 from chgk.cards.build import build_jury_sheet
 from chgk.cli.common import app, fail
 from chgk.config import load_config
-from chgk.jury import board_link
-from chgk.remote import new_tournament, sync_teams
+from chgk.jury import board_link, sheet_version
+from chgk.remote import new_tournament, replace_token, sync_teams
 from chgk.state import load_state
 
 
@@ -72,3 +74,43 @@ def view_cmd(folder: Path = typer.Argument(..., help="Tournament folder")) -> No
     typer.echo("Results, view-only for anyone with the link (marks appear as the jury enters them):")
     typer.echo(state.view_url)
     typer.echo("Its QR code is on page 2 of the jury sheet and on the projector board.")
+
+
+class TokenKind(StrEnum):
+    JURY = "jury"
+    BOARD = "board"
+
+
+LEAKED = {
+    TokenKind.JURY: "jury access link (page 1 of the jury sheet): every juror's phone",
+    TokenKind.BOARD: "projector board link (page 2 of the jury sheet)",
+}
+
+
+@app.command("replace-token")
+def replace_token_cmd(
+    folder: Path = typer.Argument(..., help="Tournament folder"),
+    which: TokenKind = typer.Argument(..., help="The leaked link: jury or board"),
+    yes: bool = typer.Option(False, "--yes", help="Don't ask for confirmation"),
+) -> None:
+    """Replace a leaked jury or board link: the old one stops working at once; writes jury-v<N>.pdf."""
+    if not yes:
+        typer.confirm(f"The old {LEAKED[which]} stops working at once. Replace it?", abort=True)
+    try:
+        tournament = load_config(folder)
+        state = replace_token(folder, which.value, Profiles())
+        path, warnings = build_jury_sheet(folder, out_dir(tournament.slug, f"jury-v{sheet_version(state)}.pdf"))
+    except (ValueError, BackendError) as err:
+        raise fail(err) from err
+    for warning in warnings:
+        typer.secho(f"Warning: {warning}", fg="yellow", err=True)
+    typer.echo(f"New {which.value} token is live; the old one is refused from now on.")
+    typer.echo(f"{path}: the new jury sheet (version {sheet_version(state)}), saying what happened. Print it.")
+    if which is TokenKind.JURY:
+        typer.echo(
+            "Each juror's phone scans the new «Доступ жюри» QR (page 1) once; marks and photos waiting "
+            "on a phone are sent with the new token."
+        )
+    else:
+        typer.echo(f"Open the new board link on the projector (page 2, or `chgk board {folder}`).")
+    typer.echo("Earlier jury sheets hold the old link: destroy their printouts.")

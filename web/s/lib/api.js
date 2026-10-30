@@ -17,6 +17,17 @@ export class BackendError extends Error {
  */
 export const REQUEST_TIMEOUT_MS = 45000;
 
+/**
+ * A refused token, in words for the juror or the projector: the link was most likely
+ * replaced (a leaked link, `chgk replace-token`), and the fix is the new QR code.
+ */
+const REFUSED = {
+  'forbidden: jury token required':
+    'ключ жюри больше не действует (ссылку заменили): отсканируйте новый QR «Доступ жюри» с листа жюри',
+  'forbidden: board token required':
+    'ссылка табло больше не действует (её заменили): откройте новую по QR на стр. 2 листа жюри',
+};
+
 /** A function (action, payload) => reply for one backend and jury token. */
 export function backend(url, token, fetchImpl = (...a) => fetch(...a), timeoutMs = REQUEST_TIMEOUT_MS) {
   return async (action, payload = {}) => {
@@ -46,7 +57,8 @@ export function backend(url, token, fetchImpl = (...a) => fetch(...a), timeoutMs
       throw new BackendError(`сервер ответил не JSON (HTTP ${response.status})`);
     }
     if (!data.ok) {
-      throw new BackendError(data.error || `ошибка сервера (HTTP ${response.status})`, data.retry !== false);
+      const message = REFUSED[data.error] || data.error || `ошибка сервера (HTTP ${response.status})`;
+      throw new BackendError(message, data.retry !== false);
     }
     return data;
   };

@@ -126,5 +126,4 @@ Tests are written alongside the code, not after it.
 ## Phase 9 — Next version
 The one list of deferred work (HANDOVER points here): logos from image-generation
 services (OpenAI, Google, …; user decision) · rating.chgk.info export · multi-juror UI ·
-Google sign-in · cache for board/phone reads (backend speed proposal #2) · replacing
-leaked tokens.
+Google sign-in · cache for board/phone reads (backend speed proposal #2).

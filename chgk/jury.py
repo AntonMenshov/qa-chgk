@@ -6,6 +6,7 @@ how-to. Then one form per team (ID, name, players) in two columns, blank forms f
 teams, and the paper backup grid.
 """
 
+from datetime import datetime
 from pathlib import Path
 from xml.sax.saxutils import escape
 
@@ -92,6 +93,15 @@ PUBLIC_NOTE = (
     "как их ставит жюри, а табло показывает тур только после нажатия стрелки."
 )
 GRID_LEGEND = "+ верно,  − неверно,  ? спорно,  пусто — нет карточки."
+
+# A token replaced after a leaked link (`chgk replace-token`): what happened and what to do.
+REPLACED_NOTE = {
+    "jury": "Ключ доступа жюри заменён {at}: прежние QR-код и ссылка «Доступ жюри» больше не действуют. "
+    "Каждый телефон жюри один раз сканирует новый QR «Доступ жюри» на этой странице; "
+    "неотправленные отметки и фото уйдут с новым ключом.",
+    "board": "Ссылка табло заменена {at}: прежняя больше не действует. "
+    "Откройте табло на проекторе по новому QR на стр. 2.",
+}
 PLAYER_LINES = 8
 FORMS_NOTE = "Раздайте бланки командам и соберите заполненные."
 FORMS_RESERVE_NOTE = (
@@ -116,6 +126,7 @@ def _styles() -> dict[str, ParagraphStyle]:
             "h3", parent=base, fontName=FONT_BOLD, fontSize=10.5, leading=13, spaceBefore=6, spaceAfter=3
         ),
         "secret": ParagraphStyle("secret", parent=base, fontName=FONT_BOLD, fontSize=12, leading=15),
+        "notice": ParagraphStyle("notice", parent=base, fontName=FONT_BOLD, fontSize=10.5, leading=13.5),
         "cell": ParagraphStyle("cell", parent=base, fontSize=8.5, leading=10),
         "form_id": ParagraphStyle("form_id", parent=base, fontName=FONT_BOLD, fontSize=13, leading=15),
         "form_name": ParagraphStyle("form_name", parent=base, fontName=FONT_BOLD, fontSize=13, leading=15),
@@ -265,6 +276,23 @@ class QrPage(Flowable):
                 self._para(NOT_YET, self.s["hint"], qr_x, qr_top - size / 2 + 6, size)
 
 
+def sheet_version(state: State) -> int:
+    """1 for the first jury sheet; one more for each token replaced since."""
+    return 1 + len(state.replaced)
+
+
+def _replaced_notes(state: State, kinds: tuple[str, ...], s) -> list[Flowable]:
+    """A boxed notice for each replaced token of these kinds, oldest first."""
+    notes = []
+    for r in state.replaced:
+        if r["which"] in kinds:
+            at = datetime.fromisoformat(r["at"]).strftime("%d.%m.%Y в %H:%M")
+            box = Table([[Paragraph(escape(REPLACED_NOTE[r["which"]].format(at=at)), s["notice"])]], colWidths=["100%"])
+            box.setStyle(TableStyle([("BOX", (0, 0), (-1, -1), 1.5, colors.black), ("PADDING", (0, 0), (-1, -1), 6)]))
+            notes += [Spacer(1, 6), box]
+    return notes
+
+
 def _questions_line(t: Tournament) -> str:
     sizes = t.round_sizes
     if len(set(sizes)) == 1:
@@ -406,14 +434,18 @@ def render_jury_sheet(tournament: Tournament, state: State, teams: list[Team], o
     day = tournament.date.strftime("%d.%m.%Y")
     registered = sum(1 for t in teams if not t.reserve)
     reserve = len(teams) - registered
+    version = sheet_version(state)
+    edition = f" (версия {version})" if version > 1 else ""
     story: list[Flowable] = [
-        Paragraph(f"{name}, {day} — QR-коды жюри", s["h1"]),
+        Paragraph(f"{name}, {day} — QR-коды жюри{edition}", s["h1"]),
         Paragraph("Секретно: только для жюри, не оставляйте этот лист на виду у команд.", s["base"]),
+        *_replaced_notes(state, ("jury", "board"), s),
         Spacer(1, 12),
         QrPage(_jury_rows(tournament, state), s),
         PageBreak(),
-        Paragraph(f"{name}, {day} — табло и результаты", s["h1"]),
+        Paragraph(f"{name}, {day} — табло и результаты{edition}", s["h1"]),
         Paragraph(PUBLIC_NOTE, s["base"]),
+        *_replaced_notes(state, ("board",), s),
         Spacer(1, 12),
         QrPage([[p] for p in _public_panels(tournament, state)], s),
         PageBreak(),
@@ -474,7 +506,7 @@ def render_jury_sheet(tournament: Tournament, state: State, teams: list[Team], o
         def draw(canvas, doc):
             canvas.setFont(FONT, 7.5)
             canvas.setFillGray(0.4)
-            canvas.drawString(MARGIN, 0.3 * INCH, f"{printable(tournament.name, [])} · {day} · {label}")
+            canvas.drawString(MARGIN, 0.3 * INCH, f"{printable(tournament.name, [])} · {day} · {label}{edition}")
             canvas.drawRightString(PAGE_W - MARGIN, 0.3 * INCH, f"стр. {doc.page}")
 
         return draw

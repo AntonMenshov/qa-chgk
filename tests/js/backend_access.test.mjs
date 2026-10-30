@@ -27,6 +27,7 @@ const BODIES = {
   record_events: () => ({tid: TID, events: [ev()]}),
   upload_photo: () => ({tid: TID, ...photo()}),
   get_board: () => ({tid: TID}),
+  replace_token: () => ({tid: TID, which: 'jury', new_token: 'replaced-jury-token-0123'}),
 };
 
 // The access rule, written here on its own: the table must match it, so a weakened
@@ -41,6 +42,7 @@ const WHO = {
   record_events: 'jury',
   upload_photo: 'jury',
   get_board: 'board',
+  replace_token: 'admin',
 };
 
 // Each level also takes every stronger token.
@@ -75,6 +77,7 @@ test('every action takes exactly its own and stronger tokens; a refused request 
       } else {
         assert.equal(res.ok, false, `${name} with the ${label} token was accepted`);
         assert.equal(res.error, `forbidden: ${WHO[name]} token required`, name);
+        assert.equal(res.retry, true, `${name}: a refused token is retried (the phone may get a new one)`);
         assert.equal(tab('Log').getLastRow(), logRows, `${name}: the Log changed`);
         assert.equal(b.$.props.size, props, `${name}: the properties changed`);
       }
@@ -87,7 +90,7 @@ test('the actions that write hold the lock; reads never wait for it', () => {
   const locked = Object.entries(actionsOf(b))
     .filter(([, a]) => a.lock)
     .map(([name]) => name);
-  assert.deepEqual(locked.sort(), ['create_tournament', 'record_events', 'set_teams']);
+  assert.deepEqual(locked.sort(), ['create_tournament', 'record_events', 'replace_token', 'set_teams']);
   const LOCKS_ITSELF = ['upload_photo']; // saves to Drive first, then locks only for its Log write
   for (const name of Object.keys(BODIES)) {
     const {b: fresh, admin} = world();
@@ -106,4 +109,33 @@ test('a tournament action names an unknown tournament before it looks at the tok
       assert.match(res.error, /unknown tournament ZZ234/, name);
     }
   }
+});
+
+test('replace_token: the old jury link stops working at once, the new one works, the board is untouched', () => {
+  const {b, admin} = world();
+  const NEW = 'replaced-jury-token-0123';
+  const reply = b.post({action: 'replace_token', token: admin, tid: TID, which: 'jury', new_token: NEW});
+  assert.deepEqual([reply.ok, reply.which], [true, 'jury']);
+  const old = b.post({action: 'record_events', token: JURY, tid: TID, events: [ev()]});
+  assert.deepEqual([old.ok, old.error, old.retry], [false, 'forbidden: jury token required', true]);
+  assert.equal(b.post({action: 'record_events', token: NEW, tid: TID, events: [ev()]}).ok, true); // the same marks, resent
+  assert.equal(b.post({action: 'get_board', token: BOARD, tid: TID}).ok, true);
+});
+
+test('replace_token: a new board link; the jury link is untouched', () => {
+  const {b, admin} = world();
+  const NEW = 'replaced-board-token-0123';
+  assert.equal(b.post({action: 'replace_token', token: admin, tid: TID, which: 'board', new_token: NEW}).ok, true);
+  assert.equal(b.post({action: 'get_board', token: BOARD, tid: TID}).ok, false);
+  assert.equal(b.post({action: 'get_board', token: NEW, tid: TID}).ok, true);
+  assert.equal(b.post({action: 'get_state', token: JURY, tid: TID}).ok, true);
+});
+
+test("replace_token refuses a bad kind, a short token, and the other link's token", () => {
+  const {b, admin} = world();
+  const bad = (body) => b.post({action: 'replace_token', token: admin, tid: TID, ...body});
+  assert.match(bad({which: 'admin', new_token: 'replaced-jury-token-0123'}).error, /which must be one of jury, board/);
+  assert.match(bad({which: 'jury', new_token: 'short'}).error, /new_token must be at least 16/);
+  assert.match(bad({which: 'jury', new_token: BOARD}).error, /must differ/);
+  assert.equal(b.post({action: 'get_state', token: JURY, tid: TID}).ok, true); // nothing changed
 });

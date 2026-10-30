@@ -111,8 +111,8 @@ README.md             organiser guide (end to end) and contributor commands
 ```
 
 ### How to run
-- Tests: `uv run pytest` (505, incl. 3 browser tests that need Google Chrome + Node) and
-  `npm test` (217, then 75 backend tests again with the Sheets API off).
+- Tests: `uv run pytest` (508, incl. 3 browser tests that need Google Chrome + Node) and
+  `npm test` (221, then 78 backend tests again with the Sheets API off).
 - Lint and format: `uv run ruff format . && uv run ruff check .`, `npm run format && npm run lint`.
 - Backend: `uv run chgk backend add|use|list|check|remove|bundle` (docs/google-account.md).
 - A tournament: `uv run chgk new <folder>` (Sheet + Drive folder), `uv run chgk teams <folder>`
@@ -184,6 +184,8 @@ One line each; SPEC has the details. Decisions recorded only here are written ou
   from `ANTHROPIC_API_KEY`). Drafts are never deleted or overwritten (user, 2026-10-30).
   The example tournament has no team name on cards, logo 10%, logo_size 1.85 in (user);
   elsewhere the defaults stay.
+- **A leaked jury or board link** — `chgk replace-token`, a new jury-v<N>.pdf saying what
+  happened; phones keep their waiting marks and photos (SPEC §7.4).
 - **Board** — SPEC §10.1. **Juror view:** no official answer (§7.5). **Jurors:** one at a
   time; the data model is ready for several (§7.3).
 - **Deferred:** one list, [PLAN.md](PLAN.md) Phase 9 (next version).

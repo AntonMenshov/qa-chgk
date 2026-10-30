@@ -6,6 +6,7 @@ import pytest
 import respx
 from conftest import LONG_NAME, runner, write_teams_file
 from node_backend import NODE, NodeBackend
+from pypdf import PdfReader
 
 from chgk.backend import (
     APPS_SCRIPT_DIR,
@@ -19,7 +20,7 @@ from chgk.backend import (
 )
 from chgk.cli import app
 from chgk.ids import decode_jury_link, encode_jury_link
-from chgk.remote import new_tournament, sync_teams
+from chgk.remote import new_tournament, replace_token, sync_teams
 from chgk.state import load_or_create_state
 from chgk.teams import Team, read_teams
 
@@ -385,6 +386,56 @@ def test_cli_new_prints_the_jury_sheets_warnings(folder, backends):
 def test_cli_new_without_profile_explains(folder):
     result = runner.invoke(app, ["new", str(folder)])
     assert result.exit_code == 1 and "google-account.md" in result.output
+
+
+# ---- replacing a leaked link ----
+
+
+def test_replace_token_switches_the_backend_and_records_it(folder, backends):
+    profiles = Profiles()
+    profiles.add(Profile("personal", URL_A, "tokA"))
+    profiles.save()
+    old = new_tournament(folder, profiles.active()).state
+    state = replace_token(folder, "jury", Profiles())
+    assert state.jury_token != old.jury_token and state.board_token == old.board_token
+    assert [r["which"] for r in state.replaced] == ["jury"] and re.fullmatch(
+        r"\d{4}-\d\d-\d\dT\d\d:\d\d", state.replaced[0]["at"]
+    )
+    assert load_or_create_state(folder) == state
+    with pytest.raises(BackendError, match="forbidden"):
+        BackendClient(URL_A, old.jury_token).call("get_state", tid=state.tid)
+    assert BackendClient(URL_A, state.jury_token).call("get_state", tid=state.tid)["ok"]
+    state = replace_token(folder, "board", Profiles())
+    assert [r["which"] for r in state.replaced] == ["jury", "board"] and state.board_token != old.board_token
+    with pytest.raises(ValueError, match="which token"):
+        replace_token(folder, "admin", Profiles())
+
+
+def test_replace_token_needs_a_tournament(folder):
+    with pytest.raises(ValueError, match="chgk new"):
+        replace_token(folder, "jury", Profiles())
+
+
+def test_cli_replace_token_writes_a_new_jury_sheet_that_says_what_happened(folder, backends):
+    runner.invoke(app, ["backend", "add", "personal", "--url", URL_A, "--token", "tokA"])
+    runner.invoke(app, ["new", str(folder)])
+    first = (folder / "out" / "test-cup" / "jury.pdf").read_bytes()
+    assert runner.invoke(app, ["replace-token", str(folder), "jury"], input="n\n").exit_code == 1  # asked, declined
+    result = runner.invoke(app, ["replace-token", str(folder), "jury", "--yes"])
+    assert result.exit_code == 0, result.output
+    assert "jury-v2.pdf" in result.output and "destroy" in result.output
+    v2 = folder / "out" / "test-cup" / "jury-v2.pdf"
+    text = " ".join(" ".join(p.extract_text().split()) for p in PdfReader(v2).pages[:2])
+    assert "версия 2" in text and "Ключ доступа жюри заменён" in text and "Ссылка табло заменена" not in text
+    assert (folder / "out" / "test-cup" / "jury.pdf").read_bytes() == first  # the old sheet is kept as it was
+    state = load_or_create_state(folder)
+    links = {a.get("/A", {}).get("/URI") for p in PdfReader(v2).pages[:1] for a in (p.get("/Annots") or [])}
+    links = {str(link) for link in links if link}
+    assert any(state.jury_token in link for link in links)  # page 1 carries the new jury link
+    result = runner.invoke(app, ["replace-token", str(folder), "board", "--yes"])
+    v3 = folder / "out" / "test-cup" / "jury-v3.pdf"
+    page2 = " ".join(PdfReader(v3).pages[1].extract_text().split())
+    assert result.exit_code == 0 and "версия 3" in page2 and "Ссылка табло заменена" in page2
 
 
 # ---- projector board ----

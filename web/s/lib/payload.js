@@ -40,6 +40,14 @@ export function decodeSetup(text) {
 }
 
 /**
+ * Whether two jury accesses are the same. The same tournament with a new token (a replaced
+ * leaked link) or another backend is a new access, which the phone takes on.
+ */
+export function sameAccess(a, b) {
+  return Boolean(a && b) && a.tid === b.tid && a.juryToken === b.juryToken && a.backendUrl === b.backendUrl;
+}
+
+/**
  * The projector board link, built exactly as chgk/ids.py encode_board_link builds it for
  * the jury sheet (checked against the shared vectors), from the board page's own address.
  */

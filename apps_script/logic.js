@@ -219,6 +219,9 @@ function validateToken(token, name) {
 }
 
 /** Check the shape of a request body; returns it, or throws RequestError. */
+/** The tokens `replace_token` can replace: a leaked jury or board link. */
+export const TOKEN_KINDS = ['jury', 'board'];
+
 export function validateRequest(body) {
   if (!body || typeof body !== 'object') {
     fail('request must be a JSON object');
@@ -254,6 +257,12 @@ export function validateRequest(body) {
       return body;
     case 'set_teams':
       validateTeams(body.teams);
+      return body;
+    case 'replace_token':
+      if (!TOKEN_KINDS.includes(body.which)) {
+        fail(`which must be one of ${TOKEN_KINDS.join(', ')}`);
+      }
+      validateToken(body.new_token, 'new_token');
       return body;
     case 'record_events':
       if (!Array.isArray(body.events) || body.events.length === 0) {

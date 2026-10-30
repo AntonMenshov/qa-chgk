@@ -1,6 +1,7 @@
 // Scanner web app: wires the page's buttons to the screens in ui/ and starts it.
 // The logic lives in lib/ (tested in Node); ui/ shows it on the page.
 
+import {sameAccess} from './lib/payload.js';
 import {$, sheet, toast, unlockAudio} from './ui/dom.js';
 import {answerSpare, handleCode, verdict} from './ui/scan.js';
 import {adoptSetup, readHash, startSetupScreen} from './ui/setup.js';
@@ -129,7 +130,7 @@ function boot() {
   addEventListener('hashchange', () => {
     const next = readHash();
     if (next.setup) {
-      if (app.session && next.setup.tid === app.setup.tid && next.setup.juryToken === app.setup.juryToken) {
+      if (app.session && sameAccess(next.setup, app.setup)) {
         return;
       }
       if (adoptSetup(next.setup)) {
