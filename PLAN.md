@@ -128,4 +128,3 @@ The one list of deferred work (HANDOVER points here): logos from image-generatio
 services (OpenAI, Google, …; user decision) · rating.chgk.info export · multi-juror UI ·
 Google sign-in · cache for board/phone reads (backend speed proposal #2) · replacing
 leaked tokens · moving a tournament to another account (`chgk export` / `chgk import`).
-(A board freeze is not needed: the board shows a round only when revealed.)
