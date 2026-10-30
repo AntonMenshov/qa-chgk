@@ -307,9 +307,9 @@ checks that the decks come out in order.
   jury QRs, page 2 board + view-only QR, both pages filled.
   **Still to confirm by the user (needs the edit trigger):** typing a name over
   «R1 · впишите название», and a mark edit on a round tab (`+` → `1`, row moves, Log row).
-- Backend a90ec10bb671 (built, NOT yet deployed): Teams, Log, Settings, Meta hidden at
-  creation and by `share_view`, so the view-only link shows only «Итоги», rounds and Stats
-  (user request). After the deploy: `chgk view tournaments/example` hides them on QHZJ8.
+- Backend a90ec10bb671 deployed: Teams, Log, Settings, Meta hidden at creation and by
+  `share_view` (user request). `chgk view` applied it to QHZJ8; checked without a Google
+  login: the view-only link shows only Итоги, Тур 1-3, Stats.
 - Delete the old example folder `ЧГК/… (5R547)` (single Results layout) from Drive.
 - A real print of the cards.
 - Delete `spike.jpg` from the root of their Google Drive (left by spike 1).
