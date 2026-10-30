@@ -3,6 +3,7 @@
 from dataclasses import dataclass, replace
 from pathlib import Path
 
+from chgk import out_dir
 from chgk.cards.impose import Mode, impose
 from chgk.cards.model import team_deck
 from chgk.cards.render import render_cards
@@ -65,7 +66,7 @@ def build_cards(folder: Path, mode: Mode, out: Path | None = None, team_ids: lis
         out = Path(out)
         jury_out = out.with_name(f"{out.stem}-jury.pdf")
     else:
-        out = Path("out") / tournament.slug / f"cards-{mode.value}.pdf"
+        out = out_dir(tournament.slug, f"cards-{mode.value}.pdf")
         jury_out = out.with_name("jury.pdf")
     logos = _pale(sources, tournament.card.logo_grey)
     warnings = logo_warnings + render_cards(pages, tournament, mode, out, logos)
@@ -81,7 +82,7 @@ def build_jury_sheet(folder: Path, out: Path | None = None) -> tuple[Path, list[
     tournament = load_config(folder)
     teams = load_teams(folder, tournament)
     state = load_or_create_state(folder)
-    out = Path(out) if out else Path("out") / tournament.slug / "jury.pdf"
+    out = Path(out) if out else out_dir(tournament.slug, "jury.pdf")
     return out, render_jury_sheet(tournament, state, teams, out)
 
 
@@ -94,7 +95,7 @@ def build_test_page(folder: Path, out: Path | None = None) -> Path:
     sources, _ = load_logos(folder, tournament.card, teams)
     team = next((t for t in teams if t.team_id in sources), teams[0])
     key = first_logo(tournament.card, team.team_id, sources)
-    out = Path(out) if out else Path("out") / tournament.slug / "test-page.pdf"
+    out = Path(out) if out else out_dir(tournament.slug, "test-page.pdf")
     render_test_page(tournament, state.tid, team, out, sources.get(key), _pale(sources, tournament.card.logo_grey))
     return out
 
@@ -123,6 +124,6 @@ def build_logo_preview(folder: Path, drafts: dict[str, Path], out: Path | None =
         return None, warnings
     per_page = preview.layout.per_page
     pages = [cards[i : i + per_page] for i in range(0, len(cards), per_page)]
-    out = Path(out) if out else Path("out") / tournament.slug / "logo-preview.pdf"
+    out = Path(out) if out else out_dir(tournament.slug, "logo-preview.pdf")
     warnings += render_cards(pages, preview, Mode.TEAM_PAGES, out, images)
     return out, warnings

@@ -73,11 +73,21 @@ def tournament_client(folder: Path, profiles: Profiles) -> tuple[State, BackendC
     return state, BackendClient(profile.url, profile.admin_token)
 
 
+def _local_teams(path: Path) -> list[Team]:
+    """The teams in teams.py, or none if it is missing or broken (the Sheet's list replaces it)."""
+    try:
+        return read_teams(path)
+    except ValueError:
+        return []
+
+
 def sync_teams(folder: Path, profiles: Profiles, client: BackendClient | None = None) -> list[Team]:
     """The Sheet's Teams tab is the source of truth: pull it into teams.py.
 
     Teams added in the Sheet without a team_id get one, and the IDs are written back.
     Reserve teams (R1, R2, …) stay on the backend: the jury names them in the Sheet.
+    A team with no logo in the Sheet keeps the one teams.py gives it (set locally, e.g. by
+    `chgk logos --accept`); a logo in the Sheet wins.
     """
     folder = Path(folder)
     state, default_client = tournament_client(folder, profiles)
@@ -86,7 +96,11 @@ def sync_teams(folder: Path, profiles: Profiles, client: BackendClient | None = 
     if not rows:
         raise ValueError("the Teams tab in the Sheet is empty")
     given = [Team(*(r.get(k) or "" for k in ("team_id", "name", "city", "logo_file"))) for r in rows]
-    teams = normalize_teams(given, "Teams tab")
+    local = {t.team_id: t.logo_file for t in _local_teams(folder / TEAMS_FILE)}
+    teams = [
+        t if t.logo_file else replace(t, logo_file=local.get(t.team_id, ""))
+        for t in normalize_teams(given, "Teams tab")
+    ]
     write_teams(folder / TEAMS_FILE, teams)
     client.set_teams(state.tid, _team_dicts(teams))  # writes assigned IDs back and adds rows on every tab
     return teams

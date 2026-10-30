@@ -160,7 +160,8 @@ and is git-ignored because it contains secrets. Teams are in `tournaments/<slug>
 Python like config.py (user request, replacing teams.csv):
 `teams = [team("42", id="645", logo="42.png"), team("Звезды сошлись"), …]`.
 Given team IDs are kept (upper-cased); missing ones are assigned and written back (the
-file is then regenerated). `chgk teams` regenerates it from the Sheet's Teams tab.
+file is then regenerated). `chgk teams` regenerates it from the Sheet's Teams tab; a team
+whose logo is blank on the Sheet keeps the logo from teams.py (and the Sheet gets it).
 `tournaments/example/` (3 × 12) and `tournaments/example-15/` (3 × 15) are working examples.
 
 ## 5. Google Sheet (one spreadsheet per tournament)
@@ -512,7 +513,8 @@ The Claude API does not output raster images, but it can write SVG.
   `<board_url>?grid=<N>#board=<TID>.<BOARD_TOKEN>.<DEPLOYMENT_ID>`, where `<board_url>`
   is the scanner URL's sibling `…/b/` and N is `board_grid_max_teams` (encoded in
   chgk/ids.py and web/s/lib/payload.js; shared vectors in `tests/vectors/board_links.json`). Read-only: its board token can
-  read teams and marks but nothing else, and is separate from the jury token.
+  read teams and marks but nothing else, and is separate from the jury token. Every
+  tournament has one: `create_tournament` refuses a request without it.
 - **Shown only after each round.** Nothing appears until the person at the projector
   presses → (or space, or «Показать тур N»); each press reveals the next round, ← takes
   the last one back. Totals, order and places use only the revealed rounds, so marks
@@ -589,6 +591,9 @@ uv run chgk board tournaments/<slug>        # projector board link
 uv run chgk view tournaments/<slug>         # view-only Sheet link
 uv run chgk version
 ```
+
+Generated files go to the repo's `out/<slug>/` whichever folder a command runs from
+(`--out` overrides); `out/apps_script/Code.gs` likewise.
 
 ## 14. Open items
 

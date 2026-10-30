@@ -31,6 +31,7 @@ function world({sheetsApi = true, teams = TEAMS, sizes = SIZES} = {}) {
     date: '2026-11-15',
     round_sizes: sizes,
     jury_token: JURY,
+    board_token: 'boardTOKEN_0123456789ab',
     teams,
     reserve: ['R1', 'R2'],
   });

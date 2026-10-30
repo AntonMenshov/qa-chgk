@@ -495,6 +495,34 @@ def test_draw_team_redraws_even_with_a_logo_and_keeps_the_old_draft(folder, monk
     assert drafts.draft_path("test-cup", "A01").with_name("A01.1.svg").read_text(encoding="utf-8") == OWL_2
 
 
+def test_draw_drafts_saves_each_team_and_reports_failures_per_team(folder):
+    teams = read_teams(folder / "teams.py")[1:]  # A02 and A03
+    replies = {LONG_NAME: [sse(fenced(OWL_SVG)), APPROVE], "Думать быстро": [sse("no drawing")] * 3}
+    lines = []
+    outcomes = drafts.draw_drafts(
+        mock_client(replies, []), "test-cup", teams, [], log=lambda t, line, problem: lines.append((t.team_id, problem))
+    )
+    assert [(o.team.team_id, o.path, bool(o.error), o.skipped) for o in outcomes] == [
+        ("A02", drafts.draft_path("test-cup", "A02"), False, False),
+        ("A03", None, True, False),
+    ]
+    assert drafts.draft_path("test-cup", "A02").read_text(encoding="utf-8") == OWL_SVG
+    assert outcomes[1].error.startswith("no usable drawing")
+    assert ("A03", True) in lines and ("A02", False) in lines
+
+
+def test_draw_drafts_stops_on_a_refused_key(folder, monkeypatch):
+    monkeypatch.setattr(drafts, "PARALLEL", 1)
+    refused = httpx2.Response(
+        401, json={"type": "error", "error": {"type": "authentication_error", "message": "invalid x-api-key"}}
+    )
+    seen = []
+    with pytest.raises(anthropic.AuthenticationError):
+        drafts.draw_drafts(mock_client([refused], seen), "test-cup", read_teams(folder / "teams.py"), [])
+    assert len(seen) == 1  # the other teams never started
+    assert not drafts.drafts_dir("test-cup").exists()
+
+
 def test_a_wrong_key_stops_and_is_not_shown(folder, monkeypatch):
     monkeypatch.setenv(drafts.API_KEY_ENV, SECRET)
     monkeypatch.setattr(drafts, "PARALLEL", 1)

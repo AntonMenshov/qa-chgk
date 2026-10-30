@@ -460,6 +460,7 @@ test('phone flow against the backend: scan, judge, send, refresh; reserve team; 
     date: '2026-11-15',
     round_sizes: [3, 3],
     jury_token: JURY,
+    board_token: 'boardTOKEN_0123456789ab',
     teams: [
       {team_id: '645', name: '42'},
       {team_id: '58746', name: 'Фиаско'},

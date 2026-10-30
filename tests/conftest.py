@@ -5,6 +5,7 @@ import zxingcpp
 from PIL import Image, ImageDraw
 from typer.testing import CliRunner
 
+import chgk
 from chgk.config import Layout
 
 runner = CliRunner()  # the CLI tests' runner
@@ -69,5 +70,6 @@ def folder(tmp_path):
 
 @pytest.fixture(autouse=True)
 def isolated_cwd(tmp_path, monkeypatch):
-    """Commands that write to the default out/<slug>/ must not touch the repo's out/."""
+    """Commands that write to the default out/<slug>/ must not touch the repo's out/: it is tmp_path/out."""
     monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(chgk, "OUT_ROOT", tmp_path / "out")

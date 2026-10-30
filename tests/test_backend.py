@@ -4,7 +4,7 @@ import re
 import httpx
 import pytest
 import respx
-from conftest import runner, write_teams_file
+from conftest import LONG_NAME, runner, write_teams_file
 from node_backend import NODE, NodeBackend
 
 from chgk.backend import (
@@ -164,6 +164,14 @@ def test_new_tournament_records_its_backend(folder, backends):
     assert [(t["team_id"], t["reserve"]) for t in teams][-2:] == [("R1", True), ("R2", True)]
 
 
+def test_the_backend_refuses_a_tournament_without_a_board_token(backends):
+    a, _ = backends
+    request = {"tid": "ZZ234", "name": "X", "date": "2026-11-15", "round_sizes": [3], "teams": []}
+    with pytest.raises(BackendError, match="board_token"):
+        BackendClient(URL_A, "tokA").call("create_tournament", jury_token="j" * 24, **request)
+    assert not a.call("get_teams", tid="ZZ234")["ok"]  # nothing was created
+
+
 def test_new_tournament_is_idempotent(folder, backends):
     a, _ = backends
     first = new_tournament(folder, Profile("personal", URL_A, "tokA")).state
@@ -227,6 +235,27 @@ def test_sync_teams_assigns_ids_and_writes_back(folder, backends):
     assert read_teams(folder / "teams.py")[-1] == Team("A04", "Новые", "Бостон")
     on_tab = a.call("get_teams", tid=state.tid)["teams"]
     assert ("A04", "Новые") in [(t["team_id"], t["name"]) for t in on_tab]  # written back to the Sheet
+
+
+def test_sync_teams_keeps_a_local_logo_unless_the_sheet_has_one(folder, backends):
+    a, _ = backends
+    profiles = Profiles()
+    profiles.add(Profile("personal", URL_A, "tokA"))
+    profiles.save()
+    state = new_tournament(folder, profiles.active()).state
+    write_teams_file(
+        folder,
+        [
+            ("A01", "Синие зайцы", "Бостон", "z.png"),
+            ("A02", LONG_NAME, "", "new.svg"),
+            ("A03", "Думать быстро", "", "local.svg"),
+        ],
+    )  # logos set locally after `chgk new`
+    a.set_cell(state.tid, "Teams", 4, 4, "sheet.png")  # A03's logo typed in the Sheet
+    teams = sync_teams(folder, Profiles())
+    assert [t.logo_file for t in teams] == ["z.png", "new.svg", "sheet.png"]  # A02: Sheet blank, kept; A03: Sheet wins
+    assert [t.logo_file for t in read_teams(folder / "teams.py")] == ["z.png", "new.svg", "sheet.png"]
+    assert [t["logo_file"] for t in sent(a, "set_teams")[-1]["teams"]] == ["z.png", "new.svg", "sheet.png"]
 
 
 def test_sync_teams_leaves_reserve_teams_on_the_backend(folder, backends):

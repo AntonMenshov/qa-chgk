@@ -81,6 +81,7 @@ test('create_tournament builds every tab and is idempotent for the same jury tok
     date: '2026-11-15',
     round_sizes: [3, 3],
     jury_token: JURY,
+    board_token: 'boardTOKEN_0123456789ab',
     teams: TEAMS,
   });
   assert.equal(again.existed, true);
@@ -92,6 +93,7 @@ test('create_tournament builds every tab and is idempotent for the same jury tok
     date: '2026-11-15',
     round_sizes: [3, 3],
     jury_token: 'another-token-000000',
+    board_token: 'boardTOKEN_0123456789ab',
     teams: TEAMS,
   });
   assert.match(clash.error, /already exists/);
@@ -585,6 +587,7 @@ test('reserve IDs are checked', () => {
       date: '2026-11-15',
       round_sizes: [3],
       jury_token: JURY,
+      board_token: 'boardTOKEN_0123456789ab',
       teams: TEAMS,
       reserve,
     });
@@ -607,6 +610,7 @@ test('a trashed CHGK folder is not reused: new tournaments go to a fresh one', (
     date: '2026-11-16',
     round_sizes: [3],
     jury_token: JURY,
+    board_token: 'boardTOKEN_0123456789ab',
     teams: TEAMS,
   });
   assert.equal(res.ok, true);

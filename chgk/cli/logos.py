@@ -1,13 +1,12 @@
 """Logos: which logo each team's cards use, Claude-drawn drafts, the preview and accepting them."""
 
-import threading
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 import anthropic
 import typer
 
 from chgk import logo_drafts as drafts
+from chgk import out_dir
 from chgk.cards.build import build_logo_preview
 from chgk.cli.common import app, fail, team_ids
 from chgk.config import LogoMode, load_config
@@ -28,7 +27,7 @@ def _draw(folder: Path, slug: str, look: drafts.LogoLook, teams: list, only: lis
         typer.echo("Nothing to draw: every team has a logo or a draft (`--draw --team A01` redraws one).")
         return
     if not drafts.api_key_set():
-        out = drafts.write_brief(Path("out") / slug / "logo-brief.md", folder, slug, todo, look)
+        out = drafts.write_brief(out_dir(slug, "logo-brief.md"), folder, slug, todo, look)
         typer.echo(f"{drafts.API_KEY_ENV} is not set, so nothing was sent to the API.")
         typer.echo(f"{out}: a brief for {len(todo)} logos. Open Claude Code here and ask it to follow that file.")
         return
@@ -39,38 +38,14 @@ def _draw(folder: Path, slug: str, look: drafts.LogoLook, teams: list, only: lis
         f"Drawing {len(todo)} logos with {drafts.MODEL} at {drafts.EFFORT} effort, {drafts.PARALLEL} at a time, "
         f"each reviewed up to {drafts.REVIEW_ROUNDS} times ({len(references)} reference logos). This takes a while…"
     )
-    client = drafts.make_client()
-    key_refused = threading.Event()  # a refused key stops the teams not started yet
 
-    def draw_one(t) -> Path | None:
-        def log(line: str) -> None:
-            typer.echo(f"  {t.team_id} «{t.name}»: {line}")
+    def log(team, line: str, problem: bool) -> None:
+        typer.secho(f"  {team.team_id} «{team.name}»: {line}", fg="yellow" if problem else None)
 
-        if key_refused.is_set():
-            return None
-        try:
-            svg = drafts.draw_logo(client, t.name, references, look, log)
-        except anthropic.AuthenticationError:
-            key_refused.set()
-            raise
-        return drafts.save_draft(slug, t.team_id, svg)
-
-    with ThreadPoolExecutor(max_workers=drafts.PARALLEL) as pool:
-        futures = {pool.submit(draw_one, t): t for t in todo}
-        for future in as_completed(futures):
-            t = futures[future]
-            try:
-                path = future.result()
-            except anthropic.AuthenticationError as err:
-                pool.shutdown(cancel_futures=True)
-                raise fail(ValueError(f"the API refused {drafts.API_KEY_ENV} (HTTP {err.status_code})")) from err
-            except anthropic.APIError as err:
-                typer.secho(f"  {t.team_id} «{t.name}»: API error ({type(err).__name__}); try again later", fg="yellow")
-            except ValueError as err:
-                typer.secho(f"  {t.team_id} «{t.name}»: no usable drawing ({err}); try again", fg="yellow")
-            else:
-                if path:
-                    typer.echo(f"  {t.team_id} «{t.name}»: saved {path}")
+    try:
+        drafts.draw_drafts(drafts.make_client(), slug, todo, references, look, log)
+    except anthropic.AuthenticationError as err:
+        raise fail(ValueError(f"the API refused {drafts.API_KEY_ENV} (HTTP {err.status_code})")) from err
 
 
 def _report(folder: Path, tournament, teams: list) -> None:

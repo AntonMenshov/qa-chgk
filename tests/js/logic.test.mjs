@@ -45,6 +45,7 @@ test('validateRequest accepts good requests', () => {
       date: '2026-11-15',
       round_sizes: [12, 12, 15],
       jury_token: 'x'.repeat(24),
+      board_token: 'boardTOKEN_0123456789ab',
       teams: [{team_id: 'A01', name: 'Синие зайцы'}],
     }),
   );
@@ -63,6 +64,7 @@ const BAD = [
       date: '2026-11-15',
       round_sizes: [1],
       jury_token: 'x'.repeat(24),
+      board_token: 'boardTOKEN_0123456789ab',
     },
     'name',
   ],
@@ -74,6 +76,7 @@ const BAD = [
       date: '15.11.2026',
       round_sizes: [1],
       jury_token: 'x'.repeat(24),
+      board_token: 'boardTOKEN_0123456789ab',
     },
     'date',
   ],
@@ -85,6 +88,7 @@ const BAD = [
       date: '2026-11-15',
       round_sizes: [],
       jury_token: 'x'.repeat(24),
+      board_token: 'boardTOKEN_0123456789ab',
     },
     'round_sizes',
   ],
@@ -96,6 +100,7 @@ const BAD = [
       date: '2026-11-15',
       round_sizes: [0],
       jury_token: 'x'.repeat(24),
+      board_token: 'boardTOKEN_0123456789ab',
     },
     'questions',
   ],
@@ -108,6 +113,18 @@ const BAD = [
     {action: 'create_tournament', tid: 'K7M2Q', name: 'X', date: '2026-11-15', round_sizes: [1], jury_token: token},
     'jury_token',
   ]),
+  // The board token is made by `chgk new` with the jury token: it is required too.
+  [
+    {
+      action: 'create_tournament',
+      tid: 'K7M2Q',
+      name: 'X',
+      date: '2026-11-15',
+      round_sizes: [1],
+      jury_token: 'x'.repeat(24),
+    },
+    'board_token',
+  ],
   [
     {
       action: 'set_teams',

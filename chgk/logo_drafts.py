@@ -16,7 +16,10 @@ import io
 import os
 import re
 import shutil
+import threading
 import time
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, replace
 from pathlib import Path
 
@@ -403,6 +406,64 @@ def save_draft(slug: str, team_id: str, svg: str) -> Path:
         path.rename(old)
     path.write_text(svg, encoding="utf-8")
     return path
+
+
+@dataclass(frozen=True)
+class DraftOutcome:
+    team: Team
+    path: Path | None = None  # the saved draft
+    error: str = ""  # why there is none: an API error, or no usable drawing
+    skipped: bool = False  # never started: the API had refused the key
+
+
+def draw_drafts(
+    client: anthropic.Anthropic,
+    slug: str,
+    teams: list[Team],
+    references: list[dict],
+    look: LogoLook = DEFAULT_LOOK,
+    log: Callable[[Team, str, bool], None] = lambda team, line, problem: None,
+) -> list[DraftOutcome]:
+    """Draw these teams' logos, PARALLEL at a time, and save each as a draft; one outcome per team.
+
+    `log(team, line, problem)` gets each team's progress lines and its result as they happen
+    (`problem` marks an API error or no usable drawing). A refused API key stops the teams
+    not started yet and raises anthropic.AuthenticationError.
+    """
+    key_refused = threading.Event()
+
+    def draw_one(team: Team) -> Path | None:
+        if key_refused.is_set():
+            return None
+        try:
+            svg = draw_logo(client, team.name, references, look, lambda line: log(team, line, False))
+        except anthropic.AuthenticationError:
+            key_refused.set()
+            raise
+        return save_draft(slug, team.team_id, svg)
+
+    outcomes: dict[str, DraftOutcome] = {}
+    with ThreadPoolExecutor(max_workers=PARALLEL) as pool:
+        futures = {pool.submit(draw_one, t): t for t in teams}
+        for future in as_completed(futures):
+            team = futures[future]
+            try:
+                path = future.result()
+            except anthropic.AuthenticationError:
+                pool.shutdown(cancel_futures=True)
+                raise
+            except anthropic.APIError as err:
+                outcome = DraftOutcome(team, error=f"API error ({type(err).__name__}); try again later")
+            except ValueError as err:
+                outcome = DraftOutcome(team, error=f"no usable drawing ({err}); try again")
+            else:
+                outcome = DraftOutcome(team, path=path, skipped=path is None)
+            if outcome.error:
+                log(team, outcome.error, True)
+            elif outcome.path:
+                log(team, f"saved {outcome.path}", False)
+            outcomes[team.team_id] = outcome
+    return [outcomes[t.team_id] for t in teams]
 
 
 def write_brief(out: Path, folder: Path, slug: str, teams: list[Team], look: LogoLook = DEFAULT_LOOK) -> Path:

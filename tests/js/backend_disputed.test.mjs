@@ -108,6 +108,7 @@ test('the same marks, places and «Спорные» with the Sheets API off (the
       date: '2026-11-15',
       round_sizes: [3, 3],
       jury_token: JURY,
+      board_token: 'boardTOKEN_0123456789ab',
       teams: TEAMS,
       reserve: ['R1'],
     });

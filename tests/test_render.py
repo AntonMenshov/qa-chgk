@@ -273,6 +273,18 @@ def test_no_qr_cards_have_an_empty_corner_and_nothing_else_changes(folder, tmp_p
         assert corner.getextrema() == (255, 255)
 
 
+def test_default_output_goes_to_the_repos_out_from_any_folder(folder, tmp_path, monkeypatch):
+    import chgk
+
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    monkeypatch.chdir(elsewhere)  # run from another folder
+    result = build_cards(folder, Mode.TEAM_PAGES)
+    assert result.path == chgk.OUT_ROOT / "test-cup" / "cards-team-pages.pdf" and result.path.is_file()
+    assert result.jury_path == chgk.OUT_ROOT / "test-cup" / "jury.pdf"
+    assert not (elsewhere / "out").exists()
+
+
 def test_date_on_the_cards_only_when_switched_on(folder, tmp_path):
     config = folder / "config.py"
     config.write_text(

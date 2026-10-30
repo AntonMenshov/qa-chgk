@@ -37,7 +37,7 @@ function createTournament_(props, req) {
     folder_id: folder.getId(),
     photos_folder_id: photos.getId(),
     jury_token: req.jury_token,
-    board_token: req.board_token || null,
+    board_token: req.board_token,
     round_sizes: req.round_sizes,
     name: req.name,
     date: req.date,

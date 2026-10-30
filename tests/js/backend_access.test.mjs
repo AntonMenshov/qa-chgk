@@ -17,6 +17,7 @@ const BODIES = {
     date: '2026-12-01',
     round_sizes: [3],
     jury_token: 'another-jury-token-0123',
+    board_token: 'another-board-token-0123',
     teams: TEAMS,
   }),
   get_teams: () => ({tid: TID}),

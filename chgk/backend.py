@@ -13,6 +13,7 @@ from pathlib import Path
 
 import httpx
 
+from chgk import out_dir
 from chgk.ids import BACKEND_URL_RE
 
 APPS_SCRIPT_DIR = Path(__file__).resolve().parent.parent / "apps_script"
@@ -142,10 +143,9 @@ class BackendClient:
         round_sizes: list[int],
         jury_token: str,
         teams: list[dict],
+        board_token: str,
         reserve: list[str] = (),
-        board_token: str | None = None,
     ) -> dict:
-        extra = {"board_token": board_token} if board_token else {}
         return self.call(
             "create_tournament",
             tid=tid,
@@ -155,7 +155,7 @@ class BackendClient:
             jury_token=jury_token,
             teams=teams,
             reserve=list(reserve),
-            **extra,
+            board_token=board_token,
         )
 
     def get_teams(self, tid: str) -> list[dict]:
@@ -165,12 +165,14 @@ class BackendClient:
         return self.call("set_teams", tid=tid, teams=teams)
 
 
-BUNDLE_FILE = Path("out/apps_script/Code.gs")  # `chgk backend bundle` writes it here by default
+def bundle_file() -> Path:
+    """Where `chgk backend bundle` writes Code.gs by default: the repo's out/apps_script/."""
+    return out_dir("apps_script", "Code.gs")
 
 
-def bundle_version(path: Path = BUNDLE_FILE) -> str | None:
-    """The version inside a bundle written earlier, or None if there is none."""
-    path = Path(path)
+def bundle_version(path: Path | None = None) -> str | None:
+    """The version inside a bundle written earlier (by default bundle_file()), or None if there is none."""
+    path = Path(path) if path else bundle_file()
     if not path.is_file():
         return None
     match = re.search(r"^const VERSION = '([^']*)';", path.read_text(encoding="utf-8"), re.M)

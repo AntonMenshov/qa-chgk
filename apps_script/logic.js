@@ -242,9 +242,7 @@ export function validateRequest(body) {
       validateToken(body.jury_token, 'jury_token');
       validateTeams(body.teams || []);
       validateReserve(body.reserve || [], body.teams || []);
-      if (body.board_token !== undefined) {
-        validateToken(body.board_token, 'board_token');
-      }
+      validateToken(body.board_token, 'board_token');
       return body;
     case 'get_teams':
     case 'get_state':

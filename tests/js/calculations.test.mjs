@@ -44,6 +44,7 @@ function world(roundSizes, teams) {
     date: '2026-11-15',
     round_sizes: roundSizes,
     jury_token: JURY,
+    board_token: 'boardTOKEN_0123456789ab',
     teams,
   });
   assert.equal(created.ok, true, JSON.stringify(created));
@@ -727,6 +728,7 @@ test('team IDs are checked: 1-8 digits or capital Latin letters, no duplicates',
       date: '2026-11-15',
       round_sizes: [3],
       jury_token: JURY,
+      board_token: 'boardTOKEN_0123456789ab',
       teams,
     });
   for (const bad of ['a01', 'A-1', 'ABCDEFGHI', '', '58 746', 'А01']) {

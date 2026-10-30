@@ -44,6 +44,7 @@ Full design: [SPEC.md](SPEC.md). Build order: [PLAN.md](PLAN.md).
 ### Repository layout
 ```
 chgk/                 Python package (at repo root, no src/ — user's preference)
+  __init__.py         PROJECT_DIR, the font files, out_dir(): every output under the repo's out/
   cli/                typer app, one module per group: common.py (app, errors, version), cards.py
                       (cards, test-page, jury-sheet), profiles.py (backend add|use|list|check|remove|bundle),
                       tournament.py (new, teams, board, view), logos.py (logos)
@@ -55,7 +56,8 @@ chgk/                 Python package (at repo root, no src/ — user's preferenc
   state.py            tournaments/<slug>/state.json (TID, backend URL/profile, sheet ID, jury and board tokens)
   logos.py            which logo a card uses (logo_chain), loading (warnings, not crashes), pale watermark, logo_report
   svg.py              SVG logos: safety check (check_svg), rendering with PT Sans only (render_svg)
-  logo_drafts.py      Claude-drawn drafts: the API request, style rules, the no-key brief, accept into logos/
+  logo_drafts.py      Claude-drawn drafts: the API request and review loop, draw_drafts (several teams at
+                      once), style rules, the no-key brief, accept into logos/
   jury.py             jury printout (platypus): QR pages, links, how-to, team forms, backup grid
   cards/
     model.py          a team's deck: numbered cards, then spares
@@ -109,8 +111,8 @@ README.md             organiser guide (end to end) and contributor commands
 ```
 
 ### How to run
-- Tests: `uv run pytest` (500, incl. 3 browser tests that need Google Chrome + Node) and
-  `npm test` (216, then 75 backend tests again with the Sheets API off).
+- Tests: `uv run pytest` (505, incl. 3 browser tests that need Google Chrome + Node) and
+  `npm test` (217, then 75 backend tests again with the Sheets API off).
 - Lint and format: `uv run ruff format . && uv run ruff check .`, `npm run format && npm run lint`.
 - Backend: `uv run chgk backend add|use|list|check|remove|bundle` (docs/google-account.md).
 - A tournament: `uv run chgk new <folder>` (Sheet + Drive folder), `uv run chgk teams <folder>`
