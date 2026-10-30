@@ -175,6 +175,9 @@ checks that the decks come out in order.
   logos it was invisible. Scaling by the darkest pixel was a bug (a few stray dark pixels);
   now the darkest 10% of the drawing sets the shade.
 - Draw cut guides **after** the cards, or the QR's white quiet zone hides them.
+- Results formatting lives in `formatResults_` and is re-applied by `set_teams`, so
+  `chgk teams` upgrades Sheets made by older backend versions (user asked for narrow
+  question columns split by round).
 - Google's consent screen lets the owner untick single permissions. The first live
   `chgk new` failed with "no permission to call SpreadsheetApp.create". Now `setup()`
   calls `ScriptApp.requireAllScopes`, ping reports `authorized`, and the CLI explains

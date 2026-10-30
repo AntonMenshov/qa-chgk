@@ -129,7 +129,7 @@ Created by `chgk new`. Tabs:
 | **Settings** | CLI | name, date, rounds, questions per round, IDs |
 | **Teams** | organizer (source of truth) | `team_id` (auto, e.g. `A07`, stable), `name`, `city`, `logo_file`, `logo_prompt` |
 | **Log** | Apps Script, append-only | `scan_id` (UUID, idempotent), server time, client time, juror, device, team, question, status, photo link, source (`app` / `sheet`) |
-| **Results** | Apps Script + jury edits | teams × questions matrix, per-round sums, total, place |
+| **Results** | Apps Script + jury edits | teams × questions matrix, per-round sums, total, place. Narrow question columns; rounds split by a thick line and alternating header tints (round totals share their round's tint) |
 | **Stats** | formulas | per question: number of teams that took it, % |
 
 ### Cell values in Results

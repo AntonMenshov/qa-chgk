@@ -9,6 +9,8 @@ const TEAMS_HEADER = ["team_id", "name", "city", "logo_file"];
 const LOG_HEADER = ["server_time", "client_time", "scan_id", "source", "juror", "device", "team_id", "question",
   "spare", "status", "value", "applied", "photo"];
 const COLORS = { 1: "#d9ead3", 0: "#f4cccc", "?": "#fff2cc", R: "#eeeeee" };
+const ROUND_TINTS = ["#cfe2f3", "#fce5cd"]; // header shading, alternating by round
+const WIDTHS = { id: 44, name: 180, question: 28, round: 52, total: 52 }; // pixels
 
 /** Run once from the editor after deploying: creates the admin token and prints the CLI command. */
 function setup() {
@@ -172,11 +174,7 @@ function buildTabs_(ss, req) {
   results.getRange(1, 1, 1, lay.width).setValues([lay.header]).setFontWeight("bold");
   results.setFrozenRows(1);
   results.setFrozenColumns(2);
-  const marks = results.getRange(2, lay.firstQ, results.getMaxRows() - 1, lay.n);
-  results.setConditionalFormatRules(Object.keys(COLORS).map((v) =>
-    SpreadsheetApp.newConditionalFormatRule()
-      .whenFormulaSatisfied(`=${colLetter(lay.firstQ)}2&""="${v}"`)
-      .setBackground(COLORS[v]).setRanges([marks]).build()));
+  formatResults_(results, req.round_sizes);
 
   const stats = ss.insertSheet(TABS.stats);
   const rows = statsRows(req.round_sizes);
@@ -222,6 +220,35 @@ function writeTeams_(ss, teams) {
   }
 }
 
+/** Column widths, round borders and tints, mark colours. Safe to re-run on an existing Sheet. */
+function formatResults_(results, roundSizes) {
+  const lay = resultsLayout(roundSizes);
+  const rows = results.getMaxRows();
+  results.setColumnWidth(1, WIDTHS.id);
+  results.setColumnWidth(2, WIDTHS.name);
+  results.setColumnWidths(lay.firstQ, lay.n, WIDTHS.question);
+  results.setColumnWidths(lay.firstRound, roundSizes.length, WIDTHS.round);
+  results.setColumnWidths(lay.totalCol, 2, WIDTHS.total);
+  results.getRange(1, lay.firstQ, rows, lay.width - lay.firstQ + 1).setHorizontalAlignment("center");
+
+  const thick = SpreadsheetApp.BorderStyle.SOLID_MEDIUM;
+  roundBands(roundSizes).forEach((band, i) => {
+    const tint = ROUND_TINTS[i % ROUND_TINTS.length];
+    // A thick line before each round, through every row.
+    results.getRange(1, band.firstCol, rows, 1).setBorder(null, true, null, null, null, null, "#000000", thick);
+    results.getRange(1, band.firstCol, 1, band.size).setBackground(tint);
+    results.getRange(1, band.totalCol).setBackground(tint);
+  });
+  results.getRange(1, lay.firstRound, rows, 1).setBorder(null, true, null, null, null, null, "#000000", thick);
+  results.getRange(1, lay.totalCol, rows, 1).setBorder(null, true, null, null, null, null, "#000000", thick);
+
+  const marks = results.getRange(2, lay.firstQ, rows - 1, lay.n);
+  results.setConditionalFormatRules(Object.keys(COLORS).map((v) =>
+    SpreadsheetApp.newConditionalFormatRule()
+      .whenFormulaSatisfied(`=${colLetter(lay.firstQ)}2&""="${v}"`)
+      .setBackground(COLORS[v]).setRanges([marks]).build()));
+}
+
 function resultTeamRows_(results) {
   const n = results.getLastRow() - 1;
   if (n < 1) return [];
@@ -247,6 +274,7 @@ function setTeams_(ss, reg, teams) {
     results.getRange(row, 2).setValue(t.name);
   });
   appendResultRows_(ss, reg.round_sizes, plan.append);
+  formatResults_(results, reg.round_sizes); // also brings Sheets made by older versions up to date
   return { ok: true, appended: plan.append.length, renamed: plan.rename.length };
 }
 

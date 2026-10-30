@@ -30,12 +30,19 @@ class FakeRange {
   getSheet() { return this.sheet; }
   setFontWeight() { return this; }
   setNumberFormat() { return this; }
-  setBackground() { return this; }
+  setBackground(color) { this.each((r, c) => this.sheet.backgrounds.set(`${r},${c}`, color)); return this; }
+  setHorizontalAlignment(a) { this.each((r, c) => this.sheet.align.set(`${r},${c}`, a)); return this; }
+  setBorder(top, left, bottom, right, vertical, horizontal, color, style) {
+    if (left) for (let r = this.row; r < this.row + this.rows; r++) this.sheet.leftBorders.set(`${r},${this.col}`, style);
+    return this;
+  }
+  each(fn) { for (let r = this.row; r < this.row + this.rows; r++) for (let c = this.col; c < this.col + this.cols; c++) fn(r, c); }
 }
 
 export class FakeSheet {
   constructor(ss, name) {
-    Object.assign(this, { ss, name, cells: new Map(), notes: new Map(), maxRows: 1000, maxCols: 26, hidden: false });
+    Object.assign(this, { ss, name, cells: new Map(), notes: new Map(), maxRows: 1000, maxCols: 26, hidden: false,
+      widths: new Map(), backgrounds: new Map(), align: new Map(), leftBorders: new Map() });
   }
   get(r, c) { return this.cells.has(`${r},${c}`) ? this.cells.get(`${r},${c}`) : ""; }
   set(r, c, v) { if (v === "" || v == null) this.cells.delete(`${r},${c}`); else this.cells.set(`${r},${c}`, v); }
@@ -48,6 +55,11 @@ export class FakeSheet {
   setName(n) { this.name = n; return this; }
   getName() { return this.name; }
   getParent() { return this.ss; }
+  setColumnWidth(col, w) { this.widths.set(col, w); }
+  setColumnWidths(col, n, w) {
+    if (col + n - 1 > this.maxCols) throw new Error("setColumnWidths out of bounds");
+    for (let i = 0; i < n; i++) this.widths.set(col + i, w);
+  }
   setFrozenRows() {}
   setFrozenColumns() {}
   hideSheet() { this.hidden = true; return this; }
@@ -107,6 +119,7 @@ export function loadBackend({ account = "me@gmail.com", serviceUrl = "https://sc
       create(name) { const ss = new FakeSpreadsheet(`ss${spreadsheets.size + 1}`, name); spreadsheets.set(ss.id, ss); return ss; },
       openById(id) { return spreadsheets.get(id); },
       newConditionalFormatRule: chain,
+      BorderStyle: { SOLID_MEDIUM: "SOLID_MEDIUM" },
     },
     DriveApp: { getRootFolder: () => root, getFileById: () => ({ moveTo() {} }) },
     ScriptApp: {

@@ -151,6 +151,17 @@ function resultsLayout(roundSizes) {
   return { n, firstQ, firstRound, totalCol, placeCol, width: placeCol, header };
 }
 
+/** Per round: its question columns and its total column (1-based), for borders and tints. */
+function roundBands(roundSizes) {
+  const L = resultsLayout(roundSizes);
+  let col = L.firstQ;
+  return roundSizes.map((size, i) => {
+    const band = { round: i + 1, firstCol: col, size, totalCol: L.firstRound + i };
+    col += size;
+    return band;
+  });
+}
+
 /** One Results row for a team at sheet row `row` (1-based): IDs, empty marks, formulas. */
 function resultsRow(roundSizes, team, row) {
   const L = resultsLayout(roundSizes);
@@ -193,6 +204,6 @@ function planTeamRows(existingRows, teams) {
 if (typeof module !== "undefined") {
   module.exports = {
     STATUSES, STATUS_VALUE, RequestError, tokensEqual, colLetter, totalQuestions, validateRequest,
-    eventError, mergeCell, applyEvents, normalizeCellInput, resultsLayout, resultsRow, statsRows, planTeamRows,
+    eventError, mergeCell, applyEvents, normalizeCellInput, resultsLayout, roundBands, resultsRow, statsRows, planTeamRows,
   };
 }

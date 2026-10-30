@@ -111,6 +111,14 @@ test("resultsLayout and resultsRow", () => {
   assert.deepEqual(row, ["A01", "Синие зайцы", "", "", "", "", "", "=COUNTIF(C4:D4,1)", "=COUNTIF(E4:G4,1)", "=SUM(H4:I4)", "=RANK(J4,J$2:J)"]);
 });
 
+test("roundBands", () => {
+  // C-D round 1, E-G round 2; totals in H and I
+  assert.deepEqual(L.roundBands([2, 3]), [
+    { round: 1, firstCol: 3, size: 2, totalCol: 8 },
+    { round: 2, firstCol: 5, size: 3, totalCol: 9 },
+  ]);
+});
+
 test("statsRows", () => {
   const rows = L.statsRows([2, 1]);
   assert.deepEqual(rows[0], ["Вопрос", "Тур", "Взяли", "Доля"]);

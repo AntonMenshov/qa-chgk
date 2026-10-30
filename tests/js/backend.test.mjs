@@ -81,6 +81,28 @@ test("create_tournament builds every tab and is idempotent for the same jury tok
   assert.match(clash.error, /already exists/);
 });
 
+test("Results: narrow centred question columns, a thick line and a tint per round", () => {
+  const { tab } = world({ roundSizes: [3, 3] });
+  const r = tab("Results"); // C-E round 1, F-H round 2, I-J round totals, K Итого, L Место
+  assert.deepEqual([3, 4, 5, 6, 7, 8].map((c) => r.widths.get(c)), [28, 28, 28, 28, 28, 28]);
+  assert.ok(r.widths.get(2) > 100);
+  assert.equal(r.align.get("5,4"), "center");
+  for (const col of [3, 6, 9, 11]) assert.equal(r.leftBorders.get(`500,${col}`), "SOLID_MEDIUM", `col ${col}`);
+  assert.equal(r.leftBorders.get("2,4"), undefined);
+  const tint = (c) => r.backgrounds.get(`1,${c}`);
+  assert.equal(tint(3), tint(5));
+  assert.equal(tint(3), tint(9)); // round 1 total matches round 1
+  assert.notEqual(tint(3), tint(6));
+  assert.equal(tint(6), tint(10));
+});
+
+test("set_teams re-applies the Results formatting (Sheets from older versions)", () => {
+  const { b, admin, tab } = world();
+  tab("Results").widths.clear();
+  b.post({ action: "set_teams", tid: TID, token: admin, teams: TEAMS });
+  assert.equal(tab("Results").widths.get(3), 28);
+});
+
 test("a wide tournament (8 × 15 questions) fits: sheets grow past 26 columns", () => {
   const { tab } = world({ roundSizes: new Array(8).fill(15) });
   assert.equal(tab("Results").get(1, 2 + 120 + 8 + 2), "Место");
