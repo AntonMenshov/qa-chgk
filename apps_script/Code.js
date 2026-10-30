@@ -12,6 +12,8 @@ const COLORS = { 1: "#d9ead3", 0: "#f4cccc", "?": "#fff2cc", R: "#eeeeee" };
 
 /** Run once from the editor after deploying: creates the admin token and prints the CLI command. */
 function setup() {
+  // Google's consent screen lets each permission be unticked; ask for all of them again.
+  if (ScriptApp.requireAllScopes) ScriptApp.requireAllScopes(ScriptApp.AuthMode.FULL);
   const props = PropertiesService.getScriptProperties();
   let token = props.getProperty("ADMIN_TOKEN");
   if (!token) {
@@ -19,9 +21,12 @@ function setup() {
     props.setProperty("ADMIN_TOKEN", token);
   }
   rootFolder_(); // also triggers the Drive permission prompt now rather than later
-  const url = ScriptApp.getService().getUrl() || "<paste the /exec URL of your deployment>";
-  Logger.log("Account: %s\n\nRun on your laptop:\n\nuv run chgk backend add <name> --url %s --token %s\n",
-    Session.getEffectiveUser().getEmail(), url, token);
+  // From the editor getUrl() gives the owner-only /dev test URL; the CLI needs the
+  // deployment's /exec URL (Deploy → Manage deployments → Web app URL).
+  const service = ScriptApp.getService().getUrl() || "";
+  const url = /\/exec$/.test(service) ? service : "<Web app URL ending in /exec>";
+  Logger.log("Account: %s\n\nRun on your laptop, with the Web app URL from Deploy → Manage deployments:\n\n" +
+    "uv run chgk backend add <name> --url %s --token %s\n", Session.getEffectiveUser().getEmail(), url, token);
 }
 
 function doGet() {
@@ -48,7 +53,7 @@ function handle_(req) {
   const props = PropertiesService.getScriptProperties();
   if (req.action === "ping") {
     requireAdmin_(props, req);
-    return { ok: true, version: VERSION, account: Session.getEffectiveUser().getEmail() };
+    return { ok: true, version: VERSION, account: Session.getEffectiveUser().getEmail(), authorized: authorized_() };
   }
   if (req.action === "create_tournament") {
     requireAdmin_(props, req);
@@ -73,6 +78,16 @@ function handle_(req) {
 }
 
 // ---- access ----
+
+/** False when the owner left some permission (Sheets, Drive, triggers) unticked; null if unknown. */
+function authorized_() {
+  try {
+    const info = ScriptApp.getAuthorizationInfo(ScriptApp.AuthMode.FULL);
+    return info.getAuthorizationStatus() !== ScriptApp.AuthorizationStatus.REQUIRED;
+  } catch (err) {
+    return null;
+  }
+}
 
 function requireAdmin_(props, req) {
   if (!tokensEqual(req.token, props.getProperty("ADMIN_TOKEN"))) fail("forbidden: admin token required");

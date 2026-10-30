@@ -40,8 +40,8 @@ def body(route_call) -> dict:
 class FakeBackend:
     """A minimal stand-in for the Apps Script web app, served through respx."""
 
-    def __init__(self, url, account):
-        self.url, self.account = url, account
+    def __init__(self, url, account, authorized=True):
+        self.url, self.account, self.authorized = url, account, authorized
         self.tournaments: dict[str, dict] = {}
         self.calls: list[dict] = []
 
@@ -51,7 +51,8 @@ class FakeBackend:
         assert request.headers["content-type"].startswith("text/plain")
         action = req["action"]
         if action == "ping":
-            return httpx.Response(200, json={"ok": True, "version": "v1", "account": self.account})
+            return httpx.Response(200, json={"ok": True, "version": "v1", "account": self.account,
+                                             "authorized": self.authorized})
         if action == "create_tournament":
             t = self.tournaments.get(req["tid"])
             if t:
@@ -138,6 +139,14 @@ def test_client_explains_html_login_page():
     respx.post(URL_A).mock(return_value=httpx.Response(200, text="<html>Sign in</html>"))
     with pytest.raises(BackendError, match="Who has access: Anyone"):
         BackendClient(URL_A, "tok").ping()
+
+
+@respx.mock
+def test_client_explains_missing_google_permission():
+    error = "You do not have permission to call SpreadsheetApp.create. Required permissions: ..."
+    respx.post(URL_A).mock(return_value=httpx.Response(200, json={"ok": False, "error": error}))
+    with pytest.raises(BackendError, match="Select all"):
+        BackendClient(URL_A, "tok").call("create_tournament")
 
 
 @respx.mock
@@ -253,6 +262,16 @@ def test_cli_backend_add_list_use_check(backends):
     check = runner.invoke(app, ["backend", "check"])
     assert check.exit_code == 0 and "account a@gmail.com" in check.output
     assert "Local code is version" in check.output  # fake backend reports an old version
+
+
+def test_cli_backend_warns_when_a_permission_is_missing(backends):
+    a, _ = backends
+    a.authorized = False
+    added = runner.invoke(app, ["backend", "add", "personal", "--url", URL_A, "--token", "tokA"])
+    assert added.exit_code == 0 and "Select all" in added.output
+    assert "Select all" in runner.invoke(app, ["backend", "check"]).output
+    a.authorized = True
+    assert "Select all" not in runner.invoke(app, ["backend", "check"]).output
 
 
 def test_cli_backend_add_rejects_unreachable():

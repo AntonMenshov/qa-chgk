@@ -82,7 +82,8 @@ function chain() {
 }
 
 /** A fresh Apps Script world with Code.js and logic.js loaded; returns the vm context. */
-export function loadBackend({ account = "me@gmail.com" } = {}) {
+export function loadBackend({ account = "me@gmail.com", serviceUrl = "https://script.google.com/macros/s/AKfycbFAKE00000/exec",
+  allScopes = true } = {}) {
   const props = new Map();
   const spreadsheets = new Map();
   const root = new FakeFolder("root");
@@ -110,7 +111,11 @@ export function loadBackend({ account = "me@gmail.com" } = {}) {
     DriveApp: { getRootFolder: () => root, getFileById: () => ({ moveTo() {} }) },
     ScriptApp: {
       newTrigger: (fn) => { triggers.push(fn); return chain(); },
-      getService: () => ({ getUrl: () => "https://script.google.com/macros/s/AKfycbFAKE00000/exec" }),
+      getService: () => ({ getUrl: () => serviceUrl }),
+      AuthMode: { FULL: "FULL" },
+      AuthorizationStatus: { REQUIRED: "REQUIRED", NOT_REQUIRED: "NOT_REQUIRED" },
+      getAuthorizationInfo: () => ({ getAuthorizationStatus: () => (allScopes ? "NOT_REQUIRED" : "REQUIRED") }),
+      requireAllScopes: (mode) => { ctx.$.scopeRequests.push(mode); },
     },
     Utilities: { getUuid: () => "0123456789abcdef0123456789abcdef" },
     Logger: { log: (...args) => ctx.logged.push(args) },
@@ -120,7 +125,7 @@ export function loadBackend({ account = "me@gmail.com" } = {}) {
   const dir = new URL("../../apps_script/", import.meta.url);
   const source = readFileSync(new URL("logic.js", dir), "utf8") + "\n" + readFileSync(new URL("Code.js", dir), "utf8");
   vm.runInContext(source, ctx, { filename: "apps_script bundle" });
-  ctx.$ = { props, spreadsheets, root, triggers };
+  ctx.$ = { props, spreadsheets, root, triggers, scopeRequests: [] };
   ctx.post = (body) => ctx.doPost({ postData: { contents: JSON.stringify(body) } }).json();
   return ctx;
 }

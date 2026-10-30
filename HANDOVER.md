@@ -175,6 +175,12 @@ checks that the decks come out in order.
   logos it was invisible. Scaling by the darkest pixel was a bug (a few stray dark pixels);
   now the darkest 10% of the drawing sets the shade.
 - Draw cut guides **after** the cards, or the QR's white quiet zone hides them.
+- Google's consent screen lets the owner untick single permissions. The first live
+  `chgk new` failed with "no permission to call SpreadsheetApp.create". Now `setup()`
+  calls `ScriptApp.requireAllScopes`, ping reports `authorized`, and the CLI explains
+  the error and warns on `backend add/check`.
+- `setup()` run from the editor sees the owner-only `/dev` URL. It now prints a
+  placeholder; the CLI needs the deployment's `/exec` URL.
 - The Apps Script editor's Run button starts on the file's first function. The bundle
   used to start with logic.js's `fail()`, so the user's first "Run" just threw. Code.js
   now goes first and the first function is `setup()` (tested). `source_version` still
@@ -192,6 +198,7 @@ checks that the decks come out in order.
 ## Things that need the user
 
 - Deploying the real Apps Script (Phase 2) under their Gmail: **deployed** 2026-10-29
-  (version 1a482b60badf, health check OK); waiting for `setup()`'s token.
+  (version 1a482b60badf, health check OK); profile `personal` saved. First `chgk new` hit a missing Sheets permission;
+  fixed in code, the user re-pastes the bundle (version 23277fdc0e71) and reruns `setup`.
 - A real print of the cards.
 - Delete `spike.jpg` from the root of their Google Drive (left by spike 1).

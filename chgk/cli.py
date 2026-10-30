@@ -5,7 +5,15 @@ from pathlib import Path
 import typer
 
 from chgk import __version__
-from chgk.backend import BackendClient, BackendError, Profile, Profiles, bundle_apps_script, source_version
+from chgk.backend import (
+    PERMISSIONS_HINT,
+    BackendClient,
+    BackendError,
+    Profile,
+    Profiles,
+    bundle_apps_script,
+    source_version,
+)
 from chgk.cards.build import INSTRUCTIONS, build_cards, build_jury_sheet, build_test_page
 from chgk.cards.impose import Mode
 from chgk.remote import new_tournament, sync_teams
@@ -13,6 +21,11 @@ from chgk.remote import new_tournament, sync_teams
 app = typer.Typer(help="ЧГК answer cards and jury scanning.", no_args_is_help=True)
 backend_app = typer.Typer(help="Google backends: one named profile per Google account.", no_args_is_help=True)
 app.add_typer(backend_app, name="backend")
+
+
+def _warn_permissions(reply: dict) -> None:
+    if reply.get("authorized") is False:
+        typer.secho(PERMISSIONS_HINT, fg="yellow")
 
 
 def _fail(err: Exception) -> typer.Exit:
@@ -129,6 +142,7 @@ def backend_add(
         except BackendError as err:
             raise _fail(err) from err
         account = account or reply.get("account", "")
+        _warn_permissions(reply)
     try:
         profiles.add(Profile(name, url, token, account))
     except ValueError as err:
@@ -183,6 +197,7 @@ def backend_check(name: str | None = typer.Argument(None, help="Profile (default
         raise _fail(err) from err
     local = source_version()
     typer.echo(f"Backend '{profile.name}' OK: account {reply.get('account') or '?'}, version {reply.get('version')}.")
+    _warn_permissions(reply)
     if reply.get("version") != local:
         typer.secho(f"Local code is version {local}: run `chgk backend bundle` and paste it into the script, "
                     "then Deploy → Manage deployments → edit → New version.", fg="yellow")

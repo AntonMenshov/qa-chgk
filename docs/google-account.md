@@ -24,16 +24,22 @@ which holds the results Sheet and a `Фото` folder for card photos.
 
    Then **Deploy**.
 6. Google asks to authorize: pick the account, then **Advanced → Go to chgk backend
-   (unsafe)** → **Allow**. It says "unsafe" only because it's your own unverified
-   script. It needs Sheets, Drive and triggers.
+   (unsafe)**. On the list of permissions tick **Select all** (Sheets, Drive and
+   triggers), then **Continue**. It says "unsafe" only because it's your own unverified
+   script. With a permission left unticked, `chgk new` fails with "You do not have
+   permission to call SpreadsheetApp.create"; `chgk backend check` warns about it, and
+   running `setup` again brings the consent screen back.
 7. In the toolbar's function menu (next to ▶ Run / Debug) choose **setup**. It is the
    first function, so it is usually already selected; if the menu shows anything else,
-   switch it. Press **Run** and open the **Execution log**. It prints the account and a ready command:
+   switch it. Press **Run** and open the **Execution log**. It prints the account and a
+   command with the token:
    ```
-   uv run chgk backend add <name> --url https://script.google.com/macros/s/…/exec --token …
+   uv run chgk backend add <name> --url <Web app URL ending in /exec> --token …
    ```
-8. Run that command on the laptop, with `<name>` replaced by something like `personal`
-   or `club`. It checks the backend, saves the profile in
+8. Run that command on the laptop. Replace `<name>` with something like `personal` or
+   `club`, and the URL with the **Web app URL** from **Deploy → Manage deployments**
+   (it ends in `/exec`). Don't use a URL ending in `/dev`: that is the editor's test
+   link, which only you can open while signed in. It checks the backend, saves the profile in
    `~/.config/chgk/backends.json` (outside the repo, readable only by you) and makes it
    active.
 9. Check: `uv run chgk backend check`.

@@ -32,6 +32,25 @@ test("setup creates an admin token once and prints the CLI command", () => {
   assert.match(b.logged[0].join(" "), /chgk backend add/);
 });
 
+test("setup asks for every permission; ping reports a missing one", () => {
+  const b = loadBackend({ allScopes: false });
+  b.setup();
+  assert.deepEqual(b.$.scopeRequests, ["FULL"]);
+  const admin = b.$.props.get("ADMIN_TOKEN");
+  assert.equal(b.post({ action: "ping", token: admin }).authorized, false);
+  const ok = loadBackend();
+  ok.setup();
+  assert.equal(ok.post({ action: "ping", token: ok.$.props.get("ADMIN_TOKEN") }).authorized, true);
+});
+
+test("setup never prints the owner-only /dev URL", () => {
+  const b = loadBackend({ serviceUrl: "https://script.google.com/macros/s/AKfycbDEV/dev" });
+  b.setup();
+  const printed = b.logged[0].join(" ");
+  assert.doesNotMatch(printed, /\/dev/);
+  assert.match(printed, /<Web app URL ending in \/exec>/);
+});
+
 test("doGet is a health check; bad JSON and bad tokens are refused", () => {
   const b = loadBackend();
   b.setup();

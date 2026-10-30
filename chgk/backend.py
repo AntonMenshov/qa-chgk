@@ -21,6 +21,12 @@ BUNDLE_SOURCES = ["logic.js", "Code.js"]
 BUNDLE_ORDER = ["Code.js", "logic.js"]
 
 
+PERMISSIONS_HINT = (
+    "The script is missing a Google permission. In the script editor, pick `setup`, press Run and, "
+    "on Google's consent screen, tick 'Select all' (Sheets, Drive and triggers). See docs/google-account.md."
+)
+
+
 class BackendError(RuntimeError):
     """The backend refused a request or could not be reached."""
 
@@ -107,7 +113,10 @@ class BackendClient:
                 "'Execute as: Me' and 'Who has access: Anyone'?"
             ) from None
         if not data.get("ok"):
-            raise BackendError(data.get("error") or f"backend error (HTTP {response.status_code})")
+            error = data.get("error") or f"backend error (HTTP {response.status_code})"
+            if "permission to call" in error:
+                error += "\n" + PERMISSIONS_HINT
+            raise BackendError(error)
         return data
 
     def ping(self) -> dict:
