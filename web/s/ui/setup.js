@@ -52,11 +52,12 @@ export function startSetupScreen(message = '') {
   };
 }
 
-/** A jury link (#app.setup=…) or a card (opened from the iPhone Camera) in the address. */
+/** A jury link (#setup=…) or a card (opened from the iPhone Camera) in the address. */
 export function readHash() {
   const hash = location.hash;
+  // The token must not stay in the address bar.
   if (hash) {
     history.replaceState(null, '', location.pathname + location.search);
-  } // the token must not stay in the address bar
+  }
   return {setup: decodeSetup(hash), card: decodeCard(hash) ? hash : null};
 }

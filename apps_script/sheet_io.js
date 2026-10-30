@@ -90,7 +90,7 @@ function writer_(ss) {
           );
           return;
         } catch {
-          // a tab too small (Log grows all game) or no «Спорные» (older Sheets): the slow way grows or creates it
+          // e.g. a tab too small (the Log grows all game): the slow way grows it
         }
       }
       timed_('write_fallback', () => writeSlowly_(ss, batch));

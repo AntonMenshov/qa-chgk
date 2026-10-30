@@ -52,8 +52,8 @@ class CardParts:
     card: Rect
     qr: Rect  # includes the quiet zone
     number: Rect  # question number + «Тур N», left of the QR
-    writing: Rect  # free area for the answer; the logo watermark sits here
-    logo: Rect  # square, centred in the writing area
+    writing: Rect  # free area for the answer
+    logo: Rect  # square, centred in the writing area, or on the card when logo_size is set
     footer: Rect  # team name / tournament · date
 
     @property

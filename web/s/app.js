@@ -58,7 +58,7 @@ function wire() {
     sheet('missing');
   };
   $('lookup-open').onclick = openLookup;
-  $('lk-close').onclick = () => sheet(null); // a card still in view is judged only once shown again
+  $('lk-close').onclick = () => sheet(null); // a card still in view counts only after it leaves the frame and returns
   $('m-close').onclick = () => sheet(null);
   $('sync').onclick = () => {
     renderSync();

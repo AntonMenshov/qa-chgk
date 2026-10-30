@@ -10,7 +10,7 @@ export async function openLookup() {
   $('lk-title').textContent = 'Наведите камеру на карточку';
   $('lk-details').replaceChildren();
   sheet('lookup');
-  app.camera.last = {text: null, seenAt: 0}; // the card already in front of the app.camera counts too
+  app.camera.last = {text: null, seenAt: 0}; // the card already in front of the camera counts too
   try {
     await app.camera.start();
     $('start').hidden = true;

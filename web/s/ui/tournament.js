@@ -61,7 +61,8 @@ export async function startTournament(cardText = null) {
   render();
   app.camera ??= new Camera($('video'), handleCode);
   $('start').hidden = false;
+  // Opened from the iPhone Camera with a card URL.
   if (cardText) {
     handleCode(cardText);
-  } // opened from the iPhone Camera with a card URL
+  }
 }

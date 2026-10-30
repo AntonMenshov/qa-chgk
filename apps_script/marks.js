@@ -15,7 +15,7 @@ function readMarks_(ss, reg, with_) {
   const logFirst = LOG_HEADER.indexOf('scan_id') + 1;
   const logCols = LOG_HEADER.length - logFirst + 1;
   const sl = summaryLayout(sizes);
-  // With the computed sort keys: «Итоги» up to Итого, round tabs up to «Сумма».
+  // Up to and including the computed sort keys: Итого on «Итоги», «Сумма» on round tabs.
   const specs = [
     {name: TABS.summary, row: 2, col: 1, cols: sl.totalCol},
     {name: TABS.meta, row: 1, col: 1, cols: ml.width},

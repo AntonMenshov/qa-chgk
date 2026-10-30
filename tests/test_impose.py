@@ -59,7 +59,7 @@ def test_cut_stack_properties(n_teams, questions, spares, per_page):
         more = [c for c in stacked[: per_page * len(pages)] if c.team == deck[0].team]
         n = len(more)
         assert stacked[:n] == more and all(c.is_spare for c in more)
-        assert [c.id.spare for c in more] == list(range(spares + 1, spares + n + 1))  # numbered on
+        assert [c.id.spare for c in more] == list(range(spares + 1, spares + n + 1))  # numbered after the deck's own
         stacked = stacked[n:]
         extras.append(n)
     assert stacked == []

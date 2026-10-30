@@ -12,7 +12,7 @@ from PIL import Image
 from chgk import PROJECT_DIR
 
 LOGO_LIBRARY = PROJECT_DIR / "logos"
-MAX_SIDE = 600  # px; a card's logo area is about 1 in, so this is ~600 dpi and keeps PDFs small
+MAX_SIDE = 600  # px; the default logo is about 1.3 in across, so this is ~450 dpi and keeps PDFs small
 TOURNAMENT_KEY = "tournament"
 FALLBACK_KEY = "fallback"
 

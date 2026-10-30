@@ -55,7 +55,7 @@ function hideServiceTabs_(ss) {
   }
 }
 
-/** Anyone with the link may view the Sheet (the view-only QR on the jury sheet); only the owner edits. */
+/** Anyone with the link may view the Sheet (the view-only QR on the jury sheet and the board); only the owner edits. */
 function shareView_(spreadsheetId) {
   DriveApp.getFileById(spreadsheetId).setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
 }

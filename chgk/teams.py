@@ -27,7 +27,7 @@ class Team:
     team_id: str
     name: str
     city: str = ""
-    logo_file: str = ""  # path relative to the tournament folder
+    logo_file: str = ""  # file name: tournament folder first, then the logos/ library
     reserve: bool = False  # a deck for a team that turns up unregistered; the jury names it later
 
 

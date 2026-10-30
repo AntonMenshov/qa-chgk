@@ -230,7 +230,7 @@ function syncTeamRows_(ss, sizes, teams) {
 }
 
 function setTeams_(ss, reg, teams) {
-  formatSheets_(ss, reg.round_sizes); // safe to re-run
+  formatSheets_(ss, reg.round_sizes);
   writeTeams_(ss, teams);
   const counts = syncTeamRows_(ss, reg.round_sizes, teams);
   refreshDisputed_(ss, reg.round_sizes); // names may have changed

@@ -1,5 +1,6 @@
-// Pure backend logic: no Apps Script services here, so it runs unchanged in Node tests.
-// In Apps Script all files share one global scope; the export at the bottom is for Node only.
+// Pure logic: no Apps Script services, so it also runs in Node tests and on the scanner and
+// board pages (served as web/shared/logic.js). `chgk backend bundle` strips the `export`
+// keywords: in Apps Script all files share one global scope.
 
 export const STATUSES = ['received', 'correct', 'incorrect', 'disputed', 'cleared'];
 export const STATUS_VALUE = {received: 'R', correct: 1, incorrect: 0, disputed: '?', cleared: ''};
@@ -596,7 +597,7 @@ export function disputedKeys(values) {
  * the card when there is one — by question, then team ID; and how many there are overall,
  * per round and per team (teams with none left out, most first).
  * @param values {"TEAM:Q": mark}   @param names {team_id: name}   @param photos {"TEAM:Q": link or file name}
- * @returns {{list: any[][], summary: any[][]}}  list goes to A–D, summary to G–H (Code.js disputedBlock_)
+ * @returns {{list: any[][], summary: any[][]}}  list goes to A–D, summary to G–H (disputedBlock_)
  */
 export function disputedSheet(roundSizes, names, values, photos) {
   const items = disputedKeys(values)

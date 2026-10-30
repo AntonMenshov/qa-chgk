@@ -156,7 +156,7 @@ test('api: a server refusal carries retry: false; a network error and a server e
   )('x').catch((e) => e);
   assert.deepEqual([refused.message, refused.retry], ['invalid team_id', false]);
   const server = await backend('u', 't', reply({ok: false, error: 'server error: Drive'}))('x').catch((e) => e);
-  assert.equal(server.retry, true); // older backends don't say: retry
+  assert.equal(server.retry, true); // no `retry` in the reply: retry
   const down = await backend('u', 't', async () => {
     throw new Error('offline');
   })('x').catch((e) => e);

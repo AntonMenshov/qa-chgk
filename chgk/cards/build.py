@@ -116,7 +116,7 @@ def build_jury_sheet(folder: Path, out: Path | None = None) -> tuple[Path, list[
 
 
 def build_test_page(folder: Path, out: Path | None = None) -> Path:
-    """Calibration page using the tournament's first team (prefer one with a logo)."""
+    """Calibration page for the first registered team with a logo, else the first team."""
     folder = Path(folder)
     tournament = load_config(folder)
     teams = read_teams(folder / TEAMS_FILE)  # a registered team: the page shows a real one

@@ -26,7 +26,7 @@ module-root = ""
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-filterwarnings = ["error"]  # no warnings allowed: any warning fails the run
+filterwarnings = ["error"]  # any warning fails the run
 
 [dependency-groups]
 dev = [

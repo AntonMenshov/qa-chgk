@@ -137,7 +137,7 @@ def web_server():
             pass
 
     class Server(ThreadingHTTPServer):
-        # Chrome fetches the scanner's ~13 module files at once; the default backlog of 5
+        # Chrome fetches the scanner's ~20 module files at once; the default backlog of 5
         # occasionally reset one (ERR_CONNECTION_RESET), and the page never started.
         request_queue_size = 128
         daemon_threads = True

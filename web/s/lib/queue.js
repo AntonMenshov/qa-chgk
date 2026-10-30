@@ -69,9 +69,10 @@ export class Queue {
     const sent = new Set();
     for (const event of batch) {
       const r = byId.get(event.scan_id);
+      // No answer for it: stays pending.
       if (!r) {
         continue;
-      } // no answer for it: stays pending
+      }
       sent.add(event.scan_id);
       if (r.error) {
         this.rejected.push({event, error: r.error});

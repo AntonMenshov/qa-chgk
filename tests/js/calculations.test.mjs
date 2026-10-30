@@ -393,8 +393,8 @@ test('sorting round tabs and «Итоги» by hand does not change any number',
   const ids = teams.map((t) => t.team_id);
   const before = assertMatchesReference(b, sizes, ids, asValues(marks));
 
-  // Reverse the team rows of «Тур 2», as if the jury sorted it Z→A (values only, formulas
-  // in «Сумма» are rewritten for their new row, as Sheets does when sorting).
+  // Reverse the team rows of «Тур 2», as if the jury sorted it Z→A; each «Сумма» formula
+  // points at its new row, as Sheets does when sorting.
   const t2 = tab('Тур 2');
   const rows = Array.from({length: 6}, (_, i) => t2.row(i + 2, 5)).reverse();
   rows.forEach((row, i) => {

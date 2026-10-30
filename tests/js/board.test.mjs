@@ -67,7 +67,6 @@ test('after round 1 only round 1 counts: marks already in for round 2 stay hidde
 
 test('after round 2: totals and places from rounds 1-2; a tie goes to the better last round', () => {
   const m = boardModel(FOUR, 2, {gridMax: 5});
-  // A01 3+0=3, A03 1+3=4, A02 1+1=2, A04 0+1=1
   assert.deepEqual(
     m.rows.map((r) => [r.team_id, r.sums, r.total, r.place]),
     [

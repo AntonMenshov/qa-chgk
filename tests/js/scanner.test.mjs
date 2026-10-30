@@ -1,4 +1,4 @@
-// Scanner web app (web/s/lib): QR decoding, marks, the scanning session and the queue.
+// Scanner web app (web/s): QR decoding, marks, the scanning session, the queue, the camera.
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';

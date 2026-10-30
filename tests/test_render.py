@@ -321,8 +321,7 @@ def test_spare_cards_have_an_empty_number_box_and_no_words(folder, tmp_path):
 def test_spare_box_is_white_inside_over_a_big_centred_logo(folder, tmp_path):
     """User report: the box outline ran across the logo.
 
-    The logo is now centred on the card and the box is filled white, so nothing of the
-    logo shows inside it.
+    The box is filled white, so nothing of a big centred logo shows inside it.
     """
     config = folder / "config.py"
     text = config.read_text(encoding="utf-8")

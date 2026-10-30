@@ -1,6 +1,6 @@
 // The jury's scanning session, without any DOM or network: which question is current,
 // what a scanned code means, the warnings to show, the teams still missing a card, and
-// the events to record. app.js wires it to the camera, the screen and the queue.
+// the events to record. ui/ wires it to the camera, the screen and the queue.
 
 import {decodeCard, decodeSetup} from './payload.js';
 import {overlay, statusOf, STATUS_LABEL} from './marks.js';
@@ -76,7 +76,7 @@ export class Session {
 
   // ---- the current question ----
 
-  /** ◀ ▶ by hand; the scans move it too (see card()). */
+  /** ‹ › by hand; scans move it too (see card()). */
   setQuestion(question) {
     this.current = Math.min(Math.max(1, question), this.total);
     return this.current;

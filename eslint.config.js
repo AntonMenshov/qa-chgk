@@ -1,6 +1,6 @@
 // Lint rules: ESLint's recommended set plus the parts of the Google JavaScript Style Guide
 // a linter can check (https://google.github.io/styleguide/jsguide.html). Layout is
-// Prettier's job (.prettierrc, Google's layout at 120 columns), so layout rules are off.
+// Prettier's job (.prettierrc.json, Google's layout at 120 columns), so layout rules are off.
 import js from '@eslint/js';
 import prettier from 'eslint-config-prettier';
 import globals from 'globals';

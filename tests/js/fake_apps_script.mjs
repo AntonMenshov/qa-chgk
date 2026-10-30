@@ -1,4 +1,4 @@
-// In-memory stand-ins for the Apps Script services Code.js uses, so the backend can be
+// In-memory stand-ins for the Apps Script services the backend uses, so it can be
 // exercised in Node. They mimic the behaviour that matters: range bounds (1000 × 26 for
 // a new sheet), getLastRow, values defaulting to "", getValues() returning computed
 // formula results, and text that looks like a number turning into a number unless the
