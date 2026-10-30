@@ -446,7 +446,11 @@ The Claude API does not output raster images, but it can write SVG.
   that have no draft yet; `--draw --team A01` draws (or redraws) those teams whatever
   their logo. Always Claude Opus 5.5 (`claude-opus-5-5`) at **max effort** (user,
   2026-10-30), streamed, up to 128K output tokens, server-side `fallbacks: "default"` (a
-  declined request is re-run on Anthropic's fallback model); 4 teams at a time.
+  declined request is re-run on Anthropic's fallback model); 4 teams at a time. A task budget
+  of 100k tokens (beta `task-budgets-2026-03-13`), which Claude sees and plans to finish within:
+  without it, 2 of the first 4 drawings thought until 128K and were cut off with no SVG (user:
+  "failing with no output is definitely not ok"); a drawing cut off anyway is asked for again
+  once. Each round prints its time and output tokens.
 - **The prompt** (`chgk/logo_drafts.py`): a system text on how the logo is used (pale
   watermark, ~4.7 cm, the QR over its top-right corner) and the set's style; then
   `style_rules(name)`, written from the first 22 drafts: one idea that the owl itself acts

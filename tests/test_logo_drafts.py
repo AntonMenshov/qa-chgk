@@ -122,7 +122,9 @@ def test_first_request_max_effort_opus_with_references():
     assert svg == OWL_SVG and warnings == []
     first = body(seen[0])
     assert first["model"] == drafts.MODEL == "claude-opus-5-5"
-    assert first["output_config"] == {"effort": "max"}
+    assert first["output_config"] == {"effort": "max", "task_budget": {"type": "tokens", "total": 100_000}}
+    assert first["max_tokens"] > drafts.TASK_BUDGET  # room to finish the SVG within the hard limit
+    assert drafts.TASK_BUDGET_BETA in seen[0].headers["anthropic-beta"]
     assert first["max_tokens"] == 128000
     assert first["stream"] is True and first["fallbacks"] == "default"
     assert first["cache_control"] == {"type": "ephemeral"}
@@ -208,7 +210,7 @@ def test_no_usable_svg_in_any_round_is_a_value_error(reply, error):
 )
 def test_a_stopped_reply(reply, error):
     with pytest.raises(ValueError, match=error):
-        drafts.draw_logo(mock_client([reply], []), "Синие зайцы", [])
+        drafts.draw_logo(mock_client([reply] * (1 + drafts.CUT_OFF_RETRIES), []), "Синие зайцы", [])
     lines = []
     svg = drafts.draw_logo(mock_client([sse(fenced(OWL_SVG)), reply], []), "Синие зайцы", [], log=lines.append)
     assert svg == OWL_SVG  # a stopped review keeps the drawing it had
@@ -221,6 +223,23 @@ def test_a_long_round_says_it_is_still_working(monkeypatch):
     lines = []
     drafts.draw_logo(mock_client([sse(fenced(OWL_SVG)), APPROVE], []), "Синие зайцы", [], log=lines.append)
     assert any(line.startswith("drawing: still working (") for line in lines)
+
+
+def test_a_drawing_cut_off_is_asked_for_again():
+    seen, lines = [], []
+    cut = sse("```svg\n<svg xmlns=", stop_reason="max_tokens")
+    replies = [cut, sse(fenced(OWL_SVG)), sse(fenced(OWL_2)), APPROVE]
+    svg = drafts.draw_logo(mock_client(replies, seen), "Синие зайцы", [], log=lines.append)
+    assert svg == OWL_2 and len(seen) == 4  # the retry does not use up a review
+    assert lines[0].startswith("drawing: the reply was cut off at 128k tokens") and lines[0].endswith("asking again")
+    assert body(seen[1])["messages"] == body(seen[0])["messages"]  # the same request again
+    assert [line.split(" (")[0] for line in lines[1:]] == ["drawn", "review 1: revised", "review 2: approved"]
+
+
+def test_a_drawing_cut_off_twice_is_an_error():
+    cut = sse("```svg\n<svg xmlns=", stop_reason="max_tokens")
+    with pytest.raises(ValueError, match="cut off"):
+        drafts.draw_logo(mock_client([cut, cut], []), "Синие зайцы", [])
 
 
 def test_api_errors_pass_through():

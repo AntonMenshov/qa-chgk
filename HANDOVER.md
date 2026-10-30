@@ -107,7 +107,7 @@ README.md             organiser guide (end to end) and contributor commands
 ```
 
 ### How to run
-- Tests: `uv run pytest` (487, incl. 3 browser tests that need Google Chrome + Node) and
+- Tests: `uv run pytest` (489, incl. 3 browser tests that need Google Chrome + Node) and
   `npm test` (205, then 73 backend tests again with the Sheets API off).
 - Lint and format: `uv run ruff format . && uv run ruff check .`, `npm run format && npm run lint`.
 - Backend: `uv run chgk backend add|use|list|check|remove|bundle` (docs/google-account.md).
@@ -210,6 +210,10 @@ Kept in one place: [SPEC.md §14](SPEC.md) (defaults used unless the user says o
   alike; the owl standing next to the prop instead of acting; jokes resting on details that
   vanish pale (A12's bandage, A18's spade); a cluster of circles read as roses (A17); a name
   touching the edges (A16). `style_rules` and the review loop now address each.
+- **Max effort without a task budget ran out of tokens:** in the first full API run, 2 of 4
+  drawings thought until the 128K output limit and ended with no SVG (~$2.50 each for nothing);
+  finished drawings used 107-124k in the drawing round, ~150-175k per logo in all (~$3-3.50).
+  Now a 100k task budget plus one retry of a cut-off drawing.
 - **reportlab stores identical images once:** two teams with the same draft gave one image
   in the PDF; tests that count images need different drawings.
 

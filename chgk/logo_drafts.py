@@ -31,7 +31,12 @@ API_KEY_ENV = "ANTHROPIC_API_KEY"
 MODEL = "claude-opus-5-5"
 EFFORT = "max"  # user, 2026-10-30: always Opus at max effort
 FALLBACK_BETA = "server-side-fallback-2026-07-01"  # a declined request is re-run on Anthropic's fallback model
-MAX_TOKENS = 128000  # max effort thinks at length; only what is used is billed
+MAX_TOKENS = 128000  # the model's limit; max effort thinks at length, and only what is used is billed
+TASK_BUDGET_BETA = "task-budgets-2026-03-13"
+# Claude sees this budget and plans to finish within it. Without one, two of the first four max-effort
+# drawings thought until MAX_TOKENS and were cut off before any SVG; finished drawings used 107k-124k.
+TASK_BUDGET = 100_000
+CUT_OFF_RETRIES = 1  # a drawing cut off anyway is asked for again, so a team is not left with nothing
 REVIEW_ROUNDS = 2  # after the first drawing: render it, show it back, let Claude fix it (or approve)
 PARALLEL = 4  # teams drawn at the same time
 MAX_REFERENCES = 4
@@ -231,6 +236,10 @@ def _review_message(name: str, image: Image.Image, grey: float, round_no: int) -
     return {"role": "user", "content": [_png_block(image), _png_block(card), {"type": "text", "text": text}]}
 
 
+class CutOffError(ValueError):
+    """The reply hit MAX_TOKENS before it was complete."""
+
+
 def _ask(client: anthropic.Anthropic, messages: list[dict], log, label: str):
     """One streamed request; returns the message and a note on its time and tokens.
 
@@ -241,9 +250,9 @@ def _ask(client: anthropic.Anthropic, messages: list[dict], log, label: str):
     with client.beta.messages.stream(
         model=MODEL,
         max_tokens=MAX_TOKENS,
-        betas=[FALLBACK_BETA],
+        betas=[FALLBACK_BETA, TASK_BUDGET_BETA],
         fallbacks="default",
-        output_config={"effort": EFFORT},
+        output_config={"effort": EFFORT, "task_budget": {"type": "tokens", "total": TASK_BUDGET}},
         cache_control={"type": "ephemeral"},  # each round resends the conversation so far: cache it
         system=SYSTEM,
         messages=messages,
@@ -258,7 +267,7 @@ def _ask(client: anthropic.Anthropic, messages: list[dict], log, label: str):
     if message.stop_reason == "refusal":
         raise ValueError("the API declined to draw it")
     if message.stop_reason == "max_tokens":
-        raise ValueError("the reply was cut off before the SVG ended")
+        raise CutOffError(f"the reply was cut off at {MAX_TOKENS // 1000}k tokens, before the SVG ended ({note})")
     return message, note
 
 
@@ -273,8 +282,9 @@ def draw_logo(
 
     `references` come from reference_blocks; `grey` is the tournament's logo shade, for the
     pale card-size image Claude reviews; `log` gets one line per round. A reply whose SVG is
-    refused or can't be drawn goes back to Claude as feedback. ValueError if no round gave a
-    usable SVG; API errors (anthropic.APIError) pass through.
+    refused or can't be drawn goes back to Claude as feedback; a reply cut off before there is
+    any drawing is asked for again (CUT_OFF_RETRIES). ValueError if no round gave a usable
+    SVG; API errors (anthropic.APIError) pass through.
     """
     intro = "The images above are the tournament's existing logos: match their style. " if references else ""
     first = (
@@ -283,14 +293,27 @@ def draw_logo(
     )
     messages = [{"role": "user", "content": [*references, {"type": "text", "text": first}]}]
     svg, problem = None, None
-    for round_no in range(REVIEW_ROUNDS + 1):
+    retries = CUT_OFF_RETRIES
+    round_no = -1
+    while round_no < REVIEW_ROUNDS:
+        round_no += 1
         label = "drawing" if round_no == 0 else f"review {round_no}"
         try:
             message, note = _ask(client, messages, log, label)
+        except CutOffError as err:
+            if svg is None and retries:
+                retries -= 1
+                round_no -= 1  # the same request again: a retry is not a review
+                log(f"{label}: {err}; asking again")
+                continue
+            if svg is None:
+                raise
+            log(f"{label}: {err}; keeping the previous drawing")
+            break
         except ValueError as err:
             if svg is None:
                 raise
-            log(f"review {round_no}: {err}; keeping the previous drawing")
+            log(f"{label}: {err}; keeping the previous drawing")
             break
         messages.append({"role": "assistant", "content": message.content})
         text = "".join(block.text for block in message.content if block.type == "text")
