@@ -22,7 +22,7 @@ from chgk.cards.impose import Mode
 from chgk.config import load_config
 from chgk.jury import board_link
 from chgk.remote import new_tournament, sync_teams
-from chgk.state import load_or_create_state
+from chgk.state import load_state
 
 app = typer.Typer(help="ЧГК answer cards and jury scanning.", no_args_is_help=True)
 backend_app = typer.Typer(help="Google backends: one named profile per Google account.", no_args_is_help=True)
@@ -262,7 +262,8 @@ def board_cmd(folder: Path = typer.Argument(..., help="Tournament folder")) -> N
         tournament = load_config(folder)
     except ValueError as err:
         raise _fail(err) from err
-    link = board_link(tournament, load_or_create_state(folder))
+    state = load_state(folder)
+    link = board_link(tournament, state) if state else None
     if not link:
         raise _fail(ValueError("this tournament has no board yet: run `chgk new` first"))
     typer.echo("Open on the projector laptop (read-only; → shows the next round):")
@@ -273,8 +274,8 @@ def board_cmd(folder: Path = typer.Argument(..., help="Tournament folder")) -> N
 @app.command("view")
 def view_cmd(folder: Path = typer.Argument(..., help="Tournament folder")) -> None:
     """Print the Sheet's view-only link (shared "anyone with the link can view" when created)."""
-    state = load_or_create_state(folder)
-    if not state.view_url:
+    state = load_state(folder)
+    if state is None or not state.view_url:
         raise _fail(ValueError("this tournament has no Sheet yet: run `chgk new` first"))
     typer.echo("Results, view-only for anyone with the link (marks appear as the jury enters them):")
     typer.echo(state.view_url)

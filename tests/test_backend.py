@@ -382,6 +382,8 @@ def test_cli_view_prints_the_link_without_calling_the_backend(folder, backends):
     assert len(a.calls) == calls
 
 
-def test_cli_board_needs_a_backend(folder):
-    result = runner.invoke(app, ["board", str(folder)])
+@pytest.mark.parametrize("command", ["board", "view", "teams"])
+def test_cli_commands_that_need_new_write_nothing_before_it(folder, command):
+    result = runner.invoke(app, [command, str(folder)])
     assert result.exit_code == 1 and "chgk new" in result.output
+    assert not (folder / "state.json").exists()  # no tournament ID made up on the way

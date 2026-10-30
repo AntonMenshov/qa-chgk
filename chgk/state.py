@@ -47,12 +47,21 @@ class State:
         return None
 
 
-def load_or_create_state(folder: Path) -> State:
+def load_state(folder: Path) -> State | None:
+    """The tournament's state, or None if it has none yet (nothing is written)."""
     path = Path(folder) / STATE_FILE
-    if path.is_file():
-        data = json.loads(path.read_text(encoding="utf-8"))
-        known = {f.name for f in fields(State)}
-        return State(**{k: v for k, v in data.items() if k in known})
+    if not path.is_file():
+        return None
+    data = json.loads(path.read_text(encoding="utf-8"))
+    known = {f.name for f in fields(State)}
+    return State(**{k: v for k, v in data.items() if k in known})
+
+
+def load_or_create_state(folder: Path) -> State:
+    """The tournament's state; a new one with a fresh tournament ID if it has none yet."""
+    state = load_state(folder)
+    if state is not None:
+        return state
     state = State(tid=generate_tid())
     save_state(folder, state)
     return state

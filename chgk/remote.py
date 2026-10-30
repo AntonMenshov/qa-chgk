@@ -6,7 +6,7 @@ from pathlib import Path
 from chgk.backend import BackendClient, Profile, Profiles
 from chgk.config import load_config
 from chgk.ids import generate_jury_token
-from chgk.state import State, load_or_create_state, save_state
+from chgk.state import State, load_or_create_state, load_state, save_state
 from chgk.teams import TEAMS_FILE, Team, normalize_teams, read_teams, reserve_teams, write_teams
 
 
@@ -65,8 +65,8 @@ def new_tournament(folder: Path, profile: Profile, client: BackendClient | None 
 
 def tournament_client(folder: Path, profiles: Profiles) -> tuple[State, BackendClient]:
     """Client for the backend this tournament was created on (not necessarily the active profile)."""
-    state = load_or_create_state(folder)
-    if not state.backend_url:
+    state = load_state(folder)
+    if state is None or not state.backend_url:
         raise ValueError("this tournament has no backend yet: run `chgk new` first")
     profile = profiles.by_url(state.backend_url)
     return state, BackendClient(profile.url, profile.admin_token)
