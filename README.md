@@ -20,9 +20,9 @@ Needs [uv](https://docs.astral.sh/uv/) and a Gmail account for the results.
    project). Check with `uv run chgk backend check`.
 2. **A tournament** is a folder `tournaments/<slug>/`: copy `config.py` and `teams.py`
    from `tournaments/example/` (3 rounds of 12; `tournaments/example-15/` has 3 of 15),
-   not `state.json`, which belongs to the example. Then edit them: `slug` (the folder's name:
-   outputs go to `out/<slug>/`), name, date, rounds and questions; team names (IDs such as
-   rating numbers are optional, missing ones are assigned).
+   not `state.json`, which belongs to the example. Then edit them: `slug` (must equal the
+   folder's name, which chgk checks: outputs go to `out/<slug>/`), name, date, rounds and
+   questions; team names (IDs such as rating numbers are optional, missing ones are assigned).
    To use your own tournament ID (e.g. its rating.chgk.info number), set `tid=` in config.py
    before the first `chgk cards`, `test-page`, `jury-sheet` or `new`; otherwise one is generated.
    The examples' cards differ from the defaults (no team name, logo shade 0.10, a 1.85 in

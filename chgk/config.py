@@ -158,4 +158,11 @@ def load_config(folder: Path) -> Tournament:
     tournament = run_python_file(path).get("tournament")
     if not isinstance(tournament, Tournament):
         raise ConfigError(f"{path} must define `tournament = Tournament(...)`")
+    name = Path(folder).resolve().name
+    if tournament.slug != name:
+        # A copied config that keeps the old slug would write into the other tournament's out/<slug>/.
+        raise ConfigError(
+            f"{path}: slug={tournament.slug!r} but the folder is {name!r}; they must be the same "
+            "(the slug names out/<slug>/): change slug or rename the folder"
+        )
     return tournament

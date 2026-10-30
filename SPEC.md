@@ -120,7 +120,8 @@ stay Russian.
 ## 4. Tournament configuration (Python, not YAML)
 
 Each tournament is a folder `tournaments/<slug>/` with a `config.py` written by the
-organiser:
+organiser. Its `slug` must equal the folder's name (user rule, 2026-10-30): a copied config that
+kept the old slug would write into the other tournament's `out/<slug>/`, so it is an error.
 
 ```python
 from datetime import date

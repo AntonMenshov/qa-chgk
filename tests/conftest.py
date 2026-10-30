@@ -44,8 +44,13 @@ def write_teams_file(folder, rows):
 
 @pytest.fixture
 def folder(tmp_path):
-    """A small tournament: 2 rounds × 3 questions, 2 spares, three teams."""
-    (tmp_path / "config.py").write_text(
+    """A small tournament: 2 rounds × 3 questions, 2 spares, three teams.
+
+    Its folder is named after its slug, as load_config requires.
+    """
+    folder = tmp_path / "test-cup"
+    folder.mkdir()
+    (folder / "config.py").write_text(
         textwrap.dedent(
             f"""
             from datetime import date
@@ -60,12 +65,12 @@ def folder(tmp_path):
         ),
         encoding="utf-8",
     )
-    write_teams_file(tmp_path, TEAM_ROWS)
+    write_teams_file(folder, TEAM_ROWS)
     for name in ("t.png", "z.png"):
         img = Image.new("RGB", (200, 200), "white")
         ImageDraw.Draw(img).ellipse((20, 20, 180, 180), fill="black")
-        img.save(tmp_path / name)
-    return tmp_path
+        img.save(folder / name)
+    return folder
 
 
 @pytest.fixture(autouse=True)

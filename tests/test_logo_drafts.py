@@ -453,7 +453,7 @@ def test_draw_without_a_key_writes_the_brief_and_calls_nothing(folder, monkeypat
     monkeypatch.setattr(drafts, "make_client", lambda: pytest.fail("no API call without a key"))
     result = runner.invoke(app, ["logos", str(folder), "--draw"])
     assert result.exit_code == 0, result.output
-    text = (folder / "out" / "test-cup" / "logo-brief.md").read_text(encoding="utf-8")
+    text = (folder.parent / "out" / "test-cup" / "logo-brief.md").read_text(encoding="utf-8")
     assert "A02" in text and "A03" in text and "### A01" not in text  # A01 has a logo
     assert "a brief for 2 logos" in result.output
 
@@ -476,7 +476,7 @@ def test_draw_with_a_key_saves_drafts_previews_and_never_shows_the_key(folder, m
     assert drafts.draft_path("test-cup", "A02").read_text(encoding="utf-8") == OWL_SVG
     assert not drafts.draft_path("test-cup", "A03").exists()
     assert "A03 «Думать быстро»: no usable drawing" in result.output
-    assert (folder / "out" / "test-cup" / "logo-preview.pdf").is_file()
+    assert (folder.parent / "out" / "test-cup" / "logo-preview.pdf").is_file()
     assert "--accept all" in result.output
     # a second --draw only asks for the team still without a draft
     replies["Думать быстро"] += [sse(fenced(OWL_SVG)), APPROVE]

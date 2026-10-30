@@ -31,9 +31,8 @@ Full design: [SPEC.md](SPEC.md). Build order: [PLAN.md](PLAN.md).
 | 8 — External test at a tournament | not started: the same loop with real teams |
 | 9 — Next version | the deferred list in PLAN.md |
 
-- **Deployed backend:** version **a5ab214acd1d** (2026-10-30) under the user's Gmail (local
-  profile `personal`), with the «Google Sheets API» service on. The code is **44f8934ea10c**:
-  comment fixes only, same behaviour; redeploy pending (the bundle is built). `uv run chgk backend check`
+- **Deployed backend:** version **44f8934ea10c** (2026-10-30) under the user's Gmail (local
+  profile `personal`), with the «Google Sheets API» service on. `uv run chgk backend check`
   compares it with the local code, and says when `out/apps_script/Code.gs` is an old bundle.
 - **Example tournament:** `tournaments/example/` (the user's four teams 645 «42», 58746
   Фиаско, 40400 Совхоз Победа, A01 Звезды сошлись; reserve decks R1, R2), TID **UYDJ7** on
@@ -114,7 +113,7 @@ README.md             organiser guide (end to end) and contributor commands
 ```
 
 ### How to run
-- Tests: `uv run pytest` (533, incl. 3 browser tests that need Google Chrome + Node) and
+- Tests: `uv run pytest` (534, incl. 3 browser tests that need Google Chrome + Node) and
   `npm test` (230, then 78 backend and calculation tests again with the Sheets API off).
 - Lint and format: `uv run ruff format . && uv run ruff check .`, `npm run format && npm run lint`.
 - Backend: `uv run chgk backend add|use|list|check|remove|bundle` (docs/google-account.md).
@@ -354,5 +353,7 @@ exactly its level. Latest:
 - **2026-10-30, a5ab214acd1d (tid from config.py):** both examples' jury and board access;
   throwaway 90001 (tid=90001 in config.py) with team IDs 58746 and ABCD1234: created, marks
   in, board OK.
+- **2026-10-30, 44f8934ea10c (comment fixes only):** `backend check` clean; both examples' jury
+  and board access.
 
 Throwaway tournaments: the user deletes them.

@@ -112,16 +112,27 @@ def test_every_card_fits_its_qr_payload():
         make(spares_per_team=89, layout=grid)
 
 
-def test_load_config(tmp_path):
-    (tmp_path / "config.py").write_text(
+def write_config(folder, slug):
+    folder.mkdir(exist_ok=True)
+    (folder / "config.py").write_text(
         "from datetime import date\n"
         "from chgk.config import Tournament\n"
-        "tournament = Tournament(slug='x', name='X', date=date(2026, 1, 1), rounds=2,\n"
+        f"tournament = Tournament(slug={slug!r}, name='X', date=date(2026, 1, 1), rounds=2,\n"
         "    questions_per_round=[3, 4], scanner_url='https://e.github.io/qa-chgk/s/')\n",
         encoding="utf-8",
     )
-    t = load_config(tmp_path)
-    assert t.total_questions == 7
+
+
+def test_load_config(tmp_path):
+    write_config(tmp_path / "x", "x")
+    assert load_config(tmp_path / "x").total_questions == 7
+
+
+def test_slug_must_match_the_folder(tmp_path):
+    """A copied config that keeps the old slug would write into the other tournament's out/<slug>/."""
+    write_config(tmp_path / "autumn-cup", "example")
+    with pytest.raises(ConfigError, match=r"slug='example' but the folder is 'autumn-cup'"):
+        load_config(tmp_path / "autumn-cup")
 
 
 def test_load_config_missing_file(tmp_path):
