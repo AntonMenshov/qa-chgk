@@ -191,6 +191,12 @@ Kept in one place: [SPEC.md §14](SPEC.md) (defaults used unless the user says o
 
 ## Lessons learned
 
+- **Redeploying:** run `chgk backend bundle` right before pasting; a stale
+  `out/apps_script/Code.gs` was pasted once and the backend stayed old (`chgk backend check`
+  now says so). After "deployed": `chgk backend check`, a live check, this file's version line.
+- **Tests of a rule must state the rule themselves.** The first access tests read the allowed
+  token from the ACTIONS table, so weakening the table weakened the tests too; found by
+  deliberately breaking the table. backend_access.test.mjs now pins the rule on its own.
 - **Sheets API, seen live:** in one `spreadsheets.batchUpdate`, a formula written by
   `updateCells` is not calculated yet for a later `sortRange`; every key looked blank and
   «Итоги» fell into ID order (totals and places were right). The fake now behaves the
