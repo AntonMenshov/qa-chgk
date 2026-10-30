@@ -594,3 +594,32 @@ test('offline: every module the scanner loads is in the service worker cache', (
   assert.deepEqual(missing, []);
   assert.ok(seen.size >= 15, `found only ${seen.size} modules`); // app.js, ui/, lib/, shared/logic.js
 });
+
+test('api: a request the server never answers fails after the time limit, and can be retried', async () => {
+  const {backend: make, BackendError: Err, REQUEST_TIMEOUT_MS} = await import('../../web/s/lib/api.js');
+  assert.ok(REQUEST_TIMEOUT_MS >= 30000 && REQUEST_TIMEOUT_MS <= 60000);
+  let seenSignal = null;
+  const hangs = (url, init) =>
+    new Promise((resolve, reject) => {
+      seenSignal = init.signal;
+      init.signal.addEventListener('abort', () => reject(new Error('aborted')));
+    });
+  const started = Date.now();
+  const err = await make('u', 't', hangs, 30)('record_events').catch((e) => e);
+  assert.ok(err instanceof Err);
+  assert.equal(err.retry, true);
+  assert.match(err.message, /не ответил/);
+  assert.equal(seenSignal.aborted, true);
+  assert.ok(Date.now() - started < 1000);
+  // A queue that sent it treats it like any failure: the event stays pending for a retry.
+  const {Queue} = await import('../../web/s/lib/queue.js');
+  const memory = new Map();
+  const q = new Queue({
+    storage: {get: (k) => memory.get(k), set: (k, v) => memory.set(k, v)},
+    key: 'q',
+    send: () => make('u', 't', hangs, 20)('record_events'),
+  });
+  q.add({scan_id: 'a', team_id: 'A01', question: 1, status: 'correct', client_ts: 1});
+  assert.equal(await q.flush(), null);
+  assert.deepEqual([q.status.pending, q.status.failing, q.inFlight], [1, true, false]);
+});

@@ -27,7 +27,7 @@ Full design: [SPEC.md](SPEC.md). Build order: [PLAN.md](PLAN.md).
 | 5 — Projector board + stats | ✅ built, tested and checked live |
 | 6 — Logos | partly done: PNG/JPG → pale greyscale, shared private library, fallback owl. Left: SVG, Claude-drawn SVG, image-API generation |
 
-- **Deployed backend:** version **8249b7275d76** under the user's Gmail (local profile
+- **Deployed backend:** version **e08511993c86** under the user's Gmail (local profile
   `personal`), with the «Google Sheets API» service on. `uv run chgk backend check`
   compares it with the local code.
 - **Example tournament:** `tournaments/example/` (the user's four teams 645 «42», 58746
@@ -256,6 +256,9 @@ Kept in one place: [SPEC.md §14](SPEC.md) (defaults used unless the user says o
   Micro QR next to a card in the phone's real decoder (browser test), the options
   themselves (Node), and every card's QR read back at 150 dpi for 12 tournament IDs in
   every mode. Breaking the filter fails two of them.
+- **A request Google never answers** (seen once: a photo upload > 90 s; the same upload
+  then took 3.4 s). The phone now cuts every request at 45 s (`REQUEST_TIMEOUT_MS`, api.js)
+  and retries it like any failure; marks and photos carry IDs, so nothing counts twice.
 - **Profile before optimising:** the first guess (the sort) was not the main cost; the
   per-step `timing` showed Google's ~1 s per request, ~0.3 s for opening the spreadsheet,
   and many small reads and writes.
@@ -334,4 +337,6 @@ a new tournament «Проверка имён «Звёзды» №1» created as 
 No1 (UDHBH)`, marks, reserve team and standings correct, view-only links open);
 card photos (5bee727e1620, throwaway RG3HC: a 66 KB JPEG saved to Drive in ~2 s, a repeat
 upload recognised, a non-JPEG refused) and the board's QR codes on Pages against the real
-backend (decoded = the jury sheet's links). Throwaway tournaments: the user deletes them.
+backend (decoded = the jury sheet's links). the cleaned-up backend (e08511993c86: split files, migrations removed, photos for unknown
+teams refused, `share_view` gone; marks, reserve, standings, photo 3.4 s, board, example OK).
+Throwaway tournaments: the user deletes them.
