@@ -97,5 +97,7 @@ Drive Trash (right-click → Restore); everything keeps working.
 - **Admin token** (in `backends.json`): in the script's **Project Settings → Script
   properties**, delete `ADMIN_TOKEN`. Run `setup` again, then
   `uv run chgk backend add <same name> …` with the new token.
-- **Jury token** (on the jury sheet): it belongs to one tournament. For now, create a
-  new tournament folder. Replacing a jury token is a later feature (PLAN.md Phase 9).
+- **Jury or board token** (on the jury sheet): `uv run chgk replace-token tournaments/<slug>
+  jury` (or `board`). The old link stops working at once, and `out/<slug>/jury-v2.pdf` is
+  the new jury sheet with a notice of what happened; each juror's phone scans its new
+  «Доступ жюри» QR once (marks and photos waiting on a phone are kept and sent).
