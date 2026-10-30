@@ -16,7 +16,7 @@ from chgk.logos import pale
 from chgk.teams import Team
 
 QR_SIZES = [0.55, 0.6, 0.65, 0.7, 0.8]
-GREYS = [0.02, 0.03, 0.04, 0.05, 0.08, 0.12]
+GREYS = [0.03, 0.05, 0.08, 0.12, 0.16, 0.20]
 
 
 def _ruler(c: Canvas, x: float, y: float, vertical: bool) -> None:

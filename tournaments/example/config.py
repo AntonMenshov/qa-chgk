@@ -19,7 +19,7 @@ tournament = Tournament(
         logo=LogoMode.TEAM_ELSE_TOURNAMENT,  # team logo → tournament logo → fallback
         tournament_logo=None,  # e.g. "cup.png": tournament folder first, then the logos/ library
         fallback_logo="nologo.png",
-        logo_grey=0.03,
+        logo_grey=0.12,
     ),
     layout=Layout(cols=3, rows=5, qr_size=0.65),
 )

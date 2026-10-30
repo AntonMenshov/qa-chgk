@@ -17,8 +17,8 @@ def test_pale_is_greyscale_and_never_darker_than_requested(grey):
     out = pale(sample_logo(), grey)
     assert out.mode == "L"
     darkest, lightest = out.getextrema()
-    assert darkest >= round(255 * (1 - grey)) - 1
-    assert darkest <= round(255 * (1 - grey)) + 1  # full range used: black part hits the limit
+    limit = round(255 * (1 - grey))
+    assert limit - 1 <= darkest <= limit + 1  # the dark parts reach the requested ink, never more
     assert lightest == 255
 
 
@@ -32,11 +32,20 @@ def test_size_and_aspect_preserved():
     assert pale(sample_logo(size=(300, 100)), 0.03).size == (300, 100)
 
 
-def test_faint_source_is_stretched():
-    faint = Image.new("L", (10, 10), 250)
-    faint.putpixel((0, 0), 230)
-    out = pale(faint, 0.2)
-    assert out.getextrema() == (round(255 - 255 * 0.2), 255)
+def test_light_drawing_with_a_few_dark_pixels_still_reaches_the_shade():
+    """The user's logos: mostly light grey (~200) with a handful of near-black pixels."""
+    img = Image.new("L", (100, 100), 255)
+    ImageDraw.Draw(img).rectangle((10, 10, 89, 89), fill=200)  # the drawing
+    for i in range(5):
+        img.putpixel((i, 0), 60)  # stray dark pixels
+    out = pale(img, 0.2)
+    assert out.getpixel((50, 50)) == round(255 - 255 * 0.2)  # the drawing itself gets the full 20%
+    assert out.getpixel((0, 0)) == round(255 - 255 * 0.2)  # darker pixels are clamped
+    assert out.getpixel((95, 95)) == 255
+
+
+def test_blank_image_stays_white():
+    assert pale(Image.new("RGBA", (10, 10), (0, 0, 0, 0)), 0.2).getextrema() == (255, 255)
 
 
 @pytest.mark.parametrize("grey", [0, -0.1, 1.5])

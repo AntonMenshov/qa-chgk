@@ -19,7 +19,7 @@ Full design: [SPEC.md](SPEC.md). Build order: [PLAN.md](PLAN.md).
 | Phase | Status |
 |---|---|
 | Spec and plan | ✅ done, agreed with the user |
-| 0 — Skeleton and spikes | ✅ spike 1 (laptop + iPhone Safari), spike 2 (all QR sizes scan well; zxing-wasm chosen), spike 3 (0.65 in QR, 3% grey) |
+| 0 — Skeleton and spikes | ✅ spike 1 (laptop + iPhone Safari), spike 2 (all QR sizes scan well; zxing-wasm chosen), spike 3 (0.65 in QR; logo shade later changed to 12%) |
 | 1 — Config, identity, card PDF | ✅ done; cards + jury sheet work offline from `teams.csv` |
 | 2 — Apps Script backend + Sheet | 🔶 code + tests done; waiting for the user to deploy it (docs/google-account.md) for the live end-to-end check |
 | 3 — Scanner web app | not started |
@@ -119,7 +119,7 @@ checks that the decks come out in order.
     rejected gutters in scissors mode as wasteful.
   - Modes: team-pages (light lines + crop marks), cut-stack (same, guillotine order),
     scissors (darker dashed lines, no crop marks). The CLI asks which one.
-  - Logo watermark at **3% grey**.
+  - Logo watermark at **12% grey**, measured on the logo's dark parts (SPEC §9).
   - **Logo library** `logos/` at the repo root (SPEC §9):
     - team logos are private (git-ignored); only `nologo.png` is public;
     - fallback chain: team → tournament → `nologo.png`;
@@ -169,6 +169,9 @@ checks that the decks come out in order.
 - typer 0.27 no longer depends on click: don't `import click`.
 - Never make a phone user type or paste URLs/tokens: deliver them by QR (spike 2 lesson).
 - Logic in `apps_script/` stays pure in logic.js; Code.js is exercised in Node through fakes (range bounds 1000×26 like real sheets).
+- Judge shades on real content: 3% looked right as a solid swatch, but on the light-grey
+  logos it was invisible. Scaling by the darkest pixel was a bug (a few stray dark pixels);
+  now the darkest 10% of the drawing sets the shade.
 - Draw cut guides **after** the cards, or the QR's white quiet zone hides them.
 
 ## GitHub

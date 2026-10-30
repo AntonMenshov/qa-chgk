@@ -107,7 +107,7 @@ tournament = Tournament(
         date=True,
         logo=LogoMode.TEAM_ELSE_TOURNAMENT,   # NONE | TEAM | TOURNAMENT | TEAM_ELSE_TOURNAMENT
         tournament_logo="logos/tournament.png",
-        logo_grey=0.03,
+        logo_grey=0.12,
     ),
     layout=Layout(cols=3, rows=5, qr_size=0.65),   # 15 cards per Letter page
 )
@@ -240,7 +240,10 @@ The app doesn't show it (decided).
 - An embedded Unicode TTF font (OFL licence, e.g. PT Sans or Noto Sans) is used for
   Cyrillic.
 - The logo never overlaps the QR quiet zone.
-- Logo watermark default: **3% grey** (user's choice from the test print; configurable).
+- Logo watermark default: **12% grey**, configurable. This is the ink of the logo's
+  dark parts (its darkest 10%), not of a single darkest pixel; see §9. The user
+  first chose 3% from solid swatches, saw the real logos far too faint, and picked
+  12% from a side-by-side of real cards.
 
 ### 8.3 Imposition: all three modes are available, and the CLI **asks which one** before generating unless it's passed
 | Mode | Description |
@@ -297,6 +300,9 @@ as `chgk jury-sheet <folder> [--mode]`.
 - A logo file that can't be found prints a warning and the card uses the next
   fallback. A fresh clone without the private logos still prints, with owls.
 - Logos are downscaled to 600 px before embedding, which keeps PDFs small.
+- **Shade:** the darkest 10% of the drawing gets exactly `logo_grey` ink, and anything
+  darker is clamped. Scaling by the single darkest pixel printed the user's light-grey
+  logos at about a third of the chosen shade (fixed 2026-10-29).
 
 A pale greyscale watermark. The source is chosen per team and per tournament:
 

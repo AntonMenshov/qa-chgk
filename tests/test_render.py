@@ -197,7 +197,7 @@ def test_test_page_has_real_qr_codes_and_marks_chosen_settings(folder, tmp_path)
 
     text = PdfReader(out).pages[0].extract_text()
     assert "0.65 in (chosen)" in text
-    assert "3% grey (chosen)" in text
+    assert "12% grey (chosen)" in text
 
 
 def test_missing_team_logo_warns_and_falls_back(folder, tmp_path):

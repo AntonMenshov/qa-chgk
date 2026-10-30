@@ -50,7 +50,7 @@ def test_defaults_match_user_choices():
     assert t.spares_per_team == 3
     assert (t.layout.cols, t.layout.rows, t.layout.per_page) == (3, 5, 15)
     assert t.layout.qr_size == 0.65
-    assert t.card.logo_grey == 0.03
+    assert t.card.logo_grey == 0.12
     assert t.card.logo is LogoMode.NONE
 
 

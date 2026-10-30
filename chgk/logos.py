@@ -7,7 +7,7 @@ A logo name is looked up in the tournament folder first, then in the shared libr
 
 from pathlib import Path
 
-from PIL import Image, ImageOps
+from PIL import Image
 
 from chgk import PROJECT_DIR
 
@@ -25,19 +25,37 @@ def resolve_logo(name: str, folder: Path) -> Path | None:
     return None
 
 
-def pale(image: Image.Image, grey: float) -> Image.Image:
-    """Greyscale on white whose darkest possible pixel has `grey` ink (0 = white, 1 = black).
+INK_THRESHOLD = 250  # luminance below this counts as part of the drawing
+REFERENCE_PERCENTILE = 0.10  # the darkest 10% of the drawing defines "full ink"
 
-    Transparent areas become white; the logo's own contrast is stretched first so a
-    faint source still uses the full range before being lightened.
+
+def pale(image: Image.Image, grey: float) -> Image.Image:
+    """Greyscale on white where the logo's dark parts get exactly `grey` ink (0 = white, 1 = black).
+
+    "Dark parts" means the darkest 10% of the drawing, not its single darkest pixel:
+    real logos often have a few near-black pixels while the drawing itself is light
+    grey, and scaling by those would print the logo far paler than asked. Anything
+    darker than the reference is clamped, so no pixel exceeds `grey`. Transparent
+    areas become white.
     """
     if not 0 < grey <= 1:
         raise ValueError(f"grey must be in (0, 1], got {grey}")
     rgba = image.convert("RGBA")
     flat = Image.new("RGBA", rgba.size, "white")
     flat.alpha_composite(rgba)
-    lum = ImageOps.autocontrast(flat.convert("L"))
-    return lum.point(lambda v: round(255 - (255 - v) * grey))
+    lum = flat.convert("L")
+    hist = lum.histogram()
+    ink = sum(hist[:INK_THRESHOLD])
+    if ink == 0:
+        return lum.point(lambda v: 255)
+    target, seen, reference = ink * REFERENCE_PERCENTILE, 0, 0
+    for value in range(INK_THRESHOLD):
+        seen += hist[value]
+        if seen >= target:
+            reference = value
+            break
+    span = 255 - reference
+    return lum.point(lambda v: round(255 - 255 * grey * min(1.0, (255 - v) / span)))
 
 
 def load_pale_logo(path: Path, grey: float) -> Image.Image:

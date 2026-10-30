@@ -31,7 +31,7 @@ class CardFields:
     logo: LogoMode = LogoMode.NONE
     tournament_logo: str | None = None  # file name: tournament folder first, then the logos/ library
     fallback_logo: str | None = "nologo.png"  # for cards that would otherwise have no logo
-    logo_grey: float = 0.03  # darkest ink of the watermark: 0 = white, 1 = black
+    logo_grey: float = 0.12  # ink of the logo's dark parts: 0 = white, 1 = black (user's choice, 2026-10-29)
 
     def __post_init__(self) -> None:
         if not 0 < self.logo_grey <= 0.5:
