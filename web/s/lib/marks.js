@@ -2,7 +2,7 @@
 // events on top. The merge rule is the backend's (apps_script/logic.js mergeCell); both
 // are checked against tests/vectors/merge_cases.json.
 
-export const STATUS_VALUE = {received: 'R', correct: 1, incorrect: 0, disputed: '?', cleared: ''};
+const STATUS_VALUE = {received: 'R', correct: 1, incorrect: 0, disputed: '?', cleared: ''};
 export const STATUS_LABEL = {correct: 'верно', incorrect: 'неверно', disputed: 'спорно', received: 'получена'};
 const VALUE_STATUS = {R: 'received', 1: 'correct', 0: 'incorrect', '?': 'disputed'};
 

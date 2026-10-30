@@ -55,19 +55,6 @@ def qr_texts(pdf, page=0):
     return [r.text for r in zxingcpp.read_barcodes(image)]
 
 
-def qr_positions(pdf, page=0):
-    """{payload: (x, y) centre in inches} for every QR on a page."""
-    scale = 200 / 72
-    image = pypdfium2.PdfDocument(pdf)[page].render(scale=scale).to_pil()
-    found = {}
-    for r in zxingcpp.read_barcodes(image):
-        p = r.position
-        cx = (p.top_left.x + p.top_right.x + p.bottom_left.x + p.bottom_right.x) / 4 / scale / 72
-        cy = (p.top_left.y + p.top_right.y + p.bottom_left.y + p.bottom_right.y) / 4 / scale / 72
-        found[r.text] = (cx, cy)
-    return found
-
-
 def page_texts(pdf):
     return [page.extract_text() for page in PdfReader(pdf).pages]
 

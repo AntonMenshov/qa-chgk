@@ -748,6 +748,7 @@ test('upload_photo checks what it gets; a wrong request is not worth retrying, a
   bad({image: '/9j/ not base64!'}, /base64 JPEG/);
   bad({image: '/9j/' + 'A'.repeat(L.MAX_PHOTO_CHARS)}, /too large/);
   bad({team_id: 'a-01'}, /team_id/);
+  bad({team_id: 'Z99'}, /unknown team Z99/); // not in this tournament: not saved
   bad({question: 0}, /question/);
   bad({question: 7}, /invalid question 7/); // 6 questions in this tournament
   bad({spare: 0}, /spare/);
@@ -1071,7 +1072,7 @@ function apiWorld() {
 }
 
 test('record_events, get_state and get_board read once; record_events writes once', () => {
-  const {b, calls, tab} = apiWorld();
+  const {b, admin, calls, tab} = apiWorld();
   const post = (events) => calls(() => b.post({action: 'record_events', tid: TID, token: JURY, events}));
   // Marks, Meta, Log and «Спорные» in one write, whatever the batch holds.
   let c = post([
@@ -1094,10 +1095,26 @@ test('record_events, get_state and get_board read once; record_events writes onc
     [1, 1],
   );
   assert.equal(calls(() => b.post({action: 'get_state', tid: TID, token: JURY})).writes, 0);
-  // RAW writes store text as given: a team name, a team ID, a formatted Log time.
-  assert.equal(tab('Спорные').get(2, 3), 'Фиаско');
-  assert.equal(typeof tab('Log').get(2, 7), 'string');
+  // RAW writes store text as given: a formatted Log time, and text that looks like a number
+  // (team ID 645, a team called «42»), which SpreadsheetApp would turn into numbers.
   assert.match(tab('Log').get(2, 1), /^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d$/);
+  b.post({action: 'set_teams', tid: TID, token: admin, teams: [...TEAMS, {team_id: '645', name: '42'}]});
+  b.post({
+    action: 'record_events',
+    tid: TID,
+    token: JURY,
+    events: [ev({team_id: '645', question: 6, status: 'disputed'})],
+  });
+  const log = tab('Log');
+  assert.equal(log.get(log.getLastRow(), 7), '645');
+  const d = tab('Спорные');
+  const row = Array.from({length: d.getLastRow()}, (_, i) => d.row(i + 1, 3)).find((r) => r[1] === 6);
+  assert.equal(row[2], '42');
+  // A reserve deck's photo is accepted before its first mark.
+  assert.equal(
+    b.post({action: 'upload_photo', tid: TID, token: JURY, ...photo({team_id: 'R1', question: 1})}).ok,
+    true,
+  );
 });
 
 test('the same marks, places and «Спорные» with the Sheets API off (the slow path)', () => {

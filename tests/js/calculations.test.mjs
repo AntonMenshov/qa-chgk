@@ -436,7 +436,7 @@ test('teams added later (chgk teams) get correct sums and push places down', () 
   );
 });
 
-test('random tournaments: «Итоги», round sums, places and Stats match the reference (80 cases)', () => {
+test('random tournaments: «Итоги», round sums, places and «Статистика» match the reference (80 cases)', () => {
   const r = rng(2026);
   for (let k = 0; k < 80; k++) {
     const sizes = Array.from({length: r.int(1, 5)}, () => r.pick([1, 2, 3, 6, 12, 15]));

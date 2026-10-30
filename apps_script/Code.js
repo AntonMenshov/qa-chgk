@@ -1187,7 +1187,14 @@ function uploadPhoto_(ss, reg, req) {
     fail(`invalid question ${req.question}`);
   }
   const scanCol = LOG_HEADER.indexOf('scan_id') + 1;
-  const logged = readBlocks_(ss, [{name: TABS.log, row: 2, col: scanCol, cols: 1}])[0];
+  const [logged, teams] = readBlocks_(ss, [
+    {name: TABS.log, row: 2, col: scanCol, cols: 1},
+    {name: TABS.teams, row: 2, col: 1, cols: 1},
+  ]);
+  // Teams lists every team, reserve decks included (a photo may arrive before their first mark).
+  if (!teams.some((r) => String(r[0]).trim() === req.team_id)) {
+    fail(`unknown team ${req.team_id}`);
+  }
   if (logged.some((r) => String(r[0]) === req.photo_id)) {
     return {ok: true, photo_id: req.photo_id, duplicate: true};
   }
