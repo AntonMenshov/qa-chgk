@@ -31,7 +31,7 @@ Full design: [SPEC.md](SPEC.md). Build order: [PLAN.md](PLAN.md).
   `personal`), with the «Google Sheets API» service on. `uv run chgk backend check`
   compares it with the local code.
 - **Example tournament:** `tournaments/example/` (the user's four teams 645 «42», 58746
-  Фиаско, 40400 Совхоз Победа, A01 Звезды сошлись; reserve decks R1, R2), TID **QHZJ8**
+  Фиаско, 40400 Совхоз Победа, A01 Звезды сошлись; reserve decks R1, R2), TID **UYDJ7** (re-created 2026-10-30 after the user deleted the old folder)
   on that backend; `out/example/` holds its cards (team-pages) and jury.pdf.
 
 ### Repository layout
