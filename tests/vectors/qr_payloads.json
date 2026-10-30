@@ -8,15 +8,22 @@
     {"payload": "https://example.github.io/qa-chgk/s/#ZZ234.A01.S1", "valid": true, "tid": "ZZ234", "team_id": "A01", "question": null, "spare": 1},
     {"payload": "https://example.github.io/qa-chgk/s/#ZZ234.A01.S12", "valid": true, "tid": "ZZ234", "team_id": "A01", "question": null, "spare": 12},
     {"payload": "K7M2Q.A07.27", "valid": true, "tid": "K7M2Q", "team_id": "A07", "question": 27, "spare": null, "note": "bare fragment is accepted"},
+    {"payload": "https://example.github.io/qa-chgk/s/#K7M2Q.58746.13", "valid": true, "tid": "K7M2Q", "team_id": "58746", "question": 13, "spare": null, "note": "rating.chgk.info team number"},
+    {"payload": "https://example.github.io/qa-chgk/s/#K7M2Q.645.S2", "valid": true, "tid": "K7M2Q", "team_id": "645", "question": null, "spare": 2},
+    {"payload": "https://example.github.io/qa-chgk/s/#K7M2Q.A7.27", "valid": true, "tid": "K7M2Q", "team_id": "A7", "question": 27, "spare": null},
+    {"payload": "https://example.github.io/qa-chgk/s/#K7M2Q.ABCD1234.120", "valid": true, "tid": "K7M2Q", "team_id": "ABCD1234", "question": 120, "spare": null, "note": "8 characters, the longest"},
     {"payload": "https://example.github.io/qa-chgk/s/#K7M2Q.A07.0", "valid": false, "note": "question 0"},
     {"payload": "https://example.github.io/qa-chgk/s/#K7M2Q.A07.027", "valid": false, "note": "leading zero"},
     {"payload": "https://example.github.io/qa-chgk/s/#K7M2Q.A07.S0", "valid": false, "note": "spare 0"},
     {"payload": "https://example.github.io/qa-chgk/s/#K0M2Q.A07.27", "valid": false, "note": "0 is not in the TID alphabet"},
     {"payload": "https://example.github.io/qa-chgk/s/#K7M2.A07.27", "valid": false, "note": "TID too short"},
     {"payload": "https://example.github.io/qa-chgk/s/#k7m2q.A07.27", "valid": false, "note": "lowercase TID"},
-    {"payload": "https://example.github.io/qa-chgk/s/#K7M2Q.A7.27", "valid": false, "note": "team id needs two digits"},
     {"payload": "https://example.github.io/qa-chgk/s/#K7M2Q.A07.27.1", "valid": false, "note": "extra part"},
     {"payload": "https://example.com/some-other-qr", "valid": false, "note": "foreign QR code"},
-    {"payload": "", "valid": false, "note": "empty"}
+    {"payload": "", "valid": false, "note": "empty"},
+    {"payload": "https://example.github.io/qa-chgk/s/#K7M2Q.ABCDE1234.1", "valid": false, "note": "team id longer than 8"},
+    {"payload": "https://example.github.io/qa-chgk/s/#K7M2Q.a07.1", "valid": false, "note": "lowercase team id"},
+    {"payload": "https://example.github.io/qa-chgk/s/#K7M2Q.A-1.1", "valid": false, "note": "punctuation in team id"},
+    {"payload": "https://example.github.io/qa-chgk/s/#K7M2Q..1", "valid": false, "note": "empty team id"}
   ]
 }

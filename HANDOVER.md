@@ -35,7 +35,7 @@ chgk/                 Python package (at repo root, no src/ — user's preferenc
   remote.py           new_tournament / sync_teams (tournament keeps its own backend)
   config.py           Tournament / CardFields / Layout / LogoMode dataclasses + load_config
   ids.py              TID, team IDs, QR payload encode/decode
-  teams.py            teams.csv loader (assigns + writes back missing team_ids)
+  teams.py            teams.csv loader (keeps given team_ids, assigns + writes back missing ones)
   state.py            tournaments/<slug>/state.json (TID, backend URL/profile, sheet ID, jury token)
   logos.py            image → pale greyscale watermark
   jury.py             jury printout (platypus): access QR, links, how-to, roster, backup grid
@@ -167,6 +167,10 @@ checks that the decks come out in order.
    offline queue, batches of marks).
 
 ## Lessons learned
+
+- Team IDs are the organiser's (user request: rating numbers such as 58746) or assigned
+  A01…; format 1-8 of `[0-9A-Z]`, which keeps the QR at version 4-M. Column A on every
+  tab is plain text, or Sheets turns 645 into a number.
 
 - Tabs are sorted (user request), so rows move under the jury. Never trust an edit's row:
   `applySheetEdits_` diffs every mark against Meta's known values by team ID, in the

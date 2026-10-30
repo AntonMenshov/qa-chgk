@@ -5,7 +5,7 @@ const STATUSES = ["received", "correct", "incorrect", "disputed", "cleared"];
 const STATUS_VALUE = { received: "R", correct: 1, incorrect: 0, disputed: "?", cleared: "" };
 const APP_STATUSES = ["received", "correct", "incorrect", "disputed"]; // "cleared" only comes from the sheet
 const TID_RE = /^[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{5}$/;
-const TEAM_ID_RE = /^[A-Z][0-9]{2}$/;
+const TEAM_ID_RE = /^[0-9A-Z]{1,8}$/; // e.g. a rating.chgk.info number (58746) or A07
 const MAX_EVENTS_PER_REQUEST = 500;
 
 class RequestError extends Error {}

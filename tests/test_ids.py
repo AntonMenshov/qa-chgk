@@ -71,7 +71,18 @@ def test_assign_team_ids_rolls_over_to_next_letter():
     assert len(set(ids)) == 100
 
 
-@pytest.mark.parametrize("bad", [["A01", "A01"], ["a01"], ["A1"], ["A100"]])
+def test_given_ids_are_kept_and_only_blanks_are_assigned():
+    """The user's case: rating IDs for three teams, none for the fourth."""
+    assert assign_team_ids(["645", "58746", "40400", None]) == ["645", "58746", "40400", "A01"]
+    assert assign_team_ids([None, "A01", "7", None]) == ["A02", "A01", "7", "A03"]
+
+
+def test_given_ids_are_normalised():
+    assert assign_team_ids([" a07 ", "  ", "b1"]) == ["A07", "A01", "B1"]
+
+
+@pytest.mark.parametrize("bad", [["A01", "A01"], ["645", " 645"], ["a01", "A01"], ["A-1"], ["ABCDEFGHI"], ["58 746"],
+                                 ["А01"], ["A.1"]])
 def test_assign_team_ids_rejects_bad_input(bad):
     with pytest.raises(ValueError):
         assign_team_ids(bad)

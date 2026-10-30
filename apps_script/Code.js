@@ -245,10 +245,13 @@ function formatSheets_(ss, sizes) {
     sheet.setFrozenColumns(2);
     sheet.setColumnWidth(1, WIDTHS.id);
     sheet.setColumnWidth(2, WIDTHS.name);
-    // Names as plain text, left-aligned: otherwise a team called «42» becomes a number.
-    sheet.getRange(1, 2, sheet.getMaxRows(), 1).setNumberFormat("@").setHorizontalAlignment("left");
+    // IDs and names as plain text, left-aligned: otherwise ID 645 or a team called «42» becomes a number.
+    sheet.getRange(1, 1, sheet.getMaxRows(), 2).setNumberFormat("@").setHorizontalAlignment("left");
     sheet.getRange(1, FIRST_MARK_COL, sheet.getMaxRows(), width - FIRST_MARK_COL + 1).setHorizontalAlignment("center");
   };
+
+  const meta = ss.getSheetByName(TABS.meta);
+  meta.getRange(1, 1, meta.getMaxRows(), 1).setNumberFormat("@");
 
   const summary = ss.getSheetByName(TABS.summary);
   const sl = summaryLayout(sizes);

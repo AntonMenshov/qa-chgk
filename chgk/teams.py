@@ -35,7 +35,7 @@ def load_teams_csv(path: Path) -> list[Team]:
         raise ValueError(f"{path} needs a 'name' column")
 
     existing = [(row.get("team_id") or "").strip() or None for row in rows]
-    ids = assign_team_ids(existing)
+    ids = assign_team_ids(existing)  # keeps given IDs (upper-cased), fills in the blanks
     teams = []
     for row, team_id in zip(rows, ids):
         name = (row.get("name") or "").strip()

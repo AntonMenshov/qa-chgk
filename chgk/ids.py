@@ -2,6 +2,10 @@
 
 QR payload: `<scanner_url>#<TID>.<TEAM>.<Q>` where Q is a question number or
 `S<n>` for the n-th spare card, e.g. `https://u.github.io/qa-chgk/s/#K7M2Q.A07.27`.
+
+A team ID is 1-8 digits or capital Latin letters: the organiser's own (e.g. the team's
+rating.chgk.info number, 58746) or one we assign (A01, A02, …). Eight characters keep
+the QR code at the same size (version 4-M) as A01.
 """
 
 import re
@@ -11,9 +15,9 @@ from dataclasses import dataclass
 # No 0/O or 1/I/L, so a TID can be read aloud or typed without mistakes.
 TID_ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ"
 TID_LENGTH = 5
-TEAM_ID_RE = re.compile(r"^[A-Z][0-9]{2}$")
+TEAM_ID_RE = re.compile(r"^[0-9A-Z]{1,8}$")
 _FRAGMENT_RE = re.compile(
-    rf"^(?P<tid>[{TID_ALPHABET}]{{{TID_LENGTH}}})\.(?P<team>[A-Z][0-9]{{2}})\.(?:(?P<q>[1-9][0-9]{{0,2}})|S(?P<s>[1-9][0-9]{{0,1}}))$"
+    rf"^(?P<tid>[{TID_ALPHABET}]{{{TID_LENGTH}}})\.(?P<team>[0-9A-Z]{{1,8}})\.(?:(?P<q>[1-9][0-9]{{0,2}})|S(?P<s>[1-9][0-9]{{0,1}}))$"
 )
 
 
@@ -65,14 +69,21 @@ def _team_id(n: int) -> str:
     return f"{chr(ord('A') + letter)}{number + 1:02d}"
 
 
+def normalize_team_id(team_id: str | None) -> str | None:
+    """'  a07 ' → 'A07'; blank → None (the team gets an ID assigned)."""
+    team_id = (team_id or "").strip().upper()
+    return team_id or None
+
+
 def assign_team_ids(existing: list[str | None]) -> list[str]:
-    """Keep existing IDs and give each missing one the next unused ID, in order."""
+    """Keep the given IDs (normalised) and give each missing one the next unused A01, A02, …"""
+    existing = [normalize_team_id(t) for t in existing]
     used = set()
     for team_id in existing:
         if team_id is None:
             continue
         if not TEAM_ID_RE.match(team_id):
-            raise ValueError(f"invalid team_id {team_id!r}; expected e.g. A07")
+            raise ValueError(f"invalid team_id {team_id!r}: use 1-8 digits or capital Latin letters, e.g. 58746 or A07")
         if team_id in used:
             raise ValueError(f"duplicate team_id {team_id}")
         used.add(team_id)

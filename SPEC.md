@@ -117,7 +117,7 @@ Values the system generates (tournament ID, spreadsheet ID, jury token) are stor
 next to the config in `tournaments/<slug>/state.json`, which is never hand-edited
 and is git-ignored because it contains secrets. Until the Sheet backend exists
 (Phase 2), teams come from `tournaments/<slug>/teams.csv`
-(`team_id,name,city,logo_file`); missing team IDs are assigned and written back.
+(`team_id,name,city,logo_file`); given team IDs are kept (upper-cased), missing ones are assigned and written back.
 `tournaments/example/` is a working example.
 
 ## 5. Google Sheet (one spreadsheet per tournament)
@@ -127,7 +127,7 @@ Created by `chgk new`. Tabs:
 | Tab | Who writes | Content |
 |---|---|---|
 | **Settings** | CLI | name, date, rounds, questions per round, IDs |
-| **Teams** | organizer (source of truth) | `team_id` (auto, e.g. `A07`, stable), `name`, `city`, `logo_file`, `logo_prompt` |
+| **Teams** | organizer (source of truth) | `team_id` (the organiser's own, e.g. the rating.chgk.info number `58746`, used as given; blank → assigned `A01`, `A02`, …; 1-8 digits or capital Latin letters, unique, stable), `name`, `city`, `logo_file`, `logo_prompt` |
 | **Log** | Apps Script, append-only | `scan_id` (UUID, idempotent), server time, client time, juror, device, team, question, status, photo link, source (`app` / `sheet`) |
 | **Итоги** (first tab) | formulas | standings: each team's round sums, Итого, Место. A shared place reads «2-3» (user request), a single one is a number. Rows sorted by Итого; on a tie the better last round is higher, then the round before, …, then team ID (user rule; the place stays shared). Round sums are looked up by team ID, so sorting a round tab is harmless. Round columns share their round's colour. Team names are plain text, left-aligned (a team called «42» must not become a number) |
 | **Тур 1 … Тур N** | Apps Script + jury edits | one tab per round (user request): teams × that round's questions (continuous numbers) and «Сумма», sorted by «Сумма» (equal sums in team ID order). Narrow question columns; tab and header coloured, alternating by round |

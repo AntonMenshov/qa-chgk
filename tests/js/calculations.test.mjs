@@ -431,3 +431,45 @@ test("sheetEdits: only changed marks; typed variants are normalised; nonsense ha
   assert.deepEqual(L.metaLayout(2).header, ["team_id", 1, 2, "v1", "v2"]);
   assert.deepEqual([L.metaLayout(2).tsCol(2), L.metaLayout(2).knownCol(1)], [3, 4]);
 });
+
+// ---------- team IDs given by the organiser ----------
+
+test("numeric team IDs (rating numbers) stay text on every tab and work end to end", () => {
+  const teams = [{ team_id: "645", name: "42" }, { team_id: "58746", name: "Фиаско" },
+    { team_id: "40400", name: "Совхоз Победа" }, { team_id: "A01", name: "Звезды сошлись" }];
+  const { b, ss, tab } = world([3, 3], teams);
+  for (const name of ["Итоги", "Тур 1", "Тур 2", "Teams", "Meta"]) {
+    const ids = tab(name).ids();
+    assert.deepEqual([...ids].sort(), ["40400", "58746", "645", "A01"], name);
+    assert.ok(ids.every((id) => typeof id === "string"), `${name}: ${JSON.stringify(ids)}`);
+  }
+  const marks = { 645: ["correct", "correct", null, null, null, null], 58746: ["correct", null, null, null, null, null],
+    40400: [null, null, null, "correct", null, null], A01: [null, null, null, null, null, null] };
+  sendMarks(b, marks);
+  const ids = teams.map((t) => t.team_id);
+  const res = assertMatchesReference(b, [3, 3], ids, asValues(marks));
+  assertOrder(ss, [3, 3], ids, asValues(marks));
+  assert.deepEqual(res.standings.map((r) => [r.team_id, r.name, r.place]),
+    [["645", "42", 1], ["40400", "Совхоз Победа", "2-3"], ["58746", "Фиаско", "2-3"], ["A01", "Звезды сошлись", 4]]);
+  assert.deepEqual(b.post({ action: "get_state", tid: TID, token: JURY }).marks["58746"], [1, "", "", "", "", ""]);
+  // A jury edit on a team with a numeric ID.
+  const r2 = tab("Тур 2");
+  r2.set(r2.rowOf("58746"), 4, "+");
+  b.onSheetEdit({ range: r2.getRange(r2.rowOf("58746"), 4) });
+  // 2 and 2: 58746 scored in the last round, 645 did not.
+  assert.deepEqual(results(b).standings.map((r) => [r.team_id, r.place]),
+    [["58746", "1-2"], ["645", "1-2"], ["40400", 3], ["A01", 4]]);
+});
+
+test("team IDs are checked: 1-8 digits or capital Latin letters, no duplicates", () => {
+  const b = loadBackend();
+  b.setup();
+  const admin = b.$.props.get("ADMIN_TOKEN");
+  const create = (teams) => b.post({ action: "create_tournament", token: admin, tid: TID, name: "Кубок", date: "2026-11-15",
+    round_sizes: [3], jury_token: JURY, teams });
+  for (const bad of ["a01", "A-1", "ABCDEFGHI", "", "58 746", "А01"]) {
+    assert.match(create([{ team_id: bad, name: "X" }]).error, /invalid team_id/, bad);
+  }
+  assert.match(create([{ team_id: "645", name: "X" }, { team_id: "645", name: "Y" }]).error, /duplicate/);
+  assert.equal(create([{ team_id: "7", name: "X" }, { team_id: "ABCD1234", name: "Y" }]).ok, true);
+});
