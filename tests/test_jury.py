@@ -93,6 +93,17 @@ def test_page_one_is_for_the_jury_page_two_for_everyone(folder, tmp_path):
     assert state["tid"] in texts[2]
 
 
+def test_every_page_has_the_date(folder, tmp_path):
+    """User report: the jury page had no date. The QR pages say it in the title, every page in the footer."""
+    with_backend(folder)
+    out, _ = build_jury_sheet(folder, out=tmp_path / "jury.pdf")
+    texts = [" ".join(t.split()) for t in page_texts(out)]
+    assert "Осенний кубок, 15.11.2026 — QR-коды жюри" in texts[0]
+    assert "Осенний кубок, 15.11.2026 — табло и результаты" in texts[1]
+    for i, text in enumerate(texts):
+        assert "Осенний кубок · 15.11.2026 · лист жюри" in text, f"page {i + 1}"
+
+
 def test_view_only_qr_waits_for_sharing(folder, tmp_path):
     state = with_backend(folder)
     state["view_shared"] = False

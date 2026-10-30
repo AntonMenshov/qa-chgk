@@ -345,22 +345,23 @@ def render_jury_sheet(tournament: Tournament, state: State, teams: list[Team], o
     s = _styles()
     warnings: list[str] = []
     name = escape(printable(tournament.name, warnings))
+    day = tournament.date.strftime("%d.%m.%Y")
     registered = sum(1 for t in teams if not t.reserve)
     reserve = len(teams) - registered
     story: list[Flowable] = [
-        Paragraph(f"{name} — QR-коды жюри", s["h1"]),
+        Paragraph(f"{name}, {day} — QR-коды жюри", s["h1"]),
         Paragraph("Секретно: только для жюри, не оставляйте этот лист на виду у команд.", s["base"]),
         Spacer(1, 12),
         QrPage(_jury_rows(tournament, state), s),
         PageBreak(),
-        Paragraph(f"{name} — табло и результаты", s["h1"]),
+        Paragraph(f"{name}, {day} — табло и результаты", s["h1"]),
         Paragraph(PUBLIC_NOTE, s["base"]),
         Spacer(1, 12),
         QrPage([[p] for p in _public_panels(tournament, state)], s),
         PageBreak(),
         Paragraph(f"{name} — жюри", s["h1"]),
         Paragraph(
-            f"{tournament.date.strftime('%d.%m.%Y')} · {_questions_line(tournament)} · "
+            f"{day} · {_questions_line(tournament)} · "
             f"команд: {registered}" + (f" + запасных комплектов: {reserve}" if reserve else "")
             + f" · ID турнира: <b>{state.tid}</b>",
             s["base"],
@@ -401,7 +402,7 @@ def render_jury_sheet(tournament: Tournament, state: State, teams: list[Team], o
         def draw(canvas, doc):
             canvas.setFont(FONT, 7.5)
             canvas.setFillGray(0.4)
-            canvas.drawString(MARGIN, 0.3 * INCH, f"{printable(tournament.name, [])} · {label}")
+            canvas.drawString(MARGIN, 0.3 * INCH, f"{printable(tournament.name, [])} · {day} · {label}")
             canvas.drawRightString(PAGE_W - MARGIN, 0.3 * INCH, f"стр. {doc.page}")
         return draw
 
