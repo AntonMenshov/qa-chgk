@@ -36,6 +36,7 @@ class CardFields:
     fallback_logo: str | None = "nologo.png"  # for cards that would otherwise have no logo
     logo_size: float | None = None  # inches; None fits the writing area, a number allows up to the full card height
     logo_grey: float = 0.12  # ink of the logo's dark parts: 0 = white, 1 = black (user's choice, 2026-10-29)
+    no_qr: bool = False  # True: no QR code (a paper-only game, no scanning); its corner stays empty
 
     def __post_init__(self) -> None:
         if self.logo_size is not None and not 0.2 <= self.logo_size <= 8:

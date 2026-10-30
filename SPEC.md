@@ -144,6 +144,7 @@ tournament = Tournament(
         tournament_logo="tournament.png",  # tournament folder first, then logos/
         fallback_logo="nologo.png",  # when a card would otherwise have no logo
         logo_size=None,  # inches; None fits the writing area (§9)
+        no_qr=False,  # True: no QR code, for a paper-only game without scanning (§8.2)
         logo_grey=0.12,
     ),
     layout=Layout(cols=3, rows=4, qr_size=0.85),  # 12 cards per Letter page
@@ -327,6 +328,8 @@ The app doesn't show it (decided).
 - An embedded Unicode TTF font, PT Sans (OFL licence, in `chgk/assets/fonts/`), is used
   for Cyrillic.
 - The QR is drawn over the logo with its white quiet zone, so a logo never shows through it.
+- `CardFields(no_qr=True)` (user, 2026-10-30; default False): cards without the QR code, for a
+  purely paper game with no scanning. Its corner stays empty; nothing else on the card moves.
 - Logo watermark default: **12% grey**, configurable. This is the ink of the logo's
   dark parts (its darkest 10%), not of a single darkest pixel; see §9. The user
   first chose 3% from solid swatches, saw the real logos far too faint, and picked

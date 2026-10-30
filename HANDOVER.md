@@ -107,7 +107,7 @@ README.md             organiser guide (end to end) and contributor commands
 ```
 
 ### How to run
-- Tests: `uv run pytest` (484, incl. 3 browser tests that need Google Chrome + Node) and
+- Tests: `uv run pytest` (487, incl. 3 browser tests that need Google Chrome + Node) and
   `npm test` (205, then 73 backend tests again with the Sheets API off).
 - Lint and format: `uv run ruff format . && uv run ruff check .`, `npm run format && npm run lint`.
 - Backend: `uv run chgk backend add|use|list|check|remove|bundle` (docs/google-account.md).
@@ -169,7 +169,8 @@ One line each; SPEC has the details. Decisions recorded only here are written ou
 - **Scanner**, sync, card photos (kept forever), access via the jury link — SPEC §7.
 - **Cards** — SPEC §8: default grid 3×4 (user; was 3×5), edge to edge in every mode (the
   user rejected gutters in scissors mode), the CLI asks the cut mode, no date unless
-  `CardFields(date=True)` (user: "I never asked for it"), at least 2 spares and free slots
+  `CardFields(date=True)` (user: "I never asked for it"), `CardFields(no_qr=True)` for a paper-only
+  game (default False; the QR corner stays empty), at least 2 spares and free slots
   as extra spares, reserve decks R1, R2… (§8.7), the jury printout (§8.6).
 - **Logos** — SPEC §9: private library `logos/`, fallback chain, 12% shade; SVG and Claude-drawn
   drafts §9.1 (always Claude Opus 5.5 at max effort, with a render-and-review loop; the key only

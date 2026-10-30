@@ -144,7 +144,8 @@ def _draw_card(
         lr = parts.logo
         c.drawImage(logo, lr.x, lr.y, lr.w, lr.h, preserveAspectRatio=True, anchor="c")
 
-    draw_qr(c, encode_payload(tournament.scanner_url, card.id), parts.qr)
+    if not fields.no_qr:  # without the QR its corner stays empty: nothing moves into it
+        draw_qr(c, encode_payload(tournament.scanner_url, card.id), parts.qr)
 
     nr = parts.number
     c.setFillGray(0)

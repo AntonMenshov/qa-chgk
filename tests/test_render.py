@@ -265,6 +265,34 @@ def test_test_page_has_real_qr_codes_and_marks_chosen_settings(folder, tmp_path)
     assert "12% grey (chosen)" in text
 
 
+@pytest.mark.parametrize("mode", list(Mode))
+def test_no_qr_cards_have_an_empty_corner_and_nothing_else_changes(folder, tmp_path, mode):
+    with_qr = build_cards(folder, mode, tmp_path / "with-qr.pdf")
+    config = folder / "config.py"
+    config.write_text(
+        config.read_text(encoding="utf-8").replace("card=CardFields(", "card=CardFields(no_qr=True, "),
+        encoding="utf-8",
+    )
+    no_qr = build_cards(folder, mode, tmp_path / "no-qr.pdf")
+    assert (no_qr.pages, no_qr.cards) == (with_qr.pages, with_qr.cards)
+    text = [page.extract_text() for page in PdfReader(no_qr.path).pages]
+    assert text == [page.extract_text() for page in PdfReader(with_qr.path).pages]  # everything else the same
+    parts = card_parts(card_rects(TEST_GRID)[0], TEST_GRID.qr_size * 72)
+    scale = DPI / 72
+    for image in page_images(no_qr.path):
+        assert read_qr(image) == []
+        q = parts.qr
+        corner = image.convert("L").crop(  # inside the guides: the QR's corner of the first card
+            (
+                round((q.x + 2) * scale),
+                round((PAGE_H - q.top + 2) * scale),
+                round((q.right - 2) * scale),
+                round((PAGE_H - q.y - 2) * scale),
+            )
+        )
+        assert corner.getextrema() == (255, 255)
+
+
 def test_date_on_the_cards_only_when_switched_on(folder, tmp_path):
     config = folder / "config.py"
     config.write_text(
