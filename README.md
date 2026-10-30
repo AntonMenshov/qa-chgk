@@ -20,8 +20,8 @@ Needs [uv](https://docs.astral.sh/uv/) and a Gmail account for the results.
    project). Check with `uv run chgk backend check`.
 2. **A tournament** is a folder `tournaments/<slug>/`: copy `config.py` and `teams.py`
    from `tournaments/example/` (3 rounds of 12; `tournaments/example-15/` has 3 of 15),
-   not `state.json`, which belongs to the example. Then edit them: name, date, rounds and questions; team names (IDs such as rating numbers
-   are optional, missing ones are assigned).
+   not `state.json`, which belongs to the example. Then edit them: name, date, rounds and
+   questions; team names (IDs such as rating numbers are optional, missing ones are assigned).
 3. **Create its Sheet:** `uv run chgk new tournaments/<slug>`.
 4. **Print:** `uv run chgk cards tournaments/<slug>` writes `out/<slug>/cards-<mode>.pdf`
    (it asks how you'll cut: one team per page, guillotine stack, or scissors) and

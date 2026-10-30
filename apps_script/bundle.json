@@ -1,5 +1,5 @@
 {
-  "description": "Apps Script files in bundle order (`chgk backend bundle`, the Node fake and the version hash read this). Code.js first: the editor's Run button starts on its first function, setup().",
+  "description": "Apps Script files in bundle order (`chgk backend bundle`, the version hash, the Node fake and ESLint read this). Code.js first: the editor's Run button starts on its first function, setup().",
   "files": [
     "Code.js",
     "logic.js",

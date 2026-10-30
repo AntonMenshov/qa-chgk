@@ -86,10 +86,10 @@ The spike's script printed `out/print_test.pdf`, to be printed at **100% / Actua
 | Rulers measure exactly 2 in | | not reported |
 | Sample cards: enough room to write? | | not reported |
 
-## Findings so far (automated)
+## Automated findings
 
 - PT Sans (bundled) renders Cyrillic, but it has **no `″` (U+2033) or `→` (U+2192)**
-  glyphs. Card text must stick to covered characters, and Phase 1 adds a test that
-  every character drawn exists in the font.
+  glyphs. Card text must stick to covered characters; since Phase 1 a test checks that
+  every character drawn exists in the font (`render.missing_glyphs`).
 - All QR sizes 0.5–1.0 in on the test page decode correctly from a 150 dpi render
   (zxing-cpp). That's an upper bound; the real limit comes from the iPhone in spike 2.

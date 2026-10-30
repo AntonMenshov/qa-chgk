@@ -139,7 +139,6 @@ checks that the decks come out in order.
   few questions at a time, with recommended defaults.
 - **Printed labels are in Russian.** Card labels may say «Тур», but never «Вопрос»
   (a test enforces this).
-
 - **Lint and format before committing** (user request, Google style where it applies,
   120 columns; CI checks both):
   - Python: `uv run ruff format . && uv run ruff check .` (pyproject: pycodestyle,
@@ -216,7 +215,6 @@ Kept in one place: [SPEC.md §14](SPEC.md) (defaults used unless the user says o
   Now a 100k task budget plus one retry of a cut-off drawing.
 - **reportlab stores identical images once:** two teams with the same draft gave one image
   in the PDF; tests that count images need different drawings.
-
 - **Redeploying:** run `chgk backend bundle` right before pasting; a stale
   `out/apps_script/Code.gs` was pasted once and the backend stayed old (`chgk backend check`
   now says so). After "deployed": `chgk backend check`, a live check, this file's version line.

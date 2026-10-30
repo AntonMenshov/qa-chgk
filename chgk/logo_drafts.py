@@ -281,10 +281,10 @@ def draw_logo(
     """Ask Claude for one team's logo, then let it review and fix its own rendering; return checked SVG text.
 
     `references` come from reference_blocks; `grey` is the tournament's logo shade, for the
-    pale card-size image Claude reviews; `log` gets one line per round. A reply whose SVG is
-    refused or can't be drawn goes back to Claude as feedback; a reply cut off before there is
-    any drawing is asked for again (CUT_OFF_RETRIES). ValueError if no round gave a usable
-    SVG; API errors (anthropic.APIError) pass through.
+    pale card-size image Claude reviews; `log` gets a line per round (and progress lines while
+    one runs). A reply whose SVG is refused or can't be drawn goes back to Claude as feedback;
+    a reply cut off before there is any drawing is asked for again (CUT_OFF_RETRIES).
+    ValueError if no round gave a usable SVG; API errors (anthropic.APIError) pass through.
     """
     intro = "The images above are the tournament's existing logos: match their style. " if references else ""
     first = (

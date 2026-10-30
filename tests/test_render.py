@@ -172,7 +172,7 @@ def test_all_fixed_labels_have_glyphs():
     labels = ["Тур 0123456789", " · ", ELLIPSIS, "«»—.,-!?ёЁ"]
     assert missing_glyphs("".join(labels)) == set()
     assert missing_glyphs("АБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдежзийклмнопрстуфхцчшщъыьэюя") == set()
-    assert missing_glyphs("″→★") == {"″", "→", "★"}  # the gaps found in Phase 0
+    assert missing_glyphs("″→★") == {"″", "→", "★"}  # glyphs PT Sans lacks
 
 
 def test_printable_replaces_and_reports():

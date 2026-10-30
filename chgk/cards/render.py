@@ -105,7 +105,7 @@ def draw_qr(c: Canvas, payload: str, rect: Rect) -> None:
 
 
 def _draw_guides(c: Canvas, tournament: Tournament, mode: Mode, rects: list[Rect]) -> None:
-    """Cut lines on the shared card edges; crop marks in the margin for guillotine modes."""
+    """Cut lines on the shared card edges; crop marks in the margin, except in scissors mode."""
     area = printable_area(tournament.layout)
     xs = sorted({round(r.x, 3) for r in rects} | {round(area.right, 3)})
     ys = sorted({round(r.y, 3) for r in rects} | {round(area.top, 3)})

@@ -1,6 +1,6 @@
 """Generated per-tournament values in `tournaments/<slug>/state.json` (git-ignored).
 
-Never hand-edited. `chgk new` fills the backend fields from the active backend profile,
+Never hand-edited. `chgk new` fills the backend fields from the backend profile it uses,
 so a tournament stays on the Google account it was created on.
 """
 

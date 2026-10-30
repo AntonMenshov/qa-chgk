@@ -12,7 +12,7 @@ const REFRESH_EVERY_MS = 15000;
 const $ = (id) => document.getElementById(id);
 const store = storage();
 const access = decodeBoard(location.hash);
-// Links made by the CLI always carry ?grid=; 5 matches board_grid_max_teams (user: fine hard-coded).
+// Links made by the CLI always carry ?grid=; 5 is board_grid_max_teams's default (user: fine hard-coded).
 const gridMax = Number(new URLSearchParams(location.search).get('grid') ?? 5);
 const key = (name) => `chgk.board.${name}.${access ? access.tid : ''}`;
 

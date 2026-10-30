@@ -70,7 +70,7 @@ uv run chgk view tournaments/<slug>        # view-only Sheet link
 4. `uv run chgk backend list` shows all profiles; `*` marks the active one.
 
 Moving an *existing* tournament's Sheet and photos to another account is not
-supported yet.
+supported yet (PLAN.md Phase 9).
 
 ## 4. Update the script after code changes
 
@@ -100,4 +100,4 @@ Drive Trash (right-click → Restore); everything keeps working.
   properties**, delete `ADMIN_TOKEN`. Run `setup` again, then
   `uv run chgk backend add <same name> …` with the new token.
 - **Jury token** (on the jury sheet): it belongs to one tournament. For now, create a
-  new tournament folder. Rotating a jury token is a later feature.
+  new tournament folder. Replacing a jury token is a later feature (PLAN.md Phase 9).

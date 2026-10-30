@@ -151,7 +151,7 @@ tournament = Tournament(
 )
 ```
 
-Values the system generates (tournament ID, spreadsheet ID, jury token) are stored
+Values the system generates (tournament ID, backend, spreadsheet ID, jury and board tokens) are stored
 next to the config in `tournaments/<slug>/state.json`, which is never hand-edited
 and is git-ignored because it contains secrets. Teams are in `tournaments/<slug>/teams.py`,
 Python like config.py (user request, replacing teams.csv):
