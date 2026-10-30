@@ -9,7 +9,7 @@ Tools for in-person sport ЧГК («Что? Где? Когда?»):
 - a **projector board** that shows the results after each round;
 - a **jury sheet** (PDF) with every access QR code, how-tos, team forms and a paper backup grid.
 
-Design: [SPEC.md](SPEC.md). Status and decisions: [HANDOVER.md](HANDOVER.md).
+Design: [SPEC.md](SPEC.md). Build order: [PLAN.md](PLAN.md). Status and decisions: [HANDOVER.md](HANDOVER.md).
 
 ## For the organiser
 

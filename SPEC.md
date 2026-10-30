@@ -421,10 +421,25 @@ A pale greyscale watermark. The source is chosen per team and per tournament:
 |---|---|
 | none | no logo |
 | provided file | PNG/JPG (SVG later) in the tournament folder or `logos/` → greyscale → flatten → lightened to the chosen shade |
-| Claude-drawn SVG (Phase 6, planned) | vector emblem or monogram from a text spec (drawn in a Claude Code session, or via the Claude API with the user's key) |
+| Claude-drawn SVG (Phase 6, planned, §9.1) | the ЧГК owl acting out the team name, in the style of the existing logos (via the Claude API with the user's key, or drawn in a Claude Code session) |
 | image API (next version, PLAN Phase 9) | prompt → OpenAI / Google image model (user's API key) → same post-processing |
 
 The Claude API does not output raster images, but it can write SVG.
+
+### 9.1 Phase 6 (planned; user decisions, 2026-10-30)
+- **SVG input** wherever PNG/JPG is accepted: rasterised, then the same pale step;
+  lettering in the cards' font (PT Sans); unsafe SVGs (scripts, external references)
+  are refused.
+- **`chgk logos <folder>`:** which logo each team's cards use, and missing or broken files.
+- **Claude-drawn drafts** (`--draw`, `--draw --team A01` for one): the style of the
+  existing logos, i.e. the ЧГК owl acting out the team name, question marks or an
+  hourglass, flat light grey, the name in bold capitals below; the existing logos go to
+  the Claude API as references. Without an API key, a brief (`out/<slug>/logo-brief.md`)
+  for drawing them in a Claude Code session instead.
+- **API key, never in the repo:** `chgk key set anthropic` stores it in `~/.config/chgk/`
+  (owner-only); `ANTHROPIC_API_KEY` overrides it; `chgk key status` shows which is used.
+- **Preview, then accept:** drafts in `logos/drafts/<slug>/`, a preview PDF on real
+  cards at the tournament's shade, `--accept all|A01,A02` records them in teams.py.
 
 ## 10. Outputs
 
@@ -517,7 +532,8 @@ CI (`.github/workflows/tests.yml`) runs on every push: `ruff check`, `ruff forma
 uv run chgk backend add|use|list|check|remove|bundle  # named Google-account backends (§3.1)
 uv run chgk new tournaments/<slug> [--backend <profile>]  # Sheet + Drive folder; state.json + jury sheet
 uv run chgk teams tournaments/<slug>        # pull the Teams tab into teams.py, assign team_ids
-uv run chgk logos tournaments/<slug>        # logo report, Claude-drawn drafts, preview, accept (Phase 6, planned)
+uv run chgk logos tournaments/<slug> [--draw [--team A01]] [--accept all|A01,…]  # logos (Phase 6, planned, §9.1)
+uv run chgk key set anthropic | status   # the Claude API key, outside the repo (Phase 6, planned)
 uv run chgk cards tournaments/<slug> [--mode team-pages|cut-stack|scissors] [--teams A01,A07] [--out file.pdf]
 uv run chgk test-page tournaments/<slug> [--out file.pdf]
 uv run chgk jury-sheet tournaments/<slug> [--out file.pdf]  # jury printout (also written by `cards`)

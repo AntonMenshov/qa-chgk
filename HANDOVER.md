@@ -148,92 +148,30 @@ checks that the decks come out in order.
 
 ## Key decisions (details in SPEC.md)
 
-- **Backend:** one Apps Script web app per Google account. It creates one Sheet and
-  one Drive folder per tournament. No Google Cloud project.
-- **Switchable Google account (user requirement, SPEC §3.1):**
-  - no account is named in the repo;
-  - backends are named local profiles in `~/.config/chgk/backends.json`;
-  - each tournament's `state.json` records its backend;
-  - the jury link carries the backend URL;
-  - QR codes don't depend on the account.
-- **Backend speed (SPEC §3.2; user picked the proposals, 2026-10-30):**
-  - one Sheets API `Values.batchGet` and one `Values.batchUpdate` (RAW) per request,
-    SpreadsheetApp as the fallback (service off, quota 60/min/account, a tab past its grid);
-  - the spreadsheet is opened only when needed (`open_` returns a lazy wrapper);
-  - a re-sort is one `spreadsheets.batchUpdate` (per tab: sortRange, then the per-row
-    formulas), after checking the computed sort keys against the marks (`m.sortKeysOk`);
-    tab IDs cached in the registry (`sheet_ids`); otherwise the slow sort;
-  - every reply has `timing`; Log times are text in the script's time zone.
-  - Proposal numbering used with the user: #1 timings (done), #2 cache for board/phone
-    reads (parked for Phase 9), #3 batched read/write and one-call sort (done),
-    #4 one ARRAYFORMULA per column (rejected).
-  - Live, 30 teams × 36 questions: board/phone refresh ~1.1 s, one mark ~1.6 s, a mark
-    that re-sorts ~1.7–2.2 s, 15 marks ~1.4 s (before: 2.6 / 2.8 / 4.3 / 5.0 / 5.9 s);
-    ~0.7–1 s of each is Google outside the script.
-- **Sheet tabs:** «Итоги», «Тур 1…N» (sorted), «Статистика», hidden «Спорные» (every undecided «?» with its card photo's
-  link, in A–D; counts overall, per round and per team in G–H, two empty columns away;
-  rewritten only when the set of «?», a name, or a «?» card's photo changes), hidden
-  Teams, Log, Settings, Meta. Only the visible ones appear on the view-only link.
-- **Scanner:** static web app on GitHub Pages, public repo **`qa-chgk`**; v1 access via
-  a secret jury link. The current question follows the scans; a spare card asks for its
-  question; «Чья карточка?» reads a card without recording anything.
-- **Board (SPEC §10.1):** revealed by hand after each round; full grid up to 5 teams,
-  else total + last round's grid; «Взяли» row. Read-only board token (`get_board`). QR
-  codes of the view-only table and of the board itself (the jury sheet's links, decoded
-  from screenshots in the browser test); Q toggles them.
-- **Drive names are Latin** (user rule, SPEC §3.3): `CHGK/<date> <name> (<TID>)` with
-  the Sheet and `Photos` inside; names transliterated by `latinName` (logic.js).
-- **View-only link:** the Sheet is shared "anyone with the link can view" at creation;
-  the QR opens `…/htmlview`; `chgk view` prints it.
-- **No upgrade code for older Sheets** (user decision, 2026-10-30): the migrations
-  (ЧГК→CHGK, Stats→Статистика, old Meta format, old Results layout, old «Спорные» layout,
-  Latin renaming, `share_view`) were removed after the example (QHZJ8) had been upgraded.
-  A tournament made by an older version must be created again.
-- **QR:** a URL, `…/s/#<TID>.<TEAM>.<Q>`; spare cards use `S1…Sn`. Printed at
-  **0.85 in** including the quiet zone (was 0.65; user asked for ~30% bigger), error correction M, vector.
-- **Team IDs** are the organiser's (e.g. rating numbers such as 58746) or assigned
-  A01…; 1-8 of `[0-9A-Z]`, which keeps the QR at version 4-M.
-- **Mark cells (round tabs):**
-  - blank = no card;
-  - `R` = received, not judged;
-  - `1` / `0` / `?` = judged.
-  - A missing card scores 0. Last write wins by client timestamp. `?` and appeals are
-    resolved by editing the sheet.
-- **Photos (Phase 4, SPEC §7.2):** one photo per card per phone, taken from the frame the
-  QR was read from; own queue in IndexedDB, 2 uploads at a time, never delaying marks;
-  `upload_photo` saves to the tournament's `Photos` folder (Latin names) outside the lock,
-  logs the link, and shows it on «Спорные» for a «?». Kept forever.
-- **Cards:**
-  - Letter, default 3×4 = 12 per page (user request; was 3×5), grid configurable.
-  - **Edge to edge in every mode**: neighbouring cards share a cut line. The user
-    rejected gutters in scissors mode as wasteful.
-  - Modes: team-pages (light lines + crop marks), cut-stack (same, guillotine order),
-    scissors (darker dashed lines, no crop marks). The CLI asks which one; regenerating
-    the examples reuses the mode of the existing PDF.
-  - No date unless `CardFields(date=True)` (user: "I never asked for it").
-  - Logo watermark at **12% grey**, measured on the logo's dark parts (SPEC §9). A sized
-    logo is centred on the card; its corner may go under the QR, which is drawn on top.
-  - **Logo library** `logos/` at the repo root (SPEC §9):
-    - team logos are private (git-ignored); only `nologo.png` is public;
-    - fallback chain: team → tournament → `nologo.png`;
-    - the example tournament is set up the way the user asked: **no team name on cards,
-      logo 10%, logo_size 1.85 in**. The defaults elsewhere stay team name on, 12%, auto size.
-- **Teams:** one stack per team for the whole game, plus at least 2 spares (user rule);
-  free slots become extra spares in every mode (guillotine: shared out across the teams),
-  never an extra page. Spare cards carry no words: an empty white box where the number
-  goes (user request).
-- **Reserve decks (SPEC §8.7):** R1, R2… for teams that turn up unregistered. They are on
-  the Teams tab from the start but join the other tabs only on first scan or when named,
-  so they never distort places. Their cards print the ID bottom right.
-- **Juror view:** the app doesn't show the official answer.
-- **Jury printout** (user requests, SPEC §8.6), in Russian, written with every `cards` run:
-  - page 1 (secret): jury access (top half), editable Sheet, scanner;
-  - page 2: board + view-only Sheet; no QR on other pages;
-  - page 3: details, links, juror, «?»/appeals and board («Табло») how-tos;
-  - team forms (ID, name, 8 player lines), two per row;
-  - paper backup grid; the date in the QR pages' titles and every footer.
-- **Jury link:** `<scanner_url>#setup=<TID>.<TOKEN>.<DEPLOYMENT_ID>`.
-- **Jurors:** one at a time for now; the data model is ready for several.
+One line each; SPEC has the details. Decisions recorded only here are written out.
+
+- **Backend:** one Apps Script web app per Google account, one Sheet + Drive folder per
+  tournament, no Google Cloud project; the account is switchable (named profiles,
+  `state.json` keeps each tournament's backend) — SPEC §3, §3.1.
+- **Backend speed** — SPEC §3.2. Proposal numbers used with the user: #1 timings (done),
+  #2 cache for board/phone reads (Phase 9), #3 batched read/write and one-call sort (done),
+  #4 one ARRAYFORMULA per column (rejected).
+- **Drive names are Latin** — SPEC §3.3.
+- **No upgrade code for older Sheets** (user, 2026-10-30): migrations and the pre-Phase-5
+  board-token upgrade were removed; a tournament made by an older version is created again.
+- **Sheet tabs**, mark cells (blank / `R` / `1` `0` `?`, last write wins), «Спорные» — SPEC §5.
+- **QR and card identity** — SPEC §6; 0.85 in (was 0.65; user: ~30% bigger); team IDs of
+  1-8 `[0-9A-Z]` keep the QR at version 4-M.
+- **Scanner**, sync, card photos (kept forever), access via the jury link — SPEC §7.
+- **Cards** — SPEC §8: default grid 3×4 (user; was 3×5), edge to edge in every mode (the
+  user rejected gutters in scissors mode), the CLI asks the cut mode, no date unless
+  `CardFields(date=True)` (user: "I never asked for it"), at least 2 spares and free slots
+  as extra spares, reserve decks R1, R2… (§8.7), the jury printout (§8.6).
+- **Logos** — SPEC §9: private library `logos/`, fallback chain, 12% shade; Phase 6 plan §9.1.
+  The example tournament has no team name on cards, logo 10%, logo_size 1.85 in (user);
+  elsewhere the defaults stay.
+- **Board** — SPEC §10.1. **Juror view:** no official answer (§7.5). **Jurors:** one at a
+  time; the data model is ready for several (§7.3).
 - **Deferred:** one list, [PLAN.md](PLAN.md) Phase 9 (next version).
 
 ## Open items
@@ -333,16 +271,23 @@ Kept in one place: [SPEC.md §14](SPEC.md) (defaults used unless the user says o
 - The manual checks ([docs/manual-checks.md](docs/manual-checks.md)): iPhone scanner, the
   Sheet's edit trigger, a real print. They are the start of Phase 7 (PLAN.md).
 
-Live checks done so far (2026-10-29/30, all against the user's backend): marks,
-duplicates, stale scans, bad teams and tokens; sums, «2-3» places and tie-break order vs
-the logic.js reference on 4- and 14-team tournaments; reserve decks; the scanner on
-Pages in headless Chrome; the board; the view-only link without a Google login; backend
-speed and the one-call sort (10 rounds of order-changing marks, «Итоги» equal to the
-reference); Latin Drive names (version 6719354da92c: the example renamed by `chgk view`;
-a new tournament «Проверка имён «Звёзды» №1» created as `2026-10-30 Proverka imen Zvezdy
-No1 (UDHBH)`, marks, reserve team and standings correct, view-only links open);
-card photos (5bee727e1620, throwaway RG3HC: a 66 KB JPEG saved to Drive in ~2 s, a repeat
-upload recognised, a non-JPEG refused) and the board's QR codes on Pages against the real
-backend (decoded = the jury sheet's links). The cleaned-up backend (e08511993c86: split files, migrations removed, photos for unknown
-teams refused, `share_view` gone; marks, reserve, standings, photo 3.4 s, board, example OK).
+Live checks done so far, all against the user's backend:
+- **2026-10-29/30:** marks, duplicates, stale scans, bad teams and tokens; sums, «2-3»
+  places and tie-break order vs the logic.js reference on 4- and 14-team tournaments;
+  reserve decks; the scanner on Pages in headless Chrome; the board; the view-only link
+  without a Google login.
+- **2026-10-30, speed:** the one-call sort (10 rounds of order-changing marks, «Итоги»
+  equal to the reference).
+- **2026-10-30, Latin Drive names** (6719354da92c): a new tournament «Проверка имён «Звёзды»
+  №1» created as `2026-10-30 Proverka imen Zvezdy No1 (UDHBH)`; marks, reserve team and
+  standings correct, view-only links open.
+- **2026-10-30, card photos** (5bee727e1620, throwaway RG3HC): a 66 KB JPEG saved to Drive
+  in ~2 s, a repeat upload recognised, a non-JPEG refused; the board's QR codes on Pages
+  decode to the jury sheet's links.
+- **2026-10-30, cleaned-up backend** (e08511993c86): split files, migrations removed,
+  photos for unknown teams refused, `share_view` gone; marks, reserve, standings, photo
+  3.4 s, board, example OK.
+- **2026-10-30, ac4a2b56a43a:** board and phone data for both examples (UYDJ7, U9FP4);
+  `set_board_token` refused as unknown.
+
 Throwaway tournaments: the user deletes them.
