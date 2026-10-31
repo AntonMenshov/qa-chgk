@@ -27,7 +27,7 @@ Full design: [SPEC.md](SPEC.md). Build order: [PLAN.md](PLAN.md).
 | 4 — Card photos | ✅ built, tested (phone queue, backend `upload_photo`, headless-Chrome check that each photo shows its card) and checked live (API upload to Drive); the iPhone check is in Phase 7 |
 | 5 — Projector board + stats | ✅ built, tested and checked live |
 | 6 — Logos | ✅ built and tested (SPEC §9.1); tried on the user's 22 teams, in a session and through the API (drafts kept, never accepted: Key decisions, Logos) |
-| 7 — Internal test at home (printouts) | in progress: manual checks done on throwaway `tournaments/manual-checks/` (CHECK1, not committed; the user deletes its Drive folder), all fine except the feedback below, now fixed; the fixes' own new checks need an iPhone. Next: the mock game, then a docs/comments check |
+| 7 — Internal test at home (printouts) | in progress: manual checks done on a throwaway tournament (CHECK1; its local folder is deleted, the user deletes its Drive folder), all fine except the feedback below, now fixed; the fixes' own new checks need an iPhone. Next: the mock game, then a docs/comments check |
 | 8 — External test at a tournament | not started: the same loop with real teams |
 | 9 — Next version | the deferred list in PLAN.md |
 
