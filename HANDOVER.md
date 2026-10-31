@@ -26,12 +26,13 @@ Full design: [SPEC.md](SPEC.md). What's left: [PLAN.md](PLAN.md).
 | 8 — External test at a tournament | not started: the same loop with real teams |
 | 9 — Next version | the deferred list in PLAN.md |
 
-- **Deployed backend:** version **44f8934ea10c** (2026-10-30) under the user's Gmail (local
+- **Deployed backend:** version **a3b8fe829421** (2026-10-31; live check passed: sorting, public copy, private Sheet, clock cap, `chgk delete`) under the user's Gmail (local
   profile `personal`), with the «Google Sheets API» service on. `uv run chgk backend check`
   compares it with the local code, and says when `out/apps_script/Code.gs` is an old bundle.
 - **Phase 7 tournament:** `tournaments/osenniy-salat/` «Осенний салат», 2026-11-20, TID **18376**,
   the user's four teams, 3 rounds of 12; the same card look as the example. Created on the backend
-  (profile `personal`); `out/osenniy-salat/` has its cards (team-pages, 3×4, 24 pages) and jury.pdf.
+  (profile `personal`), recreated 2026-10-31 on the new backend, empty, with its public copy; `out/osenniy-salat/` has its
+  cards (team-pages, 3×4, 24 pages) and jury.pdf.
 - **Phase 7 feedback (2026-10-30), fixed:** a card already entered offers «Отмена (останется: …)»;
   board: wrong is a red «×», no card yet a small grey «•»; board on a phone: the buttons stay, it says
   what to tap, no QR codes and the last round's grid by default; the QR sits 20% farther from the
@@ -189,10 +190,9 @@ One line each; SPEC has the details. Decisions recorded only here are written ou
 
 ## Next steps
 
-0. **Code review, 2026-10-31:** all findings triaged with the user and the decisions implemented
-   (`out/code-review/TRIAGE.md`, `DECISIONS.md`; local only: the repo is public). The backend part waits for the
-   user's redeploy; then `chgk results-copy tournaments/osenniy-salat`, a live check of the public copy and of
-   «Итоги» sorting, and a reprint of the jury sheet (its results QR changes).
+0. **Code review, 2026-10-31:** all findings triaged with the user and the decisions implemented and deployed
+   (`out/code-review/TRIAGE.md`, `DECISIONS.md`; local only: the repo is public). Not yet tried for real: the iPhone
+   side and edits typed in the Sheet ([docs/manual-checks.md](docs/manual-checks.md)).
 1. **Phase 7**, the rest: reprint `out/osenniy-salat/`, the fixes' own checks on an iPhone
    ([docs/manual-checks.md](docs/manual-checks.md)), the mock game, fixes, a docs/comments check.
    Then **Phase 8**, an external test at a tournament, with the same loop.
