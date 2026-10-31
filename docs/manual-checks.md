@@ -72,7 +72,7 @@ afterwards (`docs/google-account.md` §5).
 - [ ] A full card set on the real printer: cut lines line up, cards come apart in order
       in the chosen mode, the number box on spare cards is easy to write in.
 
-## Logos (Phase 6)
+## Logos
 
 - [ ] `uv run chgk logos <folder>`: every team's row matches its logo file; an SVG logo
       prints with its lettering in PT Sans.

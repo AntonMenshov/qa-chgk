@@ -301,8 +301,8 @@ instead of the card.
 
 ### 7.3 Multi-juror readiness (UI later)
 Every event carries juror name, device ID, client timestamp and UUID, and the
-missing list is backed by the server. Adding several jurors later needs UI work
-only, not data-model changes.
+missing list is backed by the server. Adding several jurors later needs no data-model change: it needs UI
+work, and a rule for two jurors who mark one card differently (now the later mark wins, §5).
 
 ### 7.4 Access
 - v1: **secret jury link**, printed as a QR code on page 1 of the jury sheet (§8.6). The link carries
@@ -560,7 +560,7 @@ CI (`.github/workflows/tests.yml`) runs on every push: `ruff check`, `ruff forma
   tie-break order), served to the pages as `web/shared/logic.js`. One copy, no drift.
 - **Web** (`web/`): plain HTML/JS with vendored libraries (scanner: QR reader `zxing-wasm`;
   board: `qrcode-generator`), served by GitHub Pages.
-- **Node** (dev only): its built-in `node --test` runner (`npm test`); npm devDependencies
+- **Node** (dev only; version in `.node-version`): its built-in `node --test` runner (`npm test`); npm devDependencies
   only for ESLint + Prettier.
 
 ## 13. CLI

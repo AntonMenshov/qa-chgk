@@ -99,6 +99,7 @@ web/b/                projector board: index.html, board.css, board.js; lib/boar
                       (rounds revealed by hand, places from revealed rounds only, grid vs compact);
                       lib/qr.js + vendor/qrcode-generator-1.4.4 (QR codes on screen)
 .github/workflows/    tests.yml (ruff + pytest; ESLint + Prettier + npm test), pages.yml (deploys web/, also when apps_script/logic.js changes)
+.node-version         the Node version (CI reads it)
 package.json          `npm test`, `npm run lint|format|format:check` (devDependencies: ESLint + Prettier only)
 eslint.config.js, .prettierrc.json, pyproject.toml ([tool.ruff])  lint and format settings
 README.md             organiser guide (end to end) and contributor commands
@@ -162,17 +163,17 @@ One line each; SPEC has the details. Decisions recorded only here are written ou
 - **No upgrade code for older Sheets** (user, 2026-10-30): migrations and the pre-Phase-5
   board-token upgrade were removed; a tournament made by an older version is created again.
 - **Sheet tabs**, mark cells (blank / `R` / `1` `0` `?`, last write wins), «Спорные» — SPEC §5.
-- **QR and card identity** — SPEC §6: QR 0.85 in (was 0.65; user: ~30% bigger), moved 20% in from the top and right edges (user); the tournament
+- **QR and card identity** — SPEC §6: QR 0.85 in (user), moved 20% in from the top and right edges (user); the tournament
   ID from config.py (`tid=`, e.g. the rating number) or generated (5 characters); it and team IDs
   are 1-8 `[0-9A-Z]`; the QR is version 4-M except for the longest mix (both 8 characters, a
   3-digit question), where `chgk cards` warns.
 - **Scanner**, sync, card photos (kept forever), access via the jury link, no Google sign-in (user) — SPEC §7.
-- **Cards** — SPEC §8: default grid 3×4 (user; was 3×5), edge to edge in every mode (the
+- **Cards** — SPEC §8: default grid 3×4 (user), edge to edge in every mode (the
   user rejected gutters in scissors mode), the CLI asks the cut mode, no date unless
   `CardFields(date=True)` (user), `CardFields(no_qr=True)` for a paper-only
   game (default False; the QR corner stays empty), at least 2 spares and free slots
   as extra spares, reserve decks R1, R2… (§8.7), the jury printout (§8.6).
-- **Logos** — SPEC §9: private library `logos/`, fallback chain, 14% shade (user, after the Phase 7 prints; was 12%), a team's `logo_grey` in teams.py overrides it; SVG and Claude-drawn
+- **Logos** — SPEC §9: private library `logos/`, fallback chain, 14% shade (user), a team's `logo_grey` in teams.py overrides it; SVG and Claude-drawn
   drafts §9.1, [docs/logo-drawing.md](docs/logo-drawing.md) (always Claude Opus 5.5 at max effort, a 100k task budget, a render-and-review loop;
   the key only from `ANTHROPIC_API_KEY`). Drafts are never deleted or overwritten (user). The
   user's test drafts (22 teams each) in `logos/drafts/logo-drafts/` (session) and
