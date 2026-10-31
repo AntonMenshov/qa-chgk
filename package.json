@@ -3,6 +3,9 @@
   "private": true,
   "type": "module",
   "description": "JS side of chgk: scanner web app, projector board, Apps Script logic. The pages load no npm packages; devDependencies are only for linting and formatting. Tests use node:test.",
+  "engines": {
+    "node": ">=26 <27"
+  },
   "scripts": {
     "test": "node --test --test-timeout=60000 \"tests/js/**/*.test.mjs\" && CHGK_NO_SHEETS_API=1 node --test --test-timeout=60000 \"tests/js/backend*.test.mjs\" tests/js/calculations.test.mjs",
     "lint": "eslint .",

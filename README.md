@@ -62,7 +62,7 @@ More commands: `uv run chgk --help`. Before a real game: [docs/manual-checks.md]
 
 ## For contributors
 
-- Python 3.12+ with uv; Node 22 for the JS tests and linting (`npm ci` once). A new clone or laptop:
+- Python 3.12+ with uv; Node for the JS tests and linting, the version in `.node-version` (`npm ci` once). A new clone or laptop:
   [docs/new-machine.md](docs/new-machine.md).
 - Tests: `uv run pytest` and `npm test`.
 - Lint and format before committing (Google style where it applies, 120 columns):

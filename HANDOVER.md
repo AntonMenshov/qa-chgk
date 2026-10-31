@@ -114,6 +114,9 @@ README.md             organiser guide (end to end) and contributor commands
 ## Working conventions (agreed with the user)
 
 - **Python + uv**: run everything as `uv run …`. Package at the repo root (`chgk/`), no `src/`.
+- **Node:** `.node-version` is the one place for the version (26; CI reads it, `engines` in package.json
+  warns on another). From Homebrew, not uv (user): `nodejs-wheel` runs Node through a Python launcher, which
+  leaves the tests' backend running when they stop it. When Homebrew moves to 27, update the pin and `engines` together.
 - Tournament config is **Python syntax** (`tournaments/<slug>/config.py`), not YAML.
 - **Unit tests are mandatory.** A phase isn't done until `uv run pytest` and
   `npm test` pass.
