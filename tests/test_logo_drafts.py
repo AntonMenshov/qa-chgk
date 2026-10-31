@@ -5,6 +5,7 @@ import io
 import json
 import os
 import shutil
+import types
 from dataclasses import replace
 
 import anthropic
@@ -286,14 +287,16 @@ def test_measure_reports_the_ink_and_tight_edges():
 
 
 def test_reference_images_are_small_pngs_on_white(library):
-    Image.new("RGBA", (2000, 1000), (0, 0, 0, 0)).save(library / "clear.png")
+    clear = Image.new("RGBA", (2000, 1000), (0, 0, 0, 0))
+    clear.paste((0, 0, 0, 255), (900, 400, 1100, 600))
+    clear.save(library / "clear.png")
     (library / "broken.png").write_bytes(b"not a png")
     refs, warnings = drafts.reference_blocks(drafts.reference_logos())
     assert [p.name for p in drafts.reference_logos()] == ["nologo.png", "broken.png", "clear.png", "other-team.png"]
     assert len(warnings) == 1 and "broken.png" in warnings[0]
     clear = Image.open(io.BytesIO(base64.b64decode(refs[1]["source"]["data"])))
     assert clear.size == (drafts.REFERENCE_SIDE, drafts.REFERENCE_SIDE // 2)
-    assert clear.mode == "RGB" and clear.getextrema() == ((255, 255),) * 3  # transparent → white
+    assert clear.mode == "RGB" and clear.getpixel((0, 0)) == (255, 255, 255)  # transparent → white
 
 
 def test_references_leave_out_drafts(library):
@@ -416,11 +419,12 @@ def test_accept_never_overwrites_another_teams_logo(folder, library):
     (accepted,) = drafts.accept_drafts(folder / "teams.py", "test-cup", teams, None)
     assert accepted.logo_file == "dumat-bystro-a03.svg"
     assert (library / "dumat-bystro.svg").read_text(encoding="utf-8") == OWL_SVG
-    # a redraw for the same team replaces its own file
-    drafts.save_draft("test-cup", "A03", OWL_SVG)
+    # a redraw gets a new file too: another tournament may be printing the team's earlier one
+    drafts.save_draft("test-cup", "A03", OWL_2)
     (again,) = drafts.accept_drafts(folder / "teams.py", "test-cup", read_teams(folder / "teams.py"), None)
-    assert again.logo_file == "dumat-bystro-a03.svg"
-    assert (library / "dumat-bystro-a03.svg").read_text(encoding="utf-8") == OWL_SVG
+    assert again.logo_file == "dumat-bystro-a03-2.svg"
+    assert (library / "dumat-bystro-a03-2.svg").read_text(encoding="utf-8") == OWL_2
+    assert (library / "dumat-bystro-a03.svg").exists()
 
 
 def test_accept_refuses_a_bad_draft_and_changes_nothing(folder, library):
@@ -583,3 +587,29 @@ def test_a_non_square_drawing_goes_back_as_feedback():
 
 def test_the_prompt_and_the_brief_ask_for_a_square_canvas():
     assert "must be square" in drafts.style_rules("Синие зайцы")
+
+
+def test_an_empty_drawing_goes_back_as_feedback():
+    lines = []
+    empty = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000"></svg>'
+    replies = [sse(fenced(OWL_SVG)), sse(fenced(empty)), sse(drafts.APPROVED)]
+    assert drafts.draw_logo(mock_client(replies, []), "Синие зайцы", [], log=lines.append) == OWL_SVG
+    assert any("the drawing is empty" in line for line in lines)
+
+
+def test_a_dropped_stream_keeps_the_drawing_already_paid_for(monkeypatch):
+    calls = []
+
+    def ask(client, messages, system, log, label):
+        calls.append(label)
+        if len(calls) > 1:
+            raise ConnectionResetError("the stream dropped")  # not any error class of the SDK's
+        return types.SimpleNamespace(content=[types.SimpleNamespace(type="text", text=fenced(OWL_SVG))]), ""
+
+    monkeypatch.setattr(drafts, "_ask", ask)
+    assert drafts.draw_logo(None, "Синие зайцы", []) == OWL_SVG
+
+
+def test_a_tournament_without_qr_codes_describes_none():
+    look = drafts.logo_look(CardFields(no_qr=True, logo_size=1.85), Layout(cols=4, rows=6, qr_size=2.0))
+    assert look.under_qr is False

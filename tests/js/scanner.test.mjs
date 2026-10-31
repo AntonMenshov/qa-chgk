@@ -1113,3 +1113,17 @@ test('forgetLocalData: cached data goes, unsent marks stay', async () => {
   forgetLocalData('Z');
   assert.equal(store.get(K.queue('Z')), null);
 });
+
+test('camera: a restart counts decoder failures afresh, and a first start that fails is not wanted', async () => {
+  const camera = Object.create(Camera.prototype);
+  Object.assign(camera, {wanted: false, starting: null, failures: 40});
+  camera.open = async () => {
+    throw new Error('denied');
+  };
+  await assert.rejects(camera.start());
+  assert.equal(camera.failures, 0);
+  assert.equal(camera.wanted, false);
+  camera.wanted = true; // it ran: an interruption is worth another try when the juror comes back
+  await assert.rejects(camera.start());
+  assert.equal(camera.wanted, true);
+});

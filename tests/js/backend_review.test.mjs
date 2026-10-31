@@ -2,7 +2,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
-import {L, TID, JURY, apiWorld, world, reserveWorld, ev, photo} from './backend_world.mjs';
+import {L, TID, JURY, BOARD, apiWorld, world, reserveWorld, ev, photo} from './backend_world.mjs';
 
 const rowOf = (sheet, id) => {
   for (let r = 2; r <= sheet.getLastRow(); r++) {
@@ -296,7 +296,7 @@ test('onSheetEdit: a formula typed over is put back at once', () => {
   assert.equal(round.getRange(now, lay.sumCol).getFormulas()[0][0].replace(/\d+/g, 'N'), formula.replace(/\d+/g, 'N'));
 });
 
-test('onSheetEdit: an edit reaches the public copy at once, without waiting for the pause', () => {
+test('onSheetEdit: an edit marks the public copy, and the timer publishes it', () => {
   const {b, ss, tab} = world();
   const {copy} = publicCopy(b, ss);
   const round = tab('Тур 1');
@@ -304,6 +304,9 @@ test('onSheetEdit: an edit reaches the public copy at once, without waiting for 
   round.getRange(rowOf(round, 'A01'), col).setValue('+');
   b.onSheetEdit({range: round.getRange(rowOf(round, 'A01'), col)});
   const pub = copy.getSheetByName('Тур 1');
+  assert.equal(pub.getRange(pub.rowOf('A01'), col).getValues()[0][0], ''); // a column of edits publishes once
+  assert.equal(b.$.triggers.filter((t) => t === 'publishWaiting').length, 1);
+  b.publishWaiting();
   assert.equal(pub.getRange(pub.rowOf('A01'), col).getValues()[0][0], 1);
 });
 
@@ -313,6 +316,7 @@ test('onSheetEdit: a changed name reaches the public copy', () => {
   const summary = tab('Итоги');
   summary.getRange(rowOf(summary, 'A01'), 2).setValue('Новое имя');
   b.onSheetEdit({range: summary.getRange(rowOf(summary, 'A01'), 2)});
+  b.publishWaiting();
   const pub = copy.getSheetByName('Тур 2');
   assert.equal(pub.getRange(pub.rowOf('A01'), 2).getValues()[0][0], 'Новое имя');
 });
@@ -364,4 +368,73 @@ test("a deleted tournament's ID is refused for a new one", () => {
   });
   assert.equal(again.ok, false);
   assert.match(again.error, /deleted tournament/);
+});
+
+test('a publication that keeps failing stops arming timers after an hour; reads still try', () => {
+  const {b, ss} = world();
+  const {reg} = publicCopy(b, ss);
+  b.$.spreadsheets.delete(reg.public_id);
+  b.$.props.set(`dirty:${TID}`, String(Date.now() - 2 * 3600 * 1000));
+  b.$.props.set(`pub:${TID}`, '0');
+  post(b, 'get_state');
+  assert.equal(b.$.props.has(`dirty:${TID}`), true);
+  assert.equal(b.$.triggers.includes('publishWaiting'), false);
+});
+
+test('the timer finding the lock busy arms another: the last marks are not lost', () => {
+  const {b, ss} = world();
+  publicCopy(b, ss);
+  post(b, 'record_events', {events: [ev()]});
+  const lock = b.LockService;
+  b.LockService = {
+    getScriptLock: () => ({
+      waitLock() {
+        throw new Error('busy');
+      },
+      tryLock: () => false,
+      releaseLock() {},
+    }),
+  };
+  b.publishWaiting();
+  b.LockService = lock;
+  assert.equal(b.$.props.has(`dirty:${TID}`), true);
+  assert.equal(b.$.triggers.filter((t) => t === 'publishWaiting').length, 1);
+});
+
+test('rows deleted from the real Sheet all go from the public copy, however many', () => {
+  const {b, ss} = world();
+  const {reg, copy} = publicCopy(b, ss);
+  const pub = copy.getSheetByName('Статистика');
+  pub.getRange(40, 1).setValue('old row');
+  b.publish_(ss, Object.assign({tid: TID}, reg), b.PropertiesService.getScriptProperties());
+  assert.equal(pub.getRange(40, 1).getValues()[0][0], '');
+});
+
+test('a new tournament stops before making any file when no trigger is left', () => {
+  const {b, admin} = world();
+  for (let i = b.$.triggers.length; i < 20; i++) {
+    b.$.triggers.push('onSheetEdit');
+  }
+  const before = b.$.spreadsheets.size;
+  const res = b.post({
+    action: 'create_tournament',
+    token: admin,
+    tid: 'NEW1',
+    name: 'x',
+    date: '2026-11-15',
+    round_sizes: [1],
+    jury_token: JURY,
+    board_token: BOARD,
+    teams: [],
+    reserve: [],
+  });
+  assert.equal(res.ok, false);
+  assert.match(res.error, /20 triggers/);
+  assert.equal(b.$.spreadsheets.size, before);
+});
+
+test('the reserve mark is read in any case', () => {
+  const {b} = world();
+  assert.equal(b.teamsFromRows_([['R1', 'x', '', '', 'Да']])[0].reserve, true);
+  assert.equal(b.teamsFromRows_([['A1', 'x', '', '', '']])[0].reserve, false);
 });

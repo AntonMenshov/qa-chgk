@@ -109,3 +109,16 @@ test('ping says whether the Sheets API service is on', () => {
     assert.equal(b.post({action: 'ping', token: b.$.props.get('ADMIN_TOKEN')}).sheets_api, on);
   }
 });
+
+test('a publication written the slow way stays marked: setValues may have re-read «2-3» as a date', () => {
+  const {b, ss} = apiWorld();
+  const reg = Object.assign({tid: TID}, JSON.parse(b.$.props.get(`t:${TID}`)));
+  const props = b.PropertiesService.getScriptProperties();
+  b.$.props.set(`dirty:${TID}`, String(Date.now()));
+  b.$.api.fail = true;
+  b.publish_(ss, reg, props);
+  assert.equal(b.$.props.has(`dirty:${TID}`), true);
+  b.$.api.fail = false;
+  b.publish_(ss, reg, props);
+  assert.equal(b.$.props.has(`dirty:${TID}`), false);
+});

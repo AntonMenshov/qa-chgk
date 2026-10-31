@@ -168,7 +168,7 @@ def test_a_phone_photo_is_turned_upright(tmp_path):
     path = tmp_path / "photo.jpg"
     exif = Image.Exif()
     exif[0x0112] = 6  # rotate 90°
-    Image.new("RGB", (300, 100), "white").save(path, exif=exif)
+    Image.new("RGB", (300, 100), "black").save(path, exif=exif)
     assert open_logo(path).size == (100, 300)
 
 
@@ -183,10 +183,43 @@ def test_a_palette_logo_is_shrunk_smoothly(tmp_path):
 
 
 def test_a_cut_svg_logo_is_reported(tmp_path):
-    (tmp_path / "wide.svg").write_text('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 20"/>')
-    (tmp_path / "square.svg").write_text('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"/>')
+    rect = '<rect width="9" height="9"/>'
+    (tmp_path / "wide.svg").write_text(f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 20">{rect}</svg>')
+    (tmp_path / "square.svg").write_text(f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">{rect}</svg>')
     fields = CardFields(logo=LogoMode.TEAM, fallback_logo="square.svg")
     teams = [Team(team_id="A01", name="Синие зайцы", logo_file="wide.svg")]
     images, warnings = load_logos(tmp_path, fields, teams)
     assert images["A01"].size == (600, 600)
     assert len(warnings) == 1 and "'wide.svg' is not square" in warnings[0]
+
+
+def test_a_logo_on_off_white_paper_keeps_its_drawing():
+    scan = Image.new("RGB", (600, 600), (240, 240, 238))
+    ImageDraw.Draw(scan).rectangle((200, 200, 400, 400), fill="black")
+    printed = pale(scan, 0.14)
+    assert printed.getpixel((10, 10)) == 255  # the paper is white
+    assert printed.getpixel((300, 300)) == round(255 * (1 - 0.14))  # the drawing has the ink
+
+
+def test_a_logo_that_would_print_nothing_is_refused(tmp_path):
+    path = tmp_path / "white.png"
+    circle = Image.new("RGBA", (100, 100), (0, 0, 0, 0))
+    ImageDraw.Draw(circle).ellipse((10, 10, 90, 90), fill="white")
+    circle.save(path)
+    with pytest.raises(ValueError, match="nothing would print"):
+        open_logo(path)
+
+
+def test_a_sliver_of_a_png_is_refused(tmp_path):
+    path = tmp_path / "long.png"
+    Image.new("L", (10000, 10)).save(path)
+    with pytest.raises(ValueError, match="long and narrow"):
+        open_logo(path)
+
+
+def test_a_transparent_colour_leaves_no_halo_when_shrunk(tmp_path):
+    path = tmp_path / "keyed.png"
+    image = Image.new("RGB", (1200, 1200), (0, 0, 0))
+    ImageDraw.Draw(image).ellipse((100, 100, 1100, 1100), fill=(128, 128, 128))
+    image.save(path, transparency=(0, 0, 0))
+    assert open_logo(path).mode == "RGBA"

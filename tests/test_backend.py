@@ -19,9 +19,12 @@ from chgk.backend import (
     bundle_version,
     source_version,
 )
+from chgk.cards.build import build_cards, build_jury_sheet
+from chgk.cards.impose import Mode
 from chgk.cli import app
+from chgk.config import load_config
 from chgk.ids import decode_jury_link, encode_jury_link
-from chgk.remote import new_tournament, replace_token, sync_teams
+from chgk.remote import delete_tournament, new_tournament, replace_token, sync_teams
 from chgk.state import load_or_create_state, load_state, save_state
 from chgk.teams import Team, read_teams
 
@@ -194,6 +197,57 @@ def test_a_refused_deleted_id_does_not_stay_in_state_json(folder):
     with pytest.raises(BackendError, match="deleted"):
         new_tournament(folder, Profile("personal", URL_A, "tokA", "a@gmail.com"), Refusing())
     assert load_state(folder) is None
+
+
+def test_an_id_another_tournament_holds_does_not_stay_in_state_json(folder):
+    class Refusing:
+        def create_tournament(self, **_):
+            raise BackendError("tournament X already exists")
+
+    with pytest.raises(BackendError, match="already exists"):
+        new_tournament(folder, Profile("personal", URL_A, "tokA", "a@gmail.com"), Refusing())
+    assert load_state(folder) is None
+
+
+def test_reserve_decks_added_after_new_are_refused(folder, backends):
+    profiles = Profiles()
+    profiles.add(Profile("personal", URL_A, "tokA"))
+    profiles.save()
+    state = new_tournament(folder, profiles.active()).state
+    assert state.reserve_teams == load_config(folder).reserve_teams
+    config = folder / "config.py"
+    text = config.read_text(encoding="utf-8")
+    config.write_text(text.replace("tournament = Tournament(", "tournament = Tournament(\n    reserve_teams=9,"))
+    with pytest.raises(ValueError, match="reserve_teams=9"):
+        build_cards(folder, Mode.TEAM_PAGES, folder / "cards.pdf")
+    with pytest.raises(ValueError, match="reserve_teams=9"):
+        sync_teams(folder, Profiles())
+
+
+def test_an_unfinished_token_replacement_warns_on_the_printouts(folder, backends):
+    state = new_tournament(folder, Profile("personal", URL_A, "tokA")).state
+    save_state(folder, replace(state, pending_token={"which": "jury", "token": "x"}))
+    assert any("never finished" in w for w in build_jury_sheet(folder, folder / "jury.pdf")[1])
+
+
+def test_a_team_named_like_another_doesnt_inherit_its_logo(folder, backends):
+    a, _ = backends
+    profiles = Profiles()
+    profiles.add(Profile("personal", URL_A, "tokA"))
+    profiles.save()
+    state = new_tournament(folder, profiles.active()).state
+    a.set_cell(state.tid, "Teams", 3, 2, "Синие зайцы")  # A02 now shares the name of A01, whose logo is z.png
+    teams = {t.team_id: t for t in sync_teams(folder, profiles)}
+    assert teams["A01"].logo_file == "z.png" and teams["A02"].logo_file == ""
+
+
+def test_a_config_tid_other_than_the_tournaments_stops_every_backend_command(folder, backends):
+    new_tournament(folder, Profile("personal", URL_A, "tokA"))
+    config = folder / "config.py"
+    text = config.read_text(encoding="utf-8")
+    config.write_text(text.replace("tournament = Tournament(", 'tournament = Tournament(\n    tid="OTHER",'))
+    with pytest.raises(ValueError, match="gives tid OTHER"):
+        delete_tournament(folder, Profiles())
 
 
 def test_new_tournament_is_idempotent(folder, backends):

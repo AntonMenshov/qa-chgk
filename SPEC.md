@@ -187,8 +187,9 @@ Only «Итоги», the round tabs and «Статистика» are visible (us
 Settings, Teams, Log and Meta are hidden to keep the Sheet tidy, not for secrecy: a viewer could
 export a hidden tab. So the real Sheet is private, and the public link (§8.6) is a separate copy
 holding only «Итоги», the round tabs and «Статистика», as values (`apps_script/results.js`; user
-decision). It is published after a change at most every 30 s, by the next phone or board read, and at
-once after an edit in the Sheet; a one-off timer publishes what no read picked up (the last marks of a game). `chgk results-copy <folder>` gives one to an older tournament.
+decision). It is published after a change at most every 30 s, by the next phone or board read (an edit in the
+Sheet counts as a change, so it shows within about 90 s; a row deleted by hand doesn't count until `chgk results-copy` or the next
+change); a one-off timer publishes what no read picked up (the last marks of a game). `chgk results-copy <folder>` gives one to an older tournament.
 
 ### Cell values on the round tabs
 
@@ -268,7 +269,7 @@ instead of the card.
    - a card whose question is beyond the tournament's last one (printed for a longer
      tournament) is refused with a message and never becomes the current question;
    - the team name is shown in large type and a `received` event is recorded;
-   - **warning** (colour + sound; iOS has no vibration for web pages) if the card is from an
+   - **warning** (colour; the app makes no sound, user decision) if the card is from an
      earlier question than the current one («Карточка вопроса 5 (идёт 7) — отмечается для 5»;
      the mark still goes to 5), or if it is already judged («Уже отмечено: верно»).
 3. The juror taps **✓ / ✗ / ?**. The status event is recorded and the app returns to
@@ -496,7 +497,7 @@ The Claude API does not output raster images, but it can write SVG.
   drafts exist, `chgk logos` writes `out/<slug>/logo-preview.pdf`: one real card per drafted
   team at the tournament's layout, size and shade. `--accept all|A01,A02` checks the drafts
   again, moves them to `logos/<latin-name>.svg` (`zvezdy-soshlis.svg`; `-<team_id>` added if
-  another team's file has that name) and records them in teams.py.
+  that name is taken, even by the team's own earlier logo, which another tournament may print) and records them in teams.py.
 
 ## 10. Outputs
 

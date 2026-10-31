@@ -13,13 +13,13 @@ from PIL import Image, ImageOps
 
 from chgk import PROJECT_DIR
 from chgk.config import CardFields, LogoMode
-from chgk.svg import CUT_FROM, INK_THRESHOLD, open_svg
+from chgk.svg import CUT_FROM, INK_THRESHOLD, MAX_ASPECT, ink_box, open_svg
 
 if TYPE_CHECKING:
     from chgk.teams import Team
 
 LOGO_LIBRARY = PROJECT_DIR / "logos"
-MAX_SIDE = 600  # px: ≥ ~300 dpi at the sizes used, and keeps PDFs small
+MAX_SIDE = 600  # px: ≥ ~300 dpi at the default grid's sizes (about 170 on 2×2), and keeps PDFs small
 TOURNAMENT_KEY = "tournament"
 FALLBACK_KEY = "fallback"
 
@@ -49,7 +49,17 @@ def resolve_logo(name: str, folder: Path) -> Path | None:
     return None
 
 
+PALE_PAPER = 200  # a logo's edge at least this light, and not white: paper, not drawing
 REFERENCE_PERCENTILE = 0.10  # the darkest 10% of the drawing defines "full ink"
+
+
+def _paper_to_white(lum: Image.Image) -> Image.Image:
+    """A scan or JPEG on off-white paper: lift that paper to white, or it would count as the drawing itself."""
+    w, h = lum.size
+    edges = [lum.crop(box).histogram() for box in ((0, 0, w, 1), (0, h - 1, w, h), (0, 0, 1, h), (w - 1, 0, w, h))]
+    counts = [sum(column) for column in zip(*edges, strict=True)]
+    paper = counts.index(max(counts))
+    return lum.point(lambda v: min(255, v * 255 // paper)) if PALE_PAPER <= paper < INK_THRESHOLD else lum
 
 
 def pale(image: Image.Image, grey: float) -> Image.Image:
@@ -66,7 +76,7 @@ def pale(image: Image.Image, grey: float) -> Image.Image:
     rgba = image.convert("RGBA")
     flat = Image.new("RGBA", rgba.size, "white")
     flat.alpha_composite(rgba)
-    lum = flat.convert("L")
+    lum = _paper_to_white(flat.convert("L"))
     hist = lum.histogram()
     ink = sum(hist[:INK_THRESHOLD])
     if ink == 0:
@@ -83,13 +93,22 @@ def pale(image: Image.Image, grey: float) -> Image.Image:
 
 def open_logo(path: Path) -> Image.Image:
     """A logo file as an image at most MAX_SIDE px across; ValueError if it can't be used."""
-    path = Path(path)
+    image = _read_logo(Path(path))
+    if ink_box(image) is None:  # white on transparent, say: the cards would print nothing and call it a logo
+        raise ValueError("nothing would print: the image is empty or all white")
+    return image
+
+
+def _read_logo(path: Path) -> Image.Image:
     if path.suffix.lower() == ".svg":
         return open_svg(path, MAX_SIDE)
     try:
         with Image.open(path) as opened:
             image = ImageOps.exif_transpose(opened)  # a phone's photo is stored sideways
-            if image.mode in ("P", "1"):  # or shrinking keeps only exact pixels: thin lines break
+            if max(image.size) > MAX_ASPECT * min(image.size):
+                raise ValueError(f"too long and narrow ({image.width}×{image.height}) to be a logo")
+            # Or shrinking keeps only exact pixels (thin lines break), or smears a transparent colour (a halo).
+            if image.mode in ("P", "1") or "transparency" in image.info:
                 image = image.convert("RGBA")
             image.thumbnail((MAX_SIDE, MAX_SIDE))
             return image.copy()

@@ -99,3 +99,9 @@ def test_a_card_without_a_qr_is_not_too_small_for_it():
     with pytest.raises(GeometryError):
         card_parts(card, 0.85 * INCH)
     assert card_parts(card, 0.85 * INCH, no_qr=True)
+
+
+def test_without_a_qr_code_its_size_plays_no_part():
+    card = card_rects(Layout(cols=4, rows=6, qr_size=2.0))[0]
+    parts = card_parts(card, 2.0 * INCH, no_qr=True)
+    assert parts.number.w > 0 and parts.writing.h > 0 and parts.logo.w > 0

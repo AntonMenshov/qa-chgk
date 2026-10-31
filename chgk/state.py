@@ -33,6 +33,7 @@ class State:
     pending_token: dict[str, Any] | None = None
     # Every team ID this tournament has used: printed on cards, so never given to another team.
     used_team_ids: list[str] = field(default_factory=list)
+    reserve_teams: int | None = None  # as at `chgk new`: the backend knows only those decks; None on older states
 
     @property
     def spreadsheet_url(self) -> str | None:
@@ -81,6 +82,15 @@ def check_tid(state: State, tid: str | None) -> None:
             f"config.py gives tid {tid}, but this tournament already has the ID {state.tid} "
             f"(state.json; in its printed cards{made}). Remove tid from config.py, or, if nothing "
             "was printed or created yet, delete state.json."
+        )
+
+
+def check_reserve(state: State, count: int) -> None:
+    """Reserve decks added after `chgk new` would print, then be refused at their first scan."""
+    if state.spreadsheet_id and state.reserve_teams is not None and state.reserve_teams != count:
+        raise ValueError(
+            f"config.py gives reserve_teams={count}, but this tournament was created with {state.reserve_teams}, "
+            "and the backend knows only those decks. Put the number back, or recreate the tournament."
         )
 
 

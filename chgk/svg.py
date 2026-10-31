@@ -7,13 +7,15 @@ every machine.
 
 A logo is square: a file of another shape is cut to one around its drawing (`_square`).
 
-Known gap (PLAN.md Phase 9): the checks can be got past (`@IMPORT`, CSS escapes, CSS after a child of
+Known gap (PLAN.md Phase 9): the checks can be got past (CSS escapes, CSS after a child of
 <style>, <set>/<animate>, <?xml-stylesheet?>). Harmless for now: resvg fetches nothing from outside.
 """
 
+import contextlib
 import io
 import re
 import xml.etree.ElementTree as ET
+from math import isfinite
 from pathlib import Path
 from typing import Any
 
@@ -28,6 +30,8 @@ FONT_FAMILY = "PT Sans"
 FORCE_FONT = f'* {{ font-family: "{FONT_FAMILY}" !important; }}'
 MAX_BYTES = 2_000_000
 INK_THRESHOLD = 250  # luminance below this counts as part of the drawing
+LENGTH = re.compile(r"(\d*\.?\d+(?:e[+-]?\d+)?)(px|mm|cm|in|pt|pc|)", re.IGNORECASE)
+UNITS = {"": 1.0, "px": 1.0, "in": 96.0, "cm": 96 / 2.54, "mm": 96 / 25.4, "pt": 96 / 72, "pc": 16.0}
 CUT_FROM = "cut_from"  # Image.info key: the "W×H" a non-square file was cut from
 
 UNSAFE_TAGS = {"script", "foreignObject", "iframe", "embed", "object", "audio", "video"}
@@ -62,7 +66,7 @@ def check_svg(text: str) -> None:
             if name == "href" and not LOCAL_REF.match(value.strip()):
                 raise ValueError(f"SVG with an external reference ({value[:60]!r}) is refused")
         sheet = (element.text or "") if tag == "style" else ""
-        if "@import" in sheet:
+        if "@import" in sheet.lower():
             raise ValueError("SVG with @import is refused")
         for css in [sheet, *element.attrib.values()]:  # url(...) in a style sheet, style= or fill=
             for ref in CSS_URL.findall(css):
@@ -70,23 +74,38 @@ def check_svg(text: str) -> None:
                     raise ValueError(f"SVG with an external reference (url({ref[:60]})) is refused")
 
 
+def _length(value: str) -> float | None:
+    """A width or height in px, whatever its unit; None if not a length (ValueError for em and the like)."""
+    match = LENGTH.fullmatch(value.strip())
+    if match:
+        return float(match[1]) * UNITS[match[2].lower()]
+    if value.strip() in ("", "100%"):  # no size of its own: the viewBox decides
+        return None
+    raise ValueError(f"SVG with a size that can't be read ({value[:30]!r})")  # em, 5000%: it could fill the memory
+
+
 def _size(text: str) -> tuple[float, float]:
-    """The SVG's proportions: its plain-number width and height (they decide the render), else viewBox, else square."""
+    """The SVG's proportions: its width and height (they decide the render), else viewBox, else square."""
     root = ET.fromstring(text)
+    width, height = _length(root.get("width") or ""), _length(root.get("height") or "")
     numbers = re.split(r"[\s,]+", (root.get("viewBox") or "").strip())
-    plain = re.compile(r"[\d.]+(px)?")
-    w_attr, h_attr = root.get("width") or "", root.get("height") or ""
-    if plain.fullmatch(w_attr) and plain.fullmatch(h_attr):
-        sides = (w_attr.removesuffix("px"), h_attr.removesuffix("px"))
+    w, h = 1.0, 1.0
+    if width is not None and height is not None:
+        w, h = width, height
     elif len(numbers) == 4:
-        sides = (numbers[2], numbers[3])
-    else:
-        return 1.0, 1.0
-    try:
-        w, h = float(sides[0]), float(sides[1])
-    except ValueError:
-        return 1.0, 1.0
+        with contextlib.suppress(ValueError):
+            w, h = float(numbers[2]), float(numbers[3])
+    if not (isfinite(w) and isfinite(h)):
+        raise ValueError("SVG with an endless size")
     return (w, h) if w > 0 and h > 0 else (1.0, 1.0)
+
+
+def ink_box(image: Image.Image) -> tuple[int, int, int, int] | None:
+    """Where the drawing is: anything darker than INK_THRESHOLD once flattened on white; None if nothing is."""
+    rgba = image.convert("RGBA")
+    flat = Image.new("L", rgba.size, 255)
+    flat.paste(rgba.convert("L"), mask=rgba)
+    return flat.point(lambda v: 255 if v < INK_THRESHOLD else 0).getbbox()
 
 
 def _square(image: Image.Image) -> Image.Image:
@@ -94,9 +113,7 @@ def _square(image: Image.Image) -> Image.Image:
     w, h = image.size
     if w == h:
         return image
-    flat = Image.new("L", image.size, 255)
-    flat.paste(image.convert("L"), mask=image)
-    box = flat.point(lambda v: 255 if v < INK_THRESHOLD else 0).getbbox() or (0, 0, w, h)
+    box = ink_box(image) or (0, 0, w, h)
     side = min(w, h)
     left = min(max((box[0] + box[2] - side) // 2, 0), w - side)
     top = min(max((box[1] + box[3] - side) // 2, 0), h - side)
@@ -114,6 +131,7 @@ def render_svg(text: str, max_side: int) -> Image.Image:
         "font_files": FONT_FILES,
         "font_family": FONT_FAMILY,
         "style_sheet": FORCE_FONT,
+        "dpi": 96,  # or a size in mm or pt comes out as nothing
     }
     w, h = _size(text)
     if max(w, h) > MAX_ASPECT * min(w, h):
@@ -128,7 +146,9 @@ def render_svg(text: str, max_side: int) -> Image.Image:
         image.load()
     except (ValueError, OSError, Image.DecompressionBombError) as err:
         raise ValueError(f"SVG could not be drawn ({err})") from err
-    return _square(image.convert("RGBA"))
+    square = _square(image.convert("RGBA"))
+    square.thumbnail((max_side, max_side))  # resvg rounds a canvas up to whole pixels
+    return square
 
 
 def open_svg(path: Path, max_side: int) -> Image.Image:

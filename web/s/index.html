@@ -12,7 +12,7 @@
     <link rel="icon" href="icons/icon-192.png" />
     <title>ЧГК · сканер жюри</title>
     <link rel="stylesheet" href="app.css" />
-    <script src="vendor/zxing-wasm-3.1.4/zxing-reader.iife.js"></script>
+    <script defer src="vendor/zxing-wasm-3.1.4/zxing-reader.iife.js"></script>
     <script type="module" src="app.js"></script>
   </head>
   <body>
@@ -38,6 +38,17 @@
       <p id="loading-msg" class="msg"></p>
       <button id="loading-retry" class="big" hidden>Повторить</button>
       <button id="loading-reset" class="link" hidden>Отключить этот турнир</button>
+      <script>
+        // app.js never ran (a file failed to load), so nothing wired the buttons: an installed app has no reload.
+        setTimeout(() => {
+          if (document.getElementById('loading-title').textContent === 'Загрузка…') {
+            document.getElementById('loading-title').textContent = 'Приложение не запустилось';
+            const retry = document.getElementById('loading-retry');
+            retry.hidden = false;
+            retry.onclick = () => location.reload();
+          }
+        }, 15000);
+      </script>
     </section>
 
     <!-- Scanning. -->

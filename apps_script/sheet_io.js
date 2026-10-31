@@ -61,6 +61,7 @@ function readBlocksSlowly_(ss, specs) {
 function writer_(ss) {
   const data = [];
   return {
+    fellBack: false, // the API failed: setValues re-reads text, so «2-3» can turn into a date
     set(name, row, col, values) {
       if (values.length) {
         data.push({name, row, col, values});
@@ -91,6 +92,7 @@ function writer_(ss) {
           return;
         } catch {
           // e.g. a tab too small (the Log grows all game): the slow way grows it
+          this.fellBack = true;
         }
       }
       timed_('write_fallback', () => writeSlowly_(ss, batch));

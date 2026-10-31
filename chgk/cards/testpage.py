@@ -66,7 +66,7 @@ def render_test_page(
     c.setFont(FONT, 8)
     x = 0.5 * INCH
     chosen = tournament.layout.qr_size
-    for i, size in enumerate(QR_SIZES, start=1):
+    for i, size in enumerate([] if tournament.card.no_qr else QR_SIZES, start=1):
         # A real card, even in a tournament shorter than the samples.
         question = (i - 1) % tournament.total_questions + 1
         payload = encode_payload(tournament.scanner_url, CardId(tid, team.team_id, question=question))

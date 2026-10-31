@@ -14,7 +14,8 @@ from chgk.config import LogoMode, Tournament, load_config
 from chgk.ids import encode_payload, generate_tid
 from chgk.jury import render_jury_sheet
 from chgk.logos import first_logo, load_logos, open_logo, pale
-from chgk.state import State, load_or_create_state, load_state, remember_team_ids
+from chgk.state import State, check_reserve, load_or_create_state, load_state, remember_team_ids
+from chgk.svg import CUT_FROM
 from chgk.teams import TEAMS_FILE, Team, read_teams, reserve_teams
 
 INSTRUCTIONS = {
@@ -56,14 +57,22 @@ def _state(folder: Path, tournament: Tournament) -> tuple[State, list[str]]:
     """The tournament's state, plus a warning if a new ID was just made though printouts exist."""
     is_new = load_state(folder) is None
     state = load_or_create_state(folder, tournament.tid)
+    check_reserve(state, tournament.reserve_teams)
     remember_team_ids(folder, [t.team_id for t in read_teams(folder / TEAMS_FILE)])
+    warnings = []
+    if state.pending_token:
+        which = state.pending_token.get("which")
+        warnings.append(
+            f"a replacement of the {which} token never finished: the jury sheet may carry a dead one. "
+            f"Run `chgk replace-token {folder} {which}` again."
+        )
     printed = is_new and any(out_dir(tournament.slug).glob("*.pdf"))
     if printed and not tournament.tid:
-        return state, [
+        warnings.append(
             f"no state.json in {folder}: this is a new tournament ID ({state.tid}), so cards printed "
             f"earlier (out/{tournament.slug}/) won't scan into it. Restore state.json if you have it."
-        ]
-    return state, []
+        )
+    return state, warnings
 
 
 def build_cards(folder: Path, mode: Mode, out: Path | None = None, team_ids: list[str] | None = None) -> BuildResult:
@@ -146,7 +155,10 @@ def build_logo_preview(folder: Path, drafts: dict[str, Path], out: Path | None =
     for t in teams:
         try:
             grey = tournament.card.logo_grey if t.logo_grey is None else t.logo_grey
-            images[t.team_id] = pale(open_logo(drafts[t.team_id]), grey)
+            source = open_logo(drafts[t.team_id])
+            images[t.team_id] = pale(source, grey)
+            if CUT_FROM in source.info:
+                warnings.append(f"draft {drafts[t.team_id]}: not square ({source.info[CUT_FROM]}); shown cut")
         except ValueError as err:
             warnings.append(f"draft {drafts[t.team_id]}: {err}")
     preview = replace(tournament, card=replace(tournament.card, logo=LogoMode.TEAM, fallback_logo=None))

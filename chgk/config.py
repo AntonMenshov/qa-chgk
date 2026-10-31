@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime
 from enum import Enum
 from pathlib import Path
+from urllib.parse import urlparse
 
 from chgk import run_python_file
 from chgk.ids import MAX_QUESTION, MAX_SPARE, TID_RE
@@ -59,6 +60,7 @@ class CardFields:
 
 
 # One row covers the test page, one column has room for one sample; past the maximum, too small to write on.
+MAX_ROUNDS, MAX_ROUND_SIZE = 20, 100
 MIN_COLS, MAX_COLS = 2, 4
 MIN_ROWS, MAX_ROWS = 2, 6
 
@@ -73,7 +75,8 @@ class Layout:
     margin: float = 0.25
 
     def __post_init__(self) -> None:
-        if not (MIN_COLS <= self.cols <= MAX_COLS and MIN_ROWS <= self.rows <= MAX_ROWS):
+        whole = all(isinstance(n, int) for n in (self.cols, self.rows))
+        if not (whole and MIN_COLS <= self.cols <= MAX_COLS and MIN_ROWS <= self.rows <= MAX_ROWS):
             raise ConfigError(
                 f"grid must be {MIN_COLS}–{MAX_COLS} columns × {MIN_ROWS}–{MAX_ROWS} rows, got {self.cols}×{self.rows}"
             )
@@ -124,13 +127,13 @@ class Tournament:
                 raise ConfigError(f"{name} must be a whole number, got {getattr(self, name)!r}")
         if not isinstance(self.date, date) or isinstance(self.date, datetime):
             raise ConfigError(f"date must be a date, e.g. date(2026, 11, 15), got {self.date!r}")
-        if self.rounds < 1:
-            raise ConfigError(f"rounds must be ≥ 1, got {self.rounds}")
+        if not 1 <= self.rounds <= MAX_ROUNDS:  # the backend's limits: found now, not after printing
+            raise ConfigError(f"rounds must be 1–{MAX_ROUNDS}, got {self.rounds}")
         per_round = self.round_sizes
         if len(per_round) != self.rounds:
             raise ConfigError(f"questions_per_round lists {len(per_round)} rounds, but rounds={self.rounds}")
-        if any(k < 1 for k in per_round):
-            raise ConfigError(f"every round needs ≥ 1 question, got {per_round}")
+        if not all(isinstance(k, int) and not isinstance(k, bool) and 1 <= k <= MAX_ROUND_SIZE for k in per_round):
+            raise ConfigError(f"every round needs 1–{MAX_ROUND_SIZE} questions, got {per_round}")
         if self.total_questions > MAX_QUESTION:
             raise ConfigError(f"at most {MAX_QUESTION} questions fit in a card's QR code, got {self.total_questions}")
         if self.spares_per_team < MIN_SPARES:
@@ -146,8 +149,10 @@ class Tournament:
             raise ConfigError(f"reserve_teams must be 0–9, got {self.reserve_teams}")
         if not 0 <= self.board_grid_max_teams <= 100:
             raise ConfigError(f"board_grid_max_teams must be 0–100, got {self.board_grid_max_teams}")
-        if not self.scanner_url.startswith("https://") or not self.scanner_url.endswith("/"):
-            raise ConfigError(f"scanner_url must start with https:// and end with /, got {self.scanner_url!r}")
+        url = urlparse(self.scanner_url)
+        if url.scheme != "https" or not url.hostname or url.fragment or url.query or not url.path.endswith("/s/"):
+            # /s/: the board's page is found beside it, at ../b/.
+            raise ConfigError(f"scanner_url must look like https://<host>/…/s/, got {self.scanner_url!r}")
 
     @property
     def round_sizes(self) -> list[int]:

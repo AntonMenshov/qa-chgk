@@ -17,7 +17,7 @@ function teamsFromRows_(values) {
       name: String(r[1]).trim(),
       city: String(r[2]).trim(),
       logo_file: String(r[3]).trim(),
-      reserve: String(r[4]).trim() === RESERVE_MARK,
+      reserve: String(r[4]).trim().toLowerCase() === RESERVE_MARK,
       row: i + 2,
     }))
     .filter((t) => t.team_id !== '' || t.name !== '');

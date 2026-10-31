@@ -62,10 +62,17 @@ export class Camera {
 
   /** A second call while one is under way waits for it, instead of opening a second stream. */
   start() {
+    const before = this.wanted;
     this.wanted = true;
-    this.starting ??= this.open().finally(() => {
-      this.starting = null;
-    });
+    this.failures = 0;
+    this.starting ??= this.open()
+      .catch((err) => {
+        this.wanted = before; // never got going: a return to the app must not ask for the camera by itself
+        throw err;
+      })
+      .finally(() => {
+        this.starting = null;
+      });
     return this.starting;
   }
 

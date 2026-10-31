@@ -1,11 +1,10 @@
 // «Чья карточка?»: cards are only described, nothing is recorded.
 
 import {identify} from '../lib/lookup.js';
-import {$, beep, sheet, toast, unlockAudio} from './dom.js';
+import {$, sheet, toast} from './dom.js';
 import {app} from './state.js';
 
 export async function openLookup() {
-  unlockAudio();
   $('lookup').className = 'sheet lookup';
   $('lk-title').textContent = 'Наведите камеру на карточку';
   $('lk-details').replaceChildren();
@@ -15,6 +14,7 @@ export async function openLookup() {
     await app.camera.start();
     $('start').hidden = true;
   } catch (err) {
+    $('start').hidden = false; // a failed start released the camera, even one that was running
     if (app.lookingUp) {
       $('lk-title').textContent = `Камера недоступна: ${err.message}`;
     } else {
@@ -30,5 +30,4 @@ export function showLookup(text) {
   $('lk-details').replaceChildren(
     ...r.details.map((d) => Object.assign(document.createElement('li'), {textContent: d})),
   );
-  beep(r.tone);
 }

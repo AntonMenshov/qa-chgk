@@ -2,7 +2,7 @@
 // The logic lives in lib/ (tested in Node); ui/ shows it on the page.
 
 import {sameAccess} from './lib/payload.js';
-import {$, sheet, show, toast, unlockAudio} from './ui/dom.js';
+import {$, sheet, show, toast} from './ui/dom.js';
 import {answerSpare, handleCode, verdict} from './ui/scan.js';
 import {adoptSetup, readHash, startSetupScreen, useSetup} from './ui/setup.js';
 import {app, forgetLocalData, K, store} from './ui/state.js';
@@ -16,7 +16,6 @@ const REFRESH_EVERY_MS = 20000;
 
 function wire() {
   $('start').onclick = async () => {
-    unlockAudio();
     try {
       await app.camera.start();
       $('start').hidden = true;
@@ -115,7 +114,11 @@ function wire() {
     }
     forgetTournament();
   };
-  $('loading-reset').onclick = forgetTournament;
+  $('loading-reset').onclick = () => {
+    if (confirm('Отключить этот турнир? Чтобы вернуться, понадобится QR доступа жюри.')) {
+      forgetTournament();
+    }
+  };
   setInterval(flush, FLUSH_EVERY_MS);
   setInterval(() => {
     app.photos?.pump();
@@ -133,7 +136,6 @@ function wire() {
     }
   });
   addEventListener('pageshow', resumeCamera);
-  document.addEventListener('pointerdown', unlockAudio); // iOS stops the sound on a phone lock; any tap restarts it
 }
 
 /** A second tab keeps its own copy of the unsent marks, and saving overwrites the other's: say so. */

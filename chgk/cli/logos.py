@@ -80,15 +80,15 @@ def logos_cmd(
     accept: str | None = typer.Option(None, help="Record drafts in teams.py: all, or team_ids like A01,A02"),
 ) -> None:
     """Show which logo each team's cards use; draw drafts with Claude; preview and accept them."""
-    if team and not draw:
+    if team is not None and not draw:
         raise fail(ValueError("--team goes with --draw"))
-    if draw and accept:
+    if draw and accept is not None:
         raise fail(ValueError("use --draw and --accept one at a time: preview the drafts first"))
     try:
         tournament = load_config(folder)
         teams_path = Path(folder) / TEAMS_FILE
         teams = read_teams(teams_path)
-        if accept:
+        if accept is not None:
             which = None if accept.strip().lower() == "all" else team_ids(accept)
             if which == []:
                 raise ValueError("--accept gives no team IDs")

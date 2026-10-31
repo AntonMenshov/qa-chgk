@@ -1,4 +1,4 @@
-// The page: which screen or bottom sheet is shown, toasts, and sounds (iOS has no vibration for web pages).
+// The page: which screen or bottom sheet is shown, and toasts.
 
 import {app} from './state.js';
 
@@ -23,56 +23,6 @@ export function sheet(id) {
   }
 }
 
-let audio = null;
-
-export function unlockAudio() {
-  try {
-    audio ??= new AudioContext();
-    if (audio.state !== 'running') {
-      audio.resume().catch(() => {});
-    }
-  } catch {
-    audio = null;
-  }
-}
-
-export function beep(kind) {
-  // Stopped (a phone lock, a call): tones queued now would all play at once on resume.
-  if (audio?.state !== 'running') {
-    return;
-  }
-  try {
-    playTones(kind);
-  } catch {
-    // a sound must never get in the way of a card
-  }
-}
-
-function playTones(kind) {
-  const tones =
-    kind === 'warn'
-      ? [
-          [440, 0],
-          [440, 0.18],
-        ]
-      : kind === 'bad'
-        ? [
-            [220, 0],
-            [220, 0.2],
-            [220, 0.4],
-          ]
-        : [[1046, 0]];
-  for (const [freq, at] of tones) {
-    const osc = audio.createOscillator();
-    const gain = audio.createGain();
-    osc.frequency.value = freq;
-    gain.gain.value = 0.15;
-    osc.connect(gain).connect(audio.destination);
-    osc.start(audio.currentTime + at);
-    osc.stop(audio.currentTime + at + 0.12);
-  }
-}
-
 let toastTimer = null;
 
 export function toast(text, bad = false) {
@@ -84,4 +34,9 @@ export function toast(text, bad = false) {
   toastTimer = setTimeout(() => {
     el.hidden = true;
   }, 3500);
+}
+
+export function hideToast() {
+  clearTimeout(toastTimer);
+  $('toast').hidden = true;
 }

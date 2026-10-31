@@ -25,13 +25,12 @@ from pathlib import Path
 from typing import Any, cast
 
 import anthropic
-import httpx
 from PIL import Image
 
 from chgk import logos
 from chgk.cards.geometry import INCH, card_parts, card_rects
 from chgk.config import CardFields, Layout
-from chgk.svg import CUT_FROM, check_svg, render_svg
+from chgk.svg import CUT_FROM, ink_box, render_svg
 from chgk.teams import Team, write_teams
 
 API_KEY_ENV = "ANTHROPIC_API_KEY"
@@ -72,7 +71,7 @@ def logo_look(fields: CardFields, layout: Layout) -> LogoLook:
     """The printed size and shade of a logo with these card settings (the cards' own geometry)."""
     card = card_rects(layout)[0]
     logo_pt = fields.logo_size * INCH if fields.logo_size else None
-    parts = card_parts(card, layout.qr_size * INCH, logo_pt)
+    parts = card_parts(card, layout.qr_size * INCH, logo_pt, fields.no_qr)
     cm = 2.54 / INCH
     return LogoLook(
         grey=fields.logo_grey,
@@ -80,7 +79,7 @@ def logo_look(fields: CardFields, layout: Layout) -> LogoLook:
         card_w_cm=card.w * cm,
         card_h_cm=card.h * cm,
         sized=fields.logo_size is not None,
-        under_qr=parts.logo.intersects(parts.qr),
+        under_qr=not fields.no_qr and parts.logo.intersects(parts.qr),
     )
 
 
@@ -253,9 +252,7 @@ def extract_svg(text: str) -> str:
 
 def measure(image: Image.Image) -> str:
     """Facts about a rendered drawing that are hard to see: where its ink reaches, in canvas units."""
-    flat = Image.new("L", image.size, 255)
-    flat.paste(image.convert("L"), mask=image.convert("RGBA"))
-    box = flat.point(lambda v: 255 if v < 250 else 0).getbbox()
+    box = ink_box(image)
     if box is None:
         return "The drawing is empty: nothing was drawn."
     scale = 1000 / max(image.size)
@@ -358,7 +355,7 @@ def draw_logo(
                 raise
             log(f"{label}: {err}; keeping the previous drawing")
             break
-        except (ValueError, anthropic.APIError, httpx.HTTPError) as err:
+        except Exception as err:  # a dropped stream raises the SDK's own transport errors, unwrapped
             if svg is None:
                 raise
             log(f"{label}: {err}; keeping the previous drawing")  # it is paid for
@@ -370,8 +367,9 @@ def draw_logo(
             return svg
         try:
             candidate = extract_svg(text)
-            check_svg(candidate)
             image = render_svg(candidate, RENDER_SIDE)
+            if ink_box(image) is None:
+                raise ValueError("the drawing is empty")
             if CUT_FROM in image.info:
                 raise ValueError(f'the canvas is {image.info[CUT_FROM]}, not square: use viewBox="0 0 1000 1000"')
         except ValueError as err:
@@ -457,12 +455,12 @@ def draw_drafts(
                     path = future.result()
                 except anthropic.AuthenticationError:
                     raise
-                except (anthropic.APIError, httpx.HTTPError) as err:
-                    outcome = DraftOutcome(team, error=f"API error ({type(err).__name__}); try again later")
                 except OSError as err:
                     outcome = DraftOutcome(team, error=f"could not save the draft ({err})")
                 except ValueError as err:
                     outcome = DraftOutcome(team, error=f"no usable drawing ({err}); try again")
+                except Exception as err:  # as in draw_logo: the API's errors, and its transport's
+                    outcome = DraftOutcome(team, error=f"API error ({type(err).__name__}: {err}); try again later")
                 else:
                     outcome = DraftOutcome(team, path=path, skipped=path is None)
                 if outcome.error:
@@ -598,11 +596,10 @@ def accept_drafts(teams_path: Path, slug: str, teams: list[Team], team_ids: list
         team = by_id[tid]
         name = f"{file_stem(team.name)}.svg"
         # In the tournament's folder too: resolve_logo looks there first, and would hide the new logo.
-        clash = any((base / name).exists() for base in (logos.LOGO_LIBRARY, teams_path.parent))
-        if (clash and team.logo_file != name) or name in taken:
-            own = f"{file_stem(team.name)}-{tid.lower()}"
-            folders = (logos.LOGO_LIBRARY, teams_path.parent)
-            name = f"{own}.svg" if team.logo_file == f"{own}.svg" else _free_name(own, folders, taken)
+        # A team's own earlier logo counts too: another tournament may be printing that file.
+        folders = (logos.LOGO_LIBRARY, teams_path.parent)
+        if name in taken or any((base / name).exists() for base in folders):
+            name = _free_name(f"{file_stem(team.name)}-{tid.lower()}", folders, taken)
         taken.add(name)
         shutil.move(drafts[tid], logos.LOGO_LIBRARY / name)
         by_id[tid] = replace(team, logo_file=name)

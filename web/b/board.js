@@ -295,6 +295,13 @@ $('view').onclick = toggleView;
 $('qr').onclick = toggleQr;
 $('full').onclick = () =>
   document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
+// A mouse click must not leave focus on its button: Space would press it again instead of showing
+// the next round, and the controls would never fade. Keyboard use (detail 0) keeps its focus.
+$('controls').addEventListener('click', (e) => {
+  if (e.detail) {
+    e.target.closest('button')?.blur();
+  }
+});
 addEventListener('keydown', (e) => {
   // A held key would reveal several rounds at once; Cmd+F and the like stay the browser's.
   if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) {

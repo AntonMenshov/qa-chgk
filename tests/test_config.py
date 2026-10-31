@@ -108,7 +108,7 @@ def test_at_least_two_spares():
 
 def test_every_card_fits_its_qr_payload():
     """Questions 1–999 and spares S1–S99, counting the extra spares a last page can add."""
-    assert make(rounds=9, questions_per_round=111).total_questions == 999
+    assert make(rounds=10, questions_per_round=[100] * 9 + [99]).total_questions == 999
     with pytest.raises(ConfigError, match="at most 999 questions"):
         make(rounds=10, questions_per_round=100)
     grid = Layout(cols=3, rows=4)  # 12 per page: up to 11 extra spares
@@ -226,3 +226,25 @@ def test_a_qr_code_too_large_for_the_grid_is_refused_on_loading(folder):
     config.write_text(text, encoding="utf-8")
     with pytest.raises(ValueError, match="too small"):
         load_config(folder)
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"rounds": 21, "questions_per_round": 1},
+        {"rounds": 1, "questions_per_round": 101},
+        {"rounds": 2, "questions_per_round": [2.5, 3]},
+        {"rounds": 1, "questions_per_round": True},
+        {"scanner_url": "https://example.github.io/qa-chgk/"},
+        {"scanner_url": "https:///s/"},
+        {"scanner_url": "https://example.github.io/#a/s/"},
+    ],
+)
+def test_what_the_backend_or_the_qr_codes_would_refuse_is_refused_on_loading(overrides):
+    with pytest.raises(ConfigError):
+        make(**overrides)
+
+
+def test_a_fractional_grid_is_refused():
+    with pytest.raises(ConfigError, match="grid must be"):
+        Layout(cols=2.5)

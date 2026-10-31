@@ -8,7 +8,16 @@ from typing import Any
 from chgk.backend import BackendClient, BackendError, Profile, Profiles
 from chgk.config import load_config
 from chgk.ids import generate_jury_token
-from chgk.state import STATE_FILE, State, check_tid, load_or_create_state, load_state, remember_team_ids, save_state
+from chgk.state import (
+    STATE_FILE,
+    State,
+    check_reserve,
+    check_tid,
+    load_or_create_state,
+    load_state,
+    remember_team_ids,
+    save_state,
+)
 from chgk.teams import TEAMS_FILE, Team, normalize_teams, read_teams, reserve_teams, write_teams
 
 
@@ -45,7 +54,7 @@ def new_tournament(folder: Path, profile: Profile, client: BackendClient | None 
     jury_token = state.jury_token or generate_jury_token()
     board_token = state.board_token or generate_jury_token()
     # Save the tokens first, so a retry after a timeout reuses them and the backend recognises the retry.
-    state = replace(state, jury_token=jury_token, board_token=board_token)
+    state = replace(state, jury_token=jury_token, board_token=board_token, reserve_teams=tournament.reserve_teams)
     save_state(folder, state)
 
     try:
@@ -60,8 +69,8 @@ def new_tournament(folder: Path, profile: Profile, client: BackendClient | None 
             board_token=board_token,
         )
     except BackendError as err:
-        if "belonged to a deleted tournament" in str(err):
-            # A dead ID, and nothing was made with it: kept, state.json would bring it back on every try.
+        if "belonged to a deleted tournament" in str(err) or "already exists" in str(err):
+            # An ID this tournament can't have, and nothing was made with it: kept, state.json would bring it back.
             (folder / STATE_FILE).unlink()
         raise
     state = replace(
@@ -79,6 +88,8 @@ def new_tournament(folder: Path, profile: Profile, client: BackendClient | None 
 def tournament_client(folder: Path, profiles: Profiles) -> tuple[State, BackendClient]:
     """Client for the backend this tournament was created on (not necessarily the active profile)."""
     state = load_state(folder)
+    if state:
+        check_tid(state, load_config(folder).tid)  # or `chgk delete` could delete the other tournament
     if state is None or not state.backend_url:
         raise ValueError("this tournament has no backend yet: run `chgk new` first")
     profile = profiles.by_url(state.backend_url)
@@ -122,7 +133,8 @@ def sync_teams(
     ]
     mine_teams = _local_teams(folder / TEAMS_FILE)
     local = {t.team_id: t for t in mine_teams}
-    by_name = {t.name: t for t in mine_teams}
+    on_sheet = {t.team_id for t in given}
+    by_name = {t.name: t for t in mine_teams if t.team_id not in on_sheet}  # a row renamed or with its ID blanked
     used = (load_state(folder) or state).used_team_ids  # reading teams.py just noted its IDs
     teams = []
     kept = set()
@@ -142,9 +154,12 @@ def sync_teams(
     if gone:
         warnings.append(
             f"still on the tabs but not on Teams: {', '.join(gone)}. If they withdrew, delete their rows on «Итоги» "
-            "and the round tabs by hand; their marks stay in the Log."
+            "and the round tabs by hand, then run `chgk results-copy` to update the public copy; their marks stay "
+            "in the Log."
         )
-    reserve_teams(load_config(folder).reserve_teams, teams)  # R1, R2, … are printed on the reserve decks
+    config = load_config(folder)
+    check_reserve(state, config.reserve_teams)
+    reserve_teams(config.reserve_teams, teams)  # R1, R2, … are printed on the reserve decks
     client.set_teams(state.tid, _team_dicts(teams))  # writes assigned IDs back and adds rows on every tab
     write_teams(folder / TEAMS_FILE, teams)  # only once the Sheet has the same IDs
     remember_team_ids(folder, [t.team_id for t in teams])

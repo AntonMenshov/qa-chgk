@@ -1,6 +1,8 @@
 // Creating a tournament: its Drive folder (Latin names), the Sheet and its tabs, sharing.
 
 /** The «CHGK» folder in My Drive. A trashed one is skipped: Drive still finds it by name. */
+const MAX_TRIGGERS = 20;
+
 function rootFolder_() {
   const root = driveNames('', '', '').root;
   const it = DriveApp.getRootFolder().getFoldersByName(root);
@@ -31,6 +33,9 @@ function createTournament_(props, req) {
   // Phones keep unsent marks and photos by this ID, so a new tournament under it would inherit them.
   if (props.getProperty(`used:${req.tid}`)) {
     fail(`tournament ID ${req.tid} belonged to a deleted tournament: give config.py another tid, or none`);
+  }
+  if (ScriptApp.getProjectTriggers().length >= MAX_TRIGGERS) {
+    fail(`Google allows ${MAX_TRIGGERS} triggers and all are in use: \`chgk delete\` old tournaments`); // before any file is made
   }
   // Latin names in Drive (user rule); the tabs inside the Sheet stay Russian.
   const names = driveNames(req.tid, req.name, req.date);

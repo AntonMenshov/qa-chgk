@@ -1,6 +1,6 @@
 // Scanning: what a code means, the card sheet with the verdicts, the spare card's question, photos.
 
-import {$, beep, sheet, toast} from './dom.js';
+import {$, hideToast, sheet, toast} from './dom.js';
 import {sameAccess} from '../lib/payload.js';
 import {noVerdictLabel} from '../lib/marks.js';
 import {firstPhoto} from '../lib/photos.js';
@@ -25,19 +25,15 @@ export function handleCode(text) {
       useSetup(r.setup);
       return;
     case 'other':
-      beep('bad');
       return toast('Это не карточка ЧГК', true);
     case 'foreign':
-      beep('bad');
       return toast(`Карточка другого турнира (${r.tid}) — не засчитана`, true);
     case 'unknown_team':
-      beep('bad');
       toast(`Команда ${r.teamId} не найдена — обновляю список команд…`, true);
       // The card isn't retried (user decision, code review 2026-10-31): scan it again after the refresh.
       refresh();
       return;
     case 'bad_question':
-      beep('bad');
       return toast(`Карточка вопроса ${r.question}, а в турнире всего ${r.total} — не засчитана`, true);
     case 'spare':
     case 'card':
@@ -91,7 +87,7 @@ function openCard(r) {
   warn.replaceChildren(...r.warnings.map((w) => Object.assign(document.createElement('li'), {textContent: w.text})));
   $('card').classList.toggle('warn', r.warnings.length > 0);
   $('v-later').textContent = noVerdictLabel(r.previous);
-  beep(r.warnings.length ? 'warn' : 'ok');
+  hideToast(); // the last card's error would read as this card's, over its buttons
   sheet('card');
   render();
 }
@@ -116,7 +112,6 @@ function openSpare(r) {
   $('sp-team').textContent = r.team.name;
   $('sp-current').textContent = `Вопрос ${app.session.current} — текущий`;
   $('sp-display').textContent = '';
-  beep('warn');
   sheet('spare');
 }
 
@@ -128,7 +123,6 @@ export function answerSpare(question) {
   if (!app.session.byId.has(r.team.team_id)) {
     app.spareResult = null; // its row was deleted from the Sheet while this sheet was open
     sheet(null);
-    beep('bad');
     toast(`Команда ${r.team.team_id} не найдена — не засчитана`, true);
     return;
   }

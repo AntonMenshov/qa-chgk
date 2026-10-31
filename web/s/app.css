@@ -185,7 +185,7 @@ header {
 }
 #setup .viewport {
   aspect-ratio: 3 / 4;
-  max-height: 55vh;
+  max-height: 40svh; /* the button and any message stay above the fold */
   margin: 12px 0;
 }
 video {
@@ -252,6 +252,9 @@ video {
 }
 .sheet .link {
   color: #2f6fed;
+}
+.sheet .danger {
+  color: #c62828;
 }
 .sheet.warn {
   background: var(--warn-bg);

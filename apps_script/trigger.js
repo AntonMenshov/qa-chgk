@@ -60,7 +60,7 @@ function onSheetEdit(e) {
         sortTabs_(ss, sizes, [...rounds], m, reg);
       }
     }
-    // Edits are rare, and no phone may be polling by then (a correction after the game).
+    // Not published here: a column of hand edits would publish once per cell, with phones waiting on the lock.
     let current = null;
     try {
       current = registry_(PropertiesService.getScriptProperties(), tid);
@@ -68,7 +68,7 @@ function onSheetEdit(e) {
       // a Sheet the backend doesn't know (copied?): nothing to publish to
     }
     if (current) {
-      publish_(ss, current, PropertiesService.getScriptProperties());
+      markUnpublished_(PropertiesService.getScriptProperties(), current);
     }
   });
 }

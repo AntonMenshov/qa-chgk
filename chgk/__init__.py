@@ -41,6 +41,8 @@ def write_file(path: Path, text: str, private: bool = False) -> None:
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             f.write(text)
+            f.flush()
+            os.fsync(f.fileno())  # or a power cut can leave the rename without the data
         os.chmod(temporary, 0o600 if private else 0o644)
         os.replace(temporary, path)
     except BaseException:

@@ -5,7 +5,7 @@ import {Camera} from '../lib/camera.js';
 import {identify} from '../lib/lookup.js';
 import {decodeCard, decodeSetup, sameAccess} from '../lib/payload.js';
 import {photoStore} from '../lib/photostore.js';
-import {$, show, toast, unlockAudio} from './dom.js';
+import {$, show, toast} from './dom.js';
 import {app, K, store} from './state.js';
 import {startTournament} from './tournament.js';
 
@@ -51,8 +51,11 @@ export async function adoptSetup(s) {
       return false;
     }
   }
+  if (!store.set(K.setup, s)) {
+    toast('Телефон не смог сохранить новый QR: память заполнена', true);
+    return false;
+  }
   app.setup = s;
-  store.set(K.setup, s);
   return true;
 }
 
@@ -109,7 +112,6 @@ export function startSetupScreen(message = '') {
     setupCameraTrouble,
   ));
   $('setup-start').onclick = async () => {
-    unlockAudio();
     try {
       await cam.start();
       $('setup-start').hidden = true;

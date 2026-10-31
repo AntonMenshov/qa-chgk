@@ -510,3 +510,11 @@ def test_the_ends_of_the_grid_range_print(folder, tmp_path, grid):
 
 def test_the_test_pages_cards_leave_its_samples_alone():
     assert card_rects(Layout(cols=2, rows=2))[-1].top <= 6.4 * INCH  # the logo shades' labels end above this
+
+
+def test_a_test_page_without_qr_codes_has_none(folder, tmp_path):
+    config = folder / "config.py"
+    config.write_text(config.read_text(encoding="utf-8").replace("card=CardFields(", "card=CardFields(no_qr=True, "))
+    path, _ = build_test_page(folder, tmp_path / "test.pdf")
+    image = pypdfium2.PdfDocument(str(path))[0].render(scale=3).to_pil().convert("RGB")
+    assert read_qr(image) == []

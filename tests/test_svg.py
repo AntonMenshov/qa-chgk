@@ -122,3 +122,32 @@ def test_width_and_height_decide_the_size_not_the_viewbox():
         render_svg('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="10" height="2000"/>', 300)
     image = render_svg('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10" width="20" height="100"/>', 300)
     assert max(image.size) == 300
+
+
+@pytest.mark.parametrize(
+    "size", ['width="100mm" height="100mm"', 'width="1in" height="1in"', 'width="72pt" height="72pt"']
+)
+def test_physical_units_are_drawn(size):
+    text = f'<svg {NS} {size} viewBox="0 0 100 100">{SQUARE}</svg>'
+    assert render_svg(text, 300).size == (300, 300)
+
+
+@pytest.mark.parametrize("size", ['width="1em" height="1000em"', 'width="100%" height="100000%"'])
+def test_a_size_that_cant_be_read_is_refused_before_drawing(size):
+    with pytest.raises(ValueError, match="can't be read"):
+        render_svg(f'<svg {NS} {size} viewBox="0 0 1 1"/>', 300)
+
+
+def test_an_exponent_counts_for_the_shape():
+    with pytest.raises(ValueError, match="long and narrow"):
+        render_svg(f'<svg {NS} width="1e0" height="1e4"/>', 300)
+
+
+def test_an_endless_size_is_refused():
+    with pytest.raises(ValueError, match="endless"):
+        render_svg(f'<svg {NS} viewBox="0 0 inf inf"/>', 300)
+
+
+def test_import_in_capitals_is_refused():
+    with pytest.raises(ValueError, match="@import"):
+        render_svg(svg('<style>@IMPORT "x.css";</style>'), 300)

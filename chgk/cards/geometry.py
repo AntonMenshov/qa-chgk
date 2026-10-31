@@ -96,8 +96,10 @@ def card_parts(card: Rect, qr_size: float, logo_size: float | None = None, no_qr
     square of that side centred on the card (user request: not shifted left by the QR
     column), shrunk to fit. It may sit behind the number and footer text, and its corner
     may reach under the QR, which is drawn on top with its white quiet zone. `no_qr`: no QR is
-    printed, so its size can't make the card too small.
+    printed, so its size plays no part.
     """
+    if no_qr:
+        qr_size = 0.0
     inset = qr_size * QR_INSET_SHARE
     qr = Rect(card.right - inset - qr_size, card.top - inset - qr_size, qr_size, qr_size)
     number_h = NUMBER_SIZE + ROUND_SIZE + 5
