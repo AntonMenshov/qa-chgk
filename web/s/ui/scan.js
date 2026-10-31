@@ -33,6 +33,7 @@ export function handleCode(text) {
     case 'unknown_team':
       beep('bad');
       toast(`Команда ${r.teamId} не найдена — обновляю список команд…`, true);
+      // The card isn't retried (user decision, code review 2026-10-31): scan it again after the refresh.
       refresh();
       return;
     case 'bad_question':
@@ -40,7 +41,9 @@ export function handleCode(text) {
       return toast(`Карточка вопроса ${r.question}, а в турнире всего ${r.total} — не засчитана`, true);
     case 'spare':
     case 'card':
-      // The frame the card was read from: its photo, kept once the question is known.
+      // The frame the card was read from: its photo, kept once the question is known. For a card
+      // opened by link with the camera running, that's whatever the camera sees, and the real scan
+      // takes no photo (accepted, like the rest of card links: app.js).
       r.shot = app.camera ? app.camera.captureJpeg() : Promise.resolve(null);
       return r.kind === 'spare' ? openSpare(r) : openCard(r);
   }

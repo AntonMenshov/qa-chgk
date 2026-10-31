@@ -4,6 +4,9 @@ An SVG is only drawing: no scripts, no event handlers, no references outside the
 (other files, URLs), no DTD (entities). Every text is set in PT Sans, the cards' font,
 whatever font the file names, and no system font is used, so a logo looks the same on
 every machine.
+
+Known gap (PLAN.md Phase 9): the checks can be got past (`@IMPORT`, CSS escapes, CSS after a child of
+<style>, <set>/<animate>, <?xml-stylesheet?>). Harmless for now: resvg fetches nothing from outside.
 """
 
 import io

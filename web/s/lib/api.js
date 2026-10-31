@@ -18,7 +18,8 @@ export class BackendError extends Error {
  * Seen live once: a request Google never answered (a photo upload, over 90 s). Without a
  * limit it would hold a photo slot, or the whole marks queue, until the browser gives up;
  * after the limit it fails and is retried like any failure (marks and photos carry their
- * own IDs, so a retry never counts twice).
+ * own IDs, so a retry never counts twice). Accepted: the server's lock wait (30 s) uses most of this,
+ * and a request given up on here still runs there, adding load when the backend is already busy.
  */
 export const REQUEST_TIMEOUT_MS = 45000;
 

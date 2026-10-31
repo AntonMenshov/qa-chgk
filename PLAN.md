@@ -29,5 +29,6 @@ Phases 0-6 are built; their task lists are in the git history.
 
 ## Phase 9 — Next version
 The one list of deferred work (HANDOVER points here): logos from image-generation
-services (OpenAI, Google, …; user decision) · rating.chgk.info export · multi-juror UI ·
+services (OpenAI, Google, …; user decision), closing the known gaps in the SVG checks first, since such
+files come from outside (chgk/svg.py) · rating.chgk.info export · multi-juror UI ·
 cache for board/phone reads (backend speed proposal #2).

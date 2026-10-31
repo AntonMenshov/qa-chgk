@@ -32,6 +32,7 @@ export const app = {
   switching: false, // a jury link is being tried: another scan of it waits
   refused: null, // the backend refused this phone's token: what to do about it
   secondTab: false, // the scanner is open in another tab of this phone
+  rendered: null, // what the main screen shows now (render() skips an unchanged one)
   refreshing: null, // the get_state under way: one at a time, so an older reply can't replace a newer one
 };
 

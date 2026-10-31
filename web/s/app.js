@@ -161,7 +161,9 @@ async function boot() {
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
   }
-  // Safari may reuse the open tab for a link to this page: only the #… part changes.
+  // Safari may reuse the open tab for a link to this page: only the #… part changes. Jurors use the
+  // in-app scanner, so a card link stays best effort (user decision, code review 2026-10-31): with a
+  // sheet open, before setup or while loading it is dropped with no message: scan it again.
   addEventListener('hashchange', () => {
     const next = readHash();
     if (next.setup) {

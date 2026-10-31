@@ -70,13 +70,27 @@ export function render() {
   if (!app.session) {
     return;
   }
+  const list = app.session.missing();
+  const view = JSON.stringify([
+    app.session.name,
+    app.session.current,
+    list.map((t) => [t.team_id, t.name]),
+    app.queue.status,
+    app.queue.rejected.length,
+    app.photos?.status,
+    app.refused,
+    app.secondTab,
+  ]);
+  if (view === app.rendered) {
+    return; // the timers call this every second or so: nothing changed, nothing to touch
+  }
+  app.rendered = view;
   $('t-name').textContent = app.session.name;
   $('q-num').textContent = app.session.current;
   $('q-round').textContent = `тур ${app.session.roundOf(app.session.current)}`;
-  const missing = app.session.missing();
   const m = $('missing-open');
-  m.textContent = missing.length ? `Нет карточек: ${missing.length} ›` : 'Все карточки этого вопроса получены';
-  m.classList.toggle('none', missing.length === 0);
+  m.textContent = list.length ? `Нет карточек: ${list.length} ›` : 'Все карточки этого вопроса получены';
+  m.classList.toggle('none', list.length === 0);
   const st = app.queue.status;
   const pill = $('sync');
   const bad = app.refused || st.failing || st.rejected;

@@ -17,6 +17,10 @@ export const READER_OPTIONS = {formats: ['QRCodeModel2'], maxNumberOfSymbols: 1,
 // is on screen, decoding only tells whether the card is still in view.
 const DECODE_EVERY_MS = 66;
 const DECODE_PAUSED_EVERY_MS = 200;
+// The same card counts as gone only after this many frames decoded without it (and SAME_CODE_GAP_MS):
+// a stalled loop or a hidden page decodes nothing, so it says nothing. Accepted: glare or a shadow
+// hiding a card for longer than that reports it again; its verdict sheet just reopens.
+const MISSED_FRAMES = 5;
 const FAILURES_TO_REPORT = 30; // frames in a row that the decoder failed on
 
 let prepared = false;
@@ -51,6 +55,7 @@ export class Camera {
     this.paused = false;
     this.last = {text: null, seenAt: 0};
     this.failures = 0;
+    this.missed = 0; // frames decoded without any code since the last one with a code
     this.starting = null;
     this.wanted = false; // started, and not stopped on purpose: worth restarting after an interruption
   }
@@ -82,7 +87,12 @@ export class Camera {
       }
       this.video.srcObject = stream;
     }
-    await this.video.play();
+    try {
+      await this.video.play();
+    } catch (err) {
+      this.release(); // or the camera stays on behind the «Камера недоступна» message
+      throw err;
+    }
     if (!this.running) {
       this.running = true;
       this.loop();
@@ -93,6 +103,8 @@ export class Camera {
     this.wanted = false;
     this.running = false;
     this.release();
+    this.last = {text: null, seenAt: 0};
+    this.missed = 0;
   }
 
   release() {
@@ -101,6 +113,7 @@ export class Camera {
         track.onended = null;
         track.stop();
       }
+      this.video.srcObject = null; // its last frame must not pass for a picture (captureJpeg)
     }
     this.stream = null;
   }
@@ -118,10 +131,12 @@ export class Camera {
    * out of view for a moment; any other card at once (but not while paused).
    */
   seen(text, now) {
+    const missed = this.missed;
+    this.missed = 0;
     if (text === this.last.text) {
       const gap = now - this.last.seenAt;
       this.last.seenAt = now;
-      if (gap > SAME_CODE_GAP_MS && !this.paused) {
+      if (gap > SAME_CODE_GAP_MS && missed >= MISSED_FRAMES && !this.paused) {
         this.onCode(text);
       }
     } else if (!this.paused) {
@@ -156,7 +171,11 @@ export class Camera {
     this.ctx.drawImage(v, 0, 0);
     const image = this.ctx.getImageData(0, 0, this.canvas.width, this.canvas.height);
     const results = await globalThis.ZXingWASM.readBarcodes(image, READER_OPTIONS);
-    return results.find((r) => r.isValid)?.text ?? null;
+    const text = results.find((r) => r.isValid)?.text ?? null;
+    if (!text) {
+      this.missed += 1;
+    }
+    return text;
   }
 
   async loop() {

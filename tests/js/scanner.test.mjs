@@ -572,7 +572,8 @@ test('camera: a card is reported once while in view; again after it was away; th
   cam.seen('B', 2700); // B at once
   assert.deepEqual(reported, ['A', 'B']);
   cam.seen('A', 2800); // back to A: a different card than the last one, so reported
-  cam.seen('A', 5000); // gone from 2800 to 5000 (no frames): reported again
+  cam.missed = 5; // frames decoded without it
+  cam.seen('A', 5000); // gone from 2800 to 5000: reported again
   assert.deepEqual(reported, ['A', 'B', 'A', 'A']);
 });
 
@@ -942,4 +943,70 @@ test('offline: the service worker waits 3 s for the network; only a page falls b
   const sw = readFileSync(new URL('../../web/s/sw.js', import.meta.url), 'utf8');
   assert.match(sw, /NETWORK_LIMIT_MS = 3000/);
   assert.match(sw, /request\.mode === 'navigate' \? await caches\.match\('index\.html'\)/);
+});
+
+test('camera: a stalled loop or a hidden page is no sign the card left', () => {
+  const reported = [];
+  const cam = new Camera({}, (text) => reported.push(text));
+  cam.seen('A', 0);
+  cam.seen('A', 60000); // a minute later, but no frame was decoded without it
+  assert.deepEqual(reported, ['A']);
+});
+
+test('camera: a failed play closes the stream; stop clears the picture and the last card', async () => {
+  const {camera, opened} = fakeCamera();
+  camera.video.play = async () => {
+    throw new Error('NotAllowedError');
+  };
+  await assert.rejects(camera.start(), /NotAllowedError/);
+  assert.equal(opened[0].track.readyState, 'ended');
+  assert.equal(camera.stream, null);
+  camera.video.play = async () => {};
+  await camera.start();
+  camera.last = {text: 'A', seenAt: 1};
+  camera.stop();
+  assert.equal(camera.video.srcObject, null);
+  assert.equal(camera.last.text, null);
+});
+
+test('render: an unchanged screen is left alone; a change is drawn', async () => {
+  const writes = [];
+  const element = (id) => ({
+    id,
+    hidden: true,
+    classList: {toggle() {}},
+    set textContent(v) {
+      writes.push(id);
+    },
+    get textContent() {
+      return '';
+    },
+  });
+  const elements = new Map();
+  const realDocument = globalThis.document;
+  globalThis.document = {
+    getElementById: (id) => elements.get(id) ?? elements.set(id, element(id)).get(id),
+    createElement: () => ({}),
+  };
+  try {
+    const {render} = await import('../../web/s/ui/sync.js');
+    const {app} = await import('../../web/s/ui/state.js');
+    const teams = [{team_id: 'A01', name: 'A'}];
+    app.session = new Session({
+      tid: 'T',
+      state: {tournament: {name: 'T', round_sizes: [3]}, teams, marks: {}},
+      uuid: () => 'x',
+    });
+    app.queue = memoryQueue(async () => ({results: []}));
+    render();
+    assert.ok(writes.includes('t-name'));
+    writes.length = 0;
+    render();
+    assert.deepEqual(writes, []);
+    app.queue.add({scan_id: 'a'});
+    render();
+    assert.ok(writes.includes('sync'));
+  } finally {
+    globalThis.document = realDocument;
+  }
 });

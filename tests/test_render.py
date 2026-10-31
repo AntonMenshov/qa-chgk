@@ -486,3 +486,14 @@ def test_printable_composes_letters_and_normalises_spaces():
     assert printable(unicodedata.normalize("NFD", "Йод"), warnings) == "Йод"
     assert printable("а б", warnings) == "а б"  # the font has a no-break space
     assert warnings == []
+
+
+def test_a_tournament_name_cut_on_the_cards_is_a_warning(folder):
+    config = folder / "config.py"
+    text = config.read_text(encoding="utf-8")
+    long_name = "Очень длинное название турнира " * 6
+    new = re.sub(r'name="[^"]*"', f'name="{long_name}"', text, count=1)
+    assert new != text
+    config.write_text(new, encoding="utf-8")
+    warnings = build_cards(folder, Mode.TEAM_PAGES).warnings
+    assert any(w.startswith("cut on the cards:") for w in warnings)

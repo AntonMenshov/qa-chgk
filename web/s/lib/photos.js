@@ -2,6 +2,9 @@
 // background, two at a time, independently of the marks: a slow photo never delays a
 // result. A failed upload is retried with growing pauses; one the server refuses as wrong
 // (retry: false) is dropped, since sending it again can't help.
+// Accepted (user decision, code review 2026-10-31): that deletes the phone's only copy, even when the
+// refusal was temporary («unknown team» while `chgk teams` rewrites Teams), and the card counts as
+// photographed, so it isn't retaken. Only the photo is lost, never the mark; the panel shows a count.
 
 import {BACKOFF_MS} from './queue.js'; // the same pauses as the marks
 
@@ -114,7 +117,7 @@ export async function firstPhoto(shot, key, photographed) {
   if (!blob || done.includes(key)) {
     return null;
   }
-  photographed.set([...done, key]);
+  photographed.set([...done, key]); // before the photo is stored: see photostore.js
   return blob;
 }
 

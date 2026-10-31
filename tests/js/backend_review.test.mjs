@@ -2,7 +2,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
-import {L, TID, JURY, world, reserveWorld, ev, photo} from './backend_world.mjs';
+import {L, TID, JURY, apiWorld, world, reserveWorld, ev, photo} from './backend_world.mjs';
 
 const rowOf = (sheet, id) => {
   for (let r = 2; r <= sheet.getLastRow(); r++) {
@@ -268,4 +268,51 @@ test('make_public_copy: an older tournament gets one, its real Sheet turns priva
   assert.equal(made.existed, false);
   assert.equal(b.$.sharing.get(ss.getId()), 'PRIVATE:EDIT');
   assert.equal(b.post({action: 'make_public_copy', tid: TID, token: admin}).public_id, made.public_id);
+});
+
+test('the one-call sort does «Итоги» first: its keys read the round tabs', () => {
+  const {b} = apiWorld();
+  const requests = [];
+  vm.runInContext(
+    '(f) => { const real = Sheets.Spreadsheets.batchUpdate; Sheets.Spreadsheets.batchUpdate = (r, id) => { f(r); return real(r, id); }; }',
+    b,
+  )((r) => requests.push(...r.requests));
+  post(b, 'record_events', {events: [ev({team_id: 'A02', question: 1})]});
+  const ids = JSON.parse(b.$.props.get(`t:${TID}`)).sheet_ids;
+  const sorts = requests.filter((r) => r.sortRange).map((r) => r.sortRange.range.sheetId);
+  assert.deepEqual(sorts, [ids['Итоги'], ids['Тур 1']]);
+  assert.equal(requests[0].sortRange.range.sheetId, ids['Итоги']);
+});
+
+test('onSheetEdit: a formula typed over is put back at once', () => {
+  const {b, tab} = world();
+  const round = tab('Тур 1');
+  const lay = L.roundLayout([3, 3], 1);
+  const row = rowOf(round, 'A01');
+  const formula = round.getRange(row, lay.sumCol).getFormulas()[0][0];
+  round.getRange(row, lay.sumCol).setValue(99);
+  b.onSheetEdit({range: round.getRange(row, lay.sumCol)});
+  const now = rowOf(round, 'A01');
+  assert.equal(round.getRange(now, lay.sumCol).getFormulas()[0][0].replace(/\d+/g, 'N'), formula.replace(/\d+/g, 'N'));
+});
+
+test('onSheetEdit: an edit reaches the public copy at once, without waiting for the pause', () => {
+  const {b, ss, tab} = world();
+  const {copy} = publicCopy(b, ss);
+  const round = tab('Тур 1');
+  const col = L.questionCell([3, 3], 1).col;
+  round.getRange(rowOf(round, 'A01'), col).setValue('+');
+  b.onSheetEdit({range: round.getRange(rowOf(round, 'A01'), col)});
+  const pub = copy.getSheetByName('Тур 1');
+  assert.equal(pub.getRange(pub.rowOf('A01'), col).getValues()[0][0], 1);
+});
+
+test('onSheetEdit: a changed name reaches the public copy', () => {
+  const {b, ss, tab} = world();
+  const {copy} = publicCopy(b, ss);
+  const summary = tab('Итоги');
+  summary.getRange(rowOf(summary, 'A01'), 2).setValue('Новое имя');
+  b.onSheetEdit({range: summary.getRange(rowOf(summary, 'A01'), 2)});
+  const pub = copy.getSheetByName('Тур 2');
+  assert.equal(pub.getRange(pub.rowOf('A01'), 2).getValues()[0][0], 'Новое имя');
 });

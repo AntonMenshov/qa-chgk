@@ -217,6 +217,8 @@ def draw_card(
         id_w = pdfmetrics.stringWidth(card.team.team_id, FONT_BOLD, RESERVE_ID_SIZE) + 6
     if info:
         text, size = fit_text(info, FONT, INFO_SIZE, fr.w - id_w, 5)
+        if text.endswith(ELLIPSIS):
+            warnings.append(f"cut on the cards: {info!r} prints as {text!r}")
         c.setFont(FONT, size)
         c.drawString(fr.x, parts.info_baseline, text)
     c.restoreState()
