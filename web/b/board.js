@@ -186,6 +186,11 @@ function render() {
     stage.replaceChildren(
       el('section', {className: 'title'}, el('div', {className: 'wait', textContent: 'Загрузка…'})),
     );
+    $('next').textContent = 'Загрузка…';
+    $('view').textContent = 'Сетка';
+    for (const id of ['next', 'prev', 'view']) {
+      $(id).disabled = true;
+    }
     return fit();
   }
   const m = boardModel(data, revealed, {gridMax, view});
@@ -195,6 +200,7 @@ function render() {
     m.revealed > 0 && showQr ? el('div', {className: 'with-qr'}, results, qrCodes(false)) : results,
   );
   $('qr').classList.toggle('off', !showQr);
+  $('view').disabled = false;
   $('prev').disabled = m.revealed === 0;
   $('next').disabled = m.revealed >= m.rounds;
   $('next').textContent = m.revealed >= m.rounds ? 'Все туры показаны' : `Показать тур ${m.revealed + 1} ›`;
@@ -221,10 +227,14 @@ function toggleView() {
   render();
 }
 
+let loading = false;
+
 async function load() {
-  if (!access) {
+  // One at a time, so an older reply can't replace a newer one; a hidden page asks when shown again.
+  if (!access || loading || document.hidden) {
     return;
   }
+  loading = true;
   try {
     data = await backend(access.backendUrl, access.boardToken)('get_board', {tid: access.tid});
     lastOk = new Date();
@@ -232,9 +242,13 @@ async function load() {
     render();
   } catch (err) {
     $('status').hidden = false;
-    $('status').textContent = lastOk
-      ? `Нет связи — данные на ${lastOk.toLocaleTimeString('ru-RU', {hour: '2-digit', minute: '2-digit'})}`
-      : `Не удалось загрузить: ${err.message}`;
+    $('status').textContent = err.refused
+      ? err.message
+      : lastOk
+        ? `Нет связи — данные на ${lastOk.toLocaleTimeString('ru-RU', {hour: '2-digit', minute: '2-digit'})}`
+        : `Не удалось загрузить: ${err.message}`;
+  } finally {
+    loading = false;
   }
 }
 
@@ -300,3 +314,4 @@ wake();
 render();
 load();
 setInterval(load, REFRESH_EVERY_MS);
+addEventListener('visibilitychange', load);

@@ -2,11 +2,15 @@
 // Script web apps don't answer CORS preflights, and text/plain needs none.
 
 export class BackendError extends Error {
-  /** `retry`: false when the server says the request itself is wrong (sending it again won't help). */
-  constructor(message, retry = true) {
+  /**
+   * `retry`: false when the server says the request itself is wrong (sending it again won't help).
+   * `refused`: the link's token was refused (the link was replaced): only a new QR helps.
+   */
+  constructor(message, retry = true, refused = false) {
     super(message);
     this.name = 'BackendError';
     this.retry = retry;
+    this.refused = refused;
   }
 }
 
@@ -58,7 +62,7 @@ export function backend(url, token, fetchImpl = (...a) => fetch(...a), timeoutMs
     }
     if (!data?.ok) {
       const message = REFUSED[data?.error] || data?.error || `ошибка сервера (HTTP ${response.status})`;
-      throw new BackendError(message, data?.retry !== false);
+      throw new BackendError(message, data?.retry !== false, data?.error in REFUSED);
     }
     return data;
   };

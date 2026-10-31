@@ -74,6 +74,12 @@ export class PhotoQueue {
     await this.store.delete(id);
   }
 
+  /** Delete every waiting photo from the phone (the juror chose to, on disconnecting). */
+  async clear() {
+    await this.ready;
+    await Promise.all([...this.items.keys()].map((id) => this.forget(id)));
+  }
+
   /** Retry everything now (the juror pressed «Отправить сейчас»). */
   retryNow() {
     for (const it of this.items.values()) {

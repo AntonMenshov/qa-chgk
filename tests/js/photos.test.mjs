@@ -199,3 +199,12 @@ test('an IndexedDB transaction that aborts (e.g. the quota at commit) falls back
   await store.put(rec); // would hang without onabort
   assert.deepEqual(await store.all(), [rec]); // kept in memory instead
 });
+
+test('photos: clear deletes every waiting photo from the store', async () => {
+  const store = memoryStore();
+  await store.put({photo_id: 'p1', client_ts: 1});
+  const q = new PhotoQueue({store, send: async () => ({})});
+  await q.clear();
+  assert.equal(q.status.pending, 0);
+  assert.deepEqual(await store.all(), []);
+});

@@ -4,10 +4,10 @@
 import {sameAccess} from './lib/payload.js';
 import {$, sheet, toast, unlockAudio} from './ui/dom.js';
 import {answerSpare, handleCode, verdict} from './ui/scan.js';
-import {adoptSetup, readHash, startSetupScreen} from './ui/setup.js';
+import {adoptSetup, readHash, startSetupScreen, useSetup} from './ui/setup.js';
 import {app, K, store} from './ui/state.js';
-import {flush, refresh, render, renderMissing, renderSync} from './ui/sync.js';
-import {startTournament} from './ui/tournament.js';
+import {flush, refresh, render, renderMissing, renderSync, retryAll} from './ui/sync.js';
+import {resumeCamera, startTournament} from './ui/tournament.js';
 import {openLookup} from './ui/whose.js';
 
 const FLUSH_EVERY_MS = 1000;
@@ -62,10 +62,8 @@ function wire() {
     renderSync();
     sheet('syncinfo');
   };
-  $('s-now').onclick = async () => {
-    app.queue.nextAttemptAt = 0;
-    await Promise.all([flush(), app.photos.retryNow()]);
-    renderSync();
+  $('s-now').onclick = () => {
+    retryAll().then(render);
     render();
   };
   $('s-clear').onclick = () => {
@@ -88,7 +86,7 @@ function wire() {
     if (await refresh()) {
       toast('Данные обновлены');
     } else {
-      toast('Нет связи — данные не обновлены', true);
+      toast(app.refused ?? 'Нет связи — данные не обновлены', true);
     }
   };
   $('settings-close').onclick = () => sheet(null);
@@ -96,7 +94,7 @@ function wire() {
     store.remove(K.setup);
     location.replace(location.pathname);
   };
-  $('forget').onclick = () => {
+  $('forget').onclick = async () => {
     const pending = app.queue.status.pending + app.photos.status.pending;
     if (
       !confirm(
@@ -107,22 +105,59 @@ function wire() {
     ) {
       return;
     }
+    const photos = app.photos.status.pending;
+    if (photos && confirm(`Удалить с телефона фото, ждущие отправки (${photos})? Их нельзя будет отправить.`)) {
+      await app.photos.clear();
+    }
     forgetTournament();
   };
   $('loading-reset').onclick = forgetTournament;
   setInterval(flush, FLUSH_EVERY_MS);
-  setInterval(() => app.photos && app.photos.pump().then(render), FLUSH_EVERY_MS);
+  let photos = '';
+  setInterval(() => {
+    if (!app.photos) {
+      return;
+    }
+    app.photos.pump();
+    const now = JSON.stringify(app.photos.status);
+    if (now !== photos) {
+      photos = now;
+      render();
+    }
+  }, FLUSH_EVERY_MS);
   setInterval(refresh, REFRESH_EVERY_MS);
   addEventListener('online', () => {
     if (app.queue) {
-      app.queue.nextAttemptAt = 0;
-      flush();
+      retryAll().then(render);
     }
   });
+  addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+      resumeCamera();
+    }
+  });
+  addEventListener('pageshow', resumeCamera);
 }
 
-function boot() {
+/** A second tab keeps its own copy of the unsent marks, and saving overwrites the other's: say so. */
+function watchForSecondTab() {
+  if (!('BroadcastChannel' in globalThis)) {
+    return;
+  }
+  const tabs = new BroadcastChannel('chgk-scanner');
+  tabs.onmessage = (e) => {
+    if (e.data === 'hello') {
+      tabs.postMessage('here');
+    }
+    app.secondTab = true;
+    render();
+  };
+  tabs.postMessage('hello');
+}
+
+async function boot() {
   wire();
+  watchForSecondTab();
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
   }
@@ -133,19 +168,15 @@ function boot() {
       if (app.session && sameAccess(next.setup, app.setup)) {
         return;
       }
-      if (adoptSetup(next.setup)) {
-        if (app.setupCamera) {
-          app.setupCamera.stop();
-        }
-        startTournament();
-      }
+      app.setupCamera?.stop();
+      useSetup(next.setup);
     } else if (next.card && app.session) {
       handleCode(next.card);
     }
   });
   const from = readHash();
   if (from.setup) {
-    adoptSetup(from.setup);
+    await adoptSetup(from.setup);
   }
   if (!app.setup) {
     return startSetupScreen(from.card ? 'Сначала настройте телефон: отсканируйте QR «Доступ жюри».' : '');

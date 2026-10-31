@@ -4,10 +4,9 @@ import {$, beep, sheet, toast} from './dom.js';
 import {sameAccess} from '../lib/payload.js';
 import {noVerdictLabel} from '../lib/marks.js';
 import {firstPhoto} from '../lib/photos.js';
-import {adoptSetup} from './setup.js';
+import {useSetup} from './setup.js';
 import {app, K, store} from './state.js';
 import {flushSoon, refresh, render} from './sync.js';
-import {startTournament} from './tournament.js';
 import {showLookup} from './whose.js';
 
 export function handleCode(text) {
@@ -23,12 +22,7 @@ export function handleCode(text) {
       if (sameAccess(r.setup, app.setup)) {
         return toast('Это QR доступа жюри: телефон уже настроен на этот турнир');
       }
-      if (r.setup.tid === app.setup.tid) {
-        toast('Новый ключ жюри принят: неотправленные отметки и фото уйдут с ним');
-      }
-      if (adoptSetup(r.setup)) {
-        startTournament();
-      }
+      useSetup(r.setup);
       return;
     case 'other':
       beep('bad');
@@ -125,6 +119,16 @@ function openSpare(r) {
 
 export function answerSpare(question) {
   const r = app.spareResult;
+  if (!r) {
+    return;
+  }
+  if (!app.session.byId.has(r.team.team_id)) {
+    app.spareResult = null; // its row was deleted from the Sheet while this sheet was open
+    sheet(null);
+    beep('bad');
+    toast(`Команда ${r.team.team_id} не найдена — не засчитана`, true);
+    return;
+  }
   if (!(question >= 1 && question <= app.session.total)) {
     $('sp-display').textContent = `1–${app.session.total}?`;
     app.spareDigits = '';

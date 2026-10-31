@@ -379,3 +379,11 @@ label input {
   border: 1px solid #ccd;
   border-radius: 10px;
 }
+
+/* What the juror must act on: stays on screen, unlike a toast. */
+.banner {
+  background: #b3261e;
+  color: #fff;
+  padding: 10px 14px;
+  font-weight: 600;
+}

@@ -270,6 +270,11 @@ table.dense td.total {
 
 /* A phone (no mouse): the buttons stay on screen, the only way to reveal a round there. */
 @media (hover: none) {
+  .status {
+    left: 8px;
+    right: 8px;
+    bottom: 64px; /* above the buttons */
+  }
   .controls {
     left: 8px;
     right: 8px;

@@ -22,6 +22,8 @@ export class Queue {
     this.failures = 0;
     this.nextAttemptAt = 0;
     this.lastError = null;
+    this.stuck = false; // the server refuses the batch itself: a person has to look
+    this.lastRefused = false; // the token was refused: a new QR helps
     this.inFlight = false;
   }
 
@@ -39,6 +41,11 @@ export class Queue {
     return !this.inFlight && this.pending.length > 0 && this.now() >= this.nextAttemptAt;
   }
 
+  /** Send at the next chance, whatever pause a failure left. */
+  retryNow() {
+    this.nextAttemptAt = 0;
+  }
+
   /**
    * Send one batch if due. Returns {acked, rejected} (scan_ids) or null if nothing was
    * sent. Never throws: a failure is kept in lastError and retried later.
@@ -49,11 +56,19 @@ export class Queue {
     }
     const batch = this.pending.slice(0, this.batchSize);
     this.inFlight = true;
-    let reply;
+    const byId = new Map();
     try {
-      reply = await this.send(batch);
+      const reply = await this.send(batch);
+      for (const r of reply?.results ?? []) {
+        byId.set(r.scan_id, r);
+      }
+      if (!batch.some((e) => byId.has(e.scan_id))) {
+        throw new Error('сервер не ответил ни по одной отметке');
+      }
     } catch (err) {
       this.failures += 1;
+      this.stuck = err?.retry === false;
+      this.lastRefused = err?.refused === true;
       this.lastError = String(err && err.message ? err.message : err);
       this.nextAttemptAt = this.now() + BACKOFF_MS[Math.min(this.failures, BACKOFF_MS.length) - 1];
       return null;
@@ -62,8 +77,9 @@ export class Queue {
     }
     this.failures = 0;
     this.lastError = null;
+    this.stuck = false;
+    this.lastRefused = false;
     this.nextAttemptAt = 0;
-    const byId = new Map((reply.results || []).map((r) => [r.scan_id, r]));
     const acked = [];
     const rejected = [];
     const sent = new Set();
@@ -97,6 +113,7 @@ export class Queue {
       pending: this.pending.length,
       rejected: this.rejected.length,
       failing: this.failures > 0,
+      stuck: this.stuck,
       lastError: this.lastError,
     };
   }

@@ -1,8 +1,9 @@
-// Offline reloads: the app's own files are fetched from the network when possible (so
-// updates arrive at once) and from this cache when not. Requests to other sites (the
+// Offline reloads: the app's own files are fetched from the network when it answers within
+// 3 s (so updates arrive at once) and from this cache when not (a venue's slow Wi-Fi). Requests to other sites (the
 // Apps Script backend) are never touched.
 
-const CACHE = 'chgk-scanner-v6';
+const CACHE = 'chgk-scanner-v7';
+const NETWORK_LIMIT_MS = 3000;
 const FILES = [
   './',
   'index.html',
@@ -59,15 +60,25 @@ self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET' || url.origin !== self.location.origin) {
     return;
   }
-  event.respondWith(
-    fetch(event.request)
-      .then((response) => {
-        if (response.ok) {
-          const copy = response.clone();
-          event.waitUntil(caches.open(CACHE).then((cache) => cache.put(event.request, copy)));
-        }
-        return response;
-      })
-      .catch(() => caches.match(event.request, {ignoreSearch: true}).then((hit) => hit || caches.match('index.html'))),
+  const network = fetch(event.request);
+  event.waitUntil(
+    network
+      .then((response) =>
+        response.ok ? caches.open(CACHE).then((cache) => cache.put(event.request, response.clone())) : undefined,
+      )
+      .catch(() => {}),
   );
+  event.respondWith(respond(event.request, network));
 });
+
+/** The network's answer if it comes soon; else this cache's copy; a page falls back to the app's own. */
+async function respond(request, network) {
+  const slow = new Promise((resolve) => setTimeout(resolve, NETWORK_LIMIT_MS));
+  const first = await Promise.race([network.catch(() => null), slow]);
+  if (first) {
+    return first;
+  }
+  const hit = await caches.match(request, {ignoreSearch: true});
+  const page = hit || (request.mode === 'navigate' ? await caches.match('index.html') : null);
+  return page || network; // nothing kept: wait for the network, or its error
+}

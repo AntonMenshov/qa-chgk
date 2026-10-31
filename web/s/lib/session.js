@@ -39,15 +39,17 @@ export class Session {
     this.byId = new Map(state.teams.map((t) => [t.team_id, t]));
     this.snapshot = state.marks || {};
     this.local = this.local.filter((l) => l.pending || l.ackedAt >= startedAt);
+    this.cachedMarks = null;
   }
 
   /** Marks as the jury should see them: {team_id: [value per question]}. */
   get marks() {
-    return overlay(
+    this.cachedMarks ??= overlay(
       this.snapshot,
       this.local.map((l) => l.event),
       this.total,
     );
+    return this.cachedMarks;
   }
 
   valueOf(teamId, question) {
@@ -125,13 +127,14 @@ export class Session {
 
   /**
    * A card for `question` (from its QR code, or the juror's answer for a spare card).
-   * A later question becomes the current one. Returns {kind: "card", team, question,
+   * A later numbered card's question becomes the current one (a spare's number is handwritten
+   * and could be misread: SPEC §7.1). Returns {kind: "card", team, question,
    * spare, previous, warnings} where previous is the status already recorded, if any.
    */
   card(teamId, question, spare) {
     const team = this.byId.get(teamId);
     const before = this.current;
-    if (question > this.current) {
+    if (spare === null && question > this.current) {
       this.current = question;
     }
     const previous = statusOf(this.valueOf(teamId, question));
@@ -171,6 +174,7 @@ export class Session {
       event.spare = spare;
     }
     this.local.push({event, pending: true, ackedAt: null});
+    this.cachedMarks = null;
     return event;
   }
 
@@ -182,6 +186,7 @@ export class Session {
         this.local.push({event, pending: true, ackedAt: null});
       }
     }
+    this.cachedMarks = null;
   }
 
   /** The server took these events (applied or duplicate). */
@@ -198,13 +203,14 @@ export class Session {
   rejected(scanIds) {
     const ids = new Set(scanIds);
     this.local = this.local.filter((l) => !ids.has(l.event.scan_id));
+    this.cachedMarks = null;
   }
 
   // ---- teams still to hand in a card ----
 
-  /** A reserve team is playing once it has any mark; registered teams always are. */
+  /** A reserve team is playing once it is on the tabs or has any mark; registered teams always are. */
   isPlaying(team) {
-    if (!team.reserve) {
+    if (!team.reserve || team.on_tabs) {
       return true;
     }
     return (this.marks[team.team_id] || []).some((v) => v !== '');

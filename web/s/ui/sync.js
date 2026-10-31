@@ -11,7 +11,11 @@ export async function flush() {
     return;
   }
   const res = await app.queue.flush();
+  if (app.queue.lastRefused) {
+    app.refused = app.queue.lastError;
+  }
   if (res) {
+    app.refused = null;
     app.session.acked(res.acked);
     app.session.rejected(res.rejected);
     if (res.rejected.length) {
@@ -27,22 +31,39 @@ export function flushSoon() {
   setTimeout(flush, 50);
 }
 
-/** Fetch the tournament's state; true if it arrived. */
-export async function refresh() {
+/** Fetch the tournament's state; true if it arrived. Only one at a time. */
+export function refresh() {
   if (!app.call || !app.session) {
-    return false;
+    return Promise.resolve(false);
   }
+  app.refreshing ??= fetchState().finally(() => {
+    app.refreshing = null;
+  });
+  return app.refreshing;
+}
+
+async function fetchState() {
   const started = Date.now();
   try {
     const state = await app.call('get_state', {tid: app.setup.tid});
     store.set(K.state(app.setup.tid), state);
     app.session.setSnapshot(state, started);
+    app.refused = null;
     render();
     return true;
-  } catch {
-    // offline: keep showing what we have; the sync pill says so
-    return false;
+  } catch (err) {
+    if (err.refused) {
+      app.refused = err.message;
+      render();
+    }
+    return false; // offline: keep showing what we have; the sync pill says so
   }
+}
+
+/** Send everything now (the juror's button, or the connection came back). */
+export function retryAll() {
+  app.queue.retryNow();
+  return Promise.all([flush(), app.photos.retryNow()]);
 }
 
 export function render() {
@@ -58,17 +79,28 @@ export function render() {
   m.classList.toggle('none', missing.length === 0);
   const st = app.queue.status;
   const pill = $('sync');
-  pill.className = 'pill ' + (st.failing || st.rejected ? 'error' : st.pending ? 'pending' : 'ok');
-  pill.textContent = st.rejected
-    ? `⚠ отклонено: ${st.rejected}`
-    : st.failing
-      ? `⚠ нет связи · ${st.pending}`
-      : st.pending
-        ? `⏳ ${st.pending}`
-        : '✓ отправлено';
+  const bad = app.refused || st.failing || st.rejected;
+  pill.className = 'pill ' + (bad ? 'error' : st.pending ? 'pending' : 'ok');
+  const parts = [
+    st.rejected ? `отклонено: ${st.rejected}` : '',
+    app.refused ? 'ключ заменён' : st.stuck ? 'не принято сервером' : st.failing ? 'нет связи' : '',
+    st.pending ? `${bad ? '' : '⏳ '}${st.pending}` : '',
+  ].filter(Boolean);
+  pill.textContent = parts.length ? `${bad ? '⚠ ' : ''}${parts.join(' · ')}` : '✓ отправлено';
   const ph = app.photos ? app.photos.status : {pending: 0};
   if (ph.pending) {
     pill.textContent += ` · фото ${ph.pending}`;
+  }
+  const banner = $('banner');
+  banner.textContent =
+    app.refused ?? (app.secondTab ? 'Сканер открыт в другой вкладке: оставьте одну, чтобы отметки не потерялись.' : '');
+  banner.hidden = !banner.textContent;
+  // A list on screen follows the marks.
+  if (!$('missing').hidden) {
+    renderMissing();
+  }
+  if (!$('syncinfo').hidden) {
+    renderSync();
   }
 }
 
@@ -92,7 +124,11 @@ export function renderSync() {
     : st.rejected
       ? 'Отправлено всё, кроме отклонённых (ниже).'
       : 'Все отметки отправлены.';
-  $('s-error').textContent = st.lastError ? `Последняя ошибка: ${st.lastError}. Повтор — автоматически.` : '';
+  $('s-error').textContent = st.stuck
+    ? `Сервер не принимает отметки: ${st.lastError}. Они сохранены на телефоне: позовите организатора.`
+    : st.lastError
+      ? `Последняя ошибка: ${st.lastError}. Повтор — автоматически.`
+      : '';
   $('s-rejected').replaceChildren(
     ...app.queue.rejected.map(({event, error}) => {
       const li = document.createElement('li');

@@ -13,40 +13,72 @@ const SAME_CODE_GAP_MS = 1500;
  */
 export const READER_OPTIONS = {formats: ['QRCodeModel2'], maxNumberOfSymbols: 1, tryHarder: false};
 
+// Frames decoded per second: a full frame per screen refresh only heats the phone. While a card
+// is on screen, decoding only tells whether the card is still in view.
+const DECODE_EVERY_MS = 66;
+const DECODE_PAUSED_EVERY_MS = 200;
+const FAILURES_TO_REPORT = 30; // frames in a row that the decoder failed on
+
 let prepared = false;
 
 export function prepareReader() {
   if (prepared) {
     return;
   }
-  // Load the .wasm from our own folder instead of the CDN the library defaults to.
-  globalThis.ZXingWASM.prepareZXingModule({
-    overrides: {
-      locateFile: (path, prefix) => (path.endsWith('.wasm') ? new URL(WASM, document.baseURI).href : prefix + path),
-    },
-    fireImmediately: true,
-  });
   prepared = true;
+  // Load the .wasm from our own folder instead of the CDN the library defaults to.
+  Promise.resolve(
+    globalThis.ZXingWASM.prepareZXingModule({
+      overrides: {
+        locateFile: (path, prefix) => (path.endsWith('.wasm') ? new URL(WASM, document.baseURI).href : prefix + path),
+      },
+      fireImmediately: true,
+    }),
+  ).catch(() => {
+    prepared = false; // a failed download (not cached yet): the next start tries again
+  });
 }
 
 export class Camera {
-  constructor(video, onCode) {
-    Object.assign(this, {video, onCode});
+  /** `onTrouble(message)`: the stream ended by itself, or the decoder keeps failing. */
+  constructor(video, onCode, onTrouble = () => {}) {
+    Object.assign(this, {video, onCode, onTrouble});
     this.canvas = document.createElement('canvas');
     this.ctx = this.canvas.getContext('2d', {willReadFrequently: true});
     this.running = false;
     this.paused = false;
     this.last = {text: null, seenAt: 0};
+    this.failures = 0;
+    this.starting = null;
+    this.wanted = false; // started, and not stopped on purpose: worth restarting after an interruption
   }
 
-  async start() {
+  /** A second call while one is under way waits for it, instead of opening a second stream. */
+  start() {
+    this.wanted = true;
+    this.starting ??= this.open().finally(() => {
+      this.starting = null;
+    });
+    return this.starting;
+  }
+
+  async open() {
     prepareReader();
-    if (!this.stream) {
-      this.stream = await navigator.mediaDevices.getUserMedia({
+    if (!this.stream?.getTracks().some((t) => t.readyState === 'live')) {
+      this.release();
+      const stream = await navigator.mediaDevices.getUserMedia({
         video: {facingMode: 'environment', width: {ideal: 1920}, height: {ideal: 1080}},
         audio: false,
       });
-      this.video.srcObject = this.stream;
+      if (!this.wanted) {
+        stream.getTracks().forEach((t) => t.stop()); // stopped while waiting for the camera
+        return;
+      }
+      this.stream = stream;
+      for (const track of stream.getTracks()) {
+        track.onended = () => this.onTrouble('Камера остановилась');
+      }
+      this.video.srcObject = stream;
     }
     await this.video.play();
     if (!this.running) {
@@ -56,9 +88,17 @@ export class Camera {
   }
 
   stop() {
+    this.wanted = false;
     this.running = false;
+    this.release();
+  }
+
+  release() {
     if (this.stream) {
-      this.stream.getTracks().forEach((t) => t.stop());
+      for (const track of this.stream.getTracks()) {
+        track.onended = null;
+        track.stop();
+      }
     }
     this.stream = null;
   }
@@ -124,8 +164,13 @@ export class Camera {
       let text;
       try {
         text = await this.decodeFrame();
+        this.failures = 0;
       } catch {
         text = null;
+        this.failures += 1;
+        if (this.failures === FAILURES_TO_REPORT) {
+          this.onTrouble('Сканер не читает кадры');
+        }
       }
       if (text && this.running) {
         try {
@@ -134,6 +179,7 @@ export class Camera {
           console.error(err); // one card's failure must not end the scanning
         }
       }
+      await new Promise((resolve) => setTimeout(resolve, this.paused ? DECODE_PAUSED_EVERY_MS : DECODE_EVERY_MS));
       await new Promise((resolve) => requestAnimationFrame(resolve));
     }
   }

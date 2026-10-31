@@ -1,27 +1,81 @@
 // Setup: from the jury link (#setup=…) or by scanning its QR here.
 
+import {backend} from '../lib/api.js';
 import {Camera} from '../lib/camera.js';
 import {identify} from '../lib/lookup.js';
 import {decodeCard, decodeSetup} from '../lib/payload.js';
-import {$, show, unlockAudio} from './dom.js';
+import {photoStore} from '../lib/photostore.js';
+import {$, show, toast, unlockAudio} from './dom.js';
 import {app, K, store} from './state.js';
 import {startTournament} from './tournament.js';
 
-export function adoptSetup(s) {
-  const changing = app.setup && app.setup.tid !== s.tid;
-  if (changing && app.queue && app.queue.status.pending > 0) {
+/** Marks and photos of the tournament this phone is on that haven't reached the server. */
+async function unsent(tid) {
+  const marks = (store.get(K.queue(tid))?.pending ?? []).length;
+  const photos = (await photoStore(tid).all()).length;
+  return marks + photos;
+}
+
+/**
+ * Take on a jury link (SPEC §7.4). A link is tried before it is saved, so an old printed QR
+ * never replaces a working key. Switching tournament is rare and the unsent marks and photos
+ * stay behind, so it asks first. False: this phone stays as it was.
+ */
+export async function adoptSetup(s) {
+  const old = app.setup;
+  if (old) {
+    const waiting = old.tid === s.tid ? 0 : await unsent(old.tid);
     if (
+      waiting > 0 &&
       !confirm(
-        `На телефоне есть неотправленные отметки турнира ${app.setup.tid} (${app.queue.status.pending}). ` +
+        `На телефоне есть неотправленные отметки или фото турнира ${old.tid} (${waiting}). ` +
           `Они сохранятся и отправятся, когда вы вернётесь к нему. Переключиться на турнир ${s.tid}?`,
       )
     ) {
+      return false;
+    }
+    if (
+      old.tid === s.tid &&
+      old.backendUrl !== s.backendUrl &&
+      !confirm('Этот QR ведёт на другой сервер. Перейти на него?')
+    ) {
+      return false;
+    }
+    try {
+      await backend(s.backendUrl, s.juryToken)('get_state', {tid: s.tid});
+    } catch (err) {
+      toast(
+        err.refused ? 'Этот QR уже не действует: телефон остался со своим ключом' : `QR не принят: ${err.message}`,
+        true,
+      );
       return false;
     }
   }
   app.setup = s;
   store.set(K.setup, s);
   return true;
+}
+
+/**
+ * A jury link scanned or opened while the app runs. A phone already on a tournament reloads:
+ * nothing of the old tournament (timers, replies under way, an open card) can reach the new one.
+ */
+export async function useSetup(s) {
+  if (app.switching) {
+    return;
+  }
+  app.switching = true;
+  const taken = await adoptSetup(s);
+  app.switching = false;
+  if (!taken) {
+    return;
+  }
+  if (app.session) {
+    store.set(K.notice, 'Новый QR принят');
+    location.reload();
+  } else {
+    startTournament();
+  }
 }
 
 export function startSetupScreen(message = '') {
@@ -38,8 +92,7 @@ export function startSetupScreen(message = '') {
       return;
     }
     cam.stop();
-    adoptSetup(s);
-    startTournament();
+    useSetup(s);
   }));
   $('setup-start').onclick = async () => {
     unlockAudio();

@@ -320,7 +320,7 @@ test('queue: everything pending goes in one request; acked and refused events le
   const res = await q.flush();
   assert.deepEqual(sent, [['a', 'b', 'c']]);
   assert.deepEqual(res, {acked: ['a', 'c'], rejected: ['b']});
-  assert.deepEqual(q.status, {pending: 0, rejected: 1, failing: false, lastError: null});
+  assert.deepEqual(q.status, {pending: 0, rejected: 1, failing: false, stuck: false, lastError: null});
   assert.equal(q.rejected[0].error, 'invalid question');
   assert.equal(await q.flush(), null); // nothing left to send
 });
@@ -376,7 +376,7 @@ test('queue: failures retry with growing pauses; success resets them', async () 
   online = true;
   t = q.nextAttemptAt;
   assert.deepEqual(await q.flush(), {acked: ['a'], rejected: []});
-  assert.deepEqual(q.status, {pending: 0, rejected: 0, failing: false, lastError: null});
+  assert.deepEqual(q.status, {pending: 0, rejected: 0, failing: false, stuck: false, lastError: null});
 });
 
 test('queue: events added while a request is in flight wait for the next one', async () => {
@@ -516,13 +516,13 @@ test('phone flow against the backend: scan, judge, send, refresh; reserve team; 
   const late = judge(`${URL_BASE}${TID}.58746.1`, 'correct'); // the jury changes its mind
   assert.deepEqual(
     late.warnings.map((w) => w.code),
-    [WARN.EARLIER, WARN.ALREADY],
-  ); // question 2 is current by now
+    [WARN.ALREADY],
+  ); // a spare card's question 2 never became the current one
   assert.equal(s.scan(`${URL_BASE}PU4WR.645.1`).kind, 'foreign');
   assert.equal(q.status.pending, 10);
 
   await sync();
-  assert.deepEqual(q.status, {pending: 0, rejected: 0, failing: false, lastError: null});
+  assert.deepEqual(q.status, {pending: 0, rejected: 0, failing: false, stuck: false, lastError: null});
   assert.deepEqual(s.marks['645'].slice(0, 2), [1, '?']);
   assert.deepEqual(s.marks['58746'][0], 1);
   assert.deepEqual(s.marks.R1[0], 1);
@@ -773,4 +773,173 @@ test('offline: every file the service worker lists exists, the wasm is listed, o
   const wasm = readFileSync(new URL('lib/camera.js', root), 'utf8').match(/const WASM = '([^']+)'/)[1];
   assert.ok(files.includes(wasm));
   assert.match(sw, /k\.startsWith\('chgk-scanner-'\) && k !== CACHE/);
+});
+
+test('api: a refused token is told apart from being offline', async () => {
+  const refused = async () => ({
+    status: 200,
+    json: async () => ({ok: false, error: 'forbidden: jury token required', retry: true}),
+  });
+  const err = await backend('u', 't', refused)('x').catch((e) => e);
+  assert.equal(err.refused, true);
+  assert.equal(err.retry, true);
+  const other = async () => ({status: 200, json: async () => ({ok: false, error: 'server error', retry: true})});
+  assert.equal((await backend('u', 't', other)('x').catch((e) => e)).refused, false);
+});
+
+function memoryQueue(send) {
+  const memory = new Map();
+  return new Queue({storage: {get: (k) => memory.get(k), set: (k, v) => memory.set(k, v)}, key: 'q', send});
+}
+
+test('queue: a batch the server refuses stays, says so, and retries; a retryable failure is not «stuck»', async () => {
+  const q = memoryQueue(async () => {
+    throw new BackendError('invalid tid', false);
+  });
+  q.add({scan_id: 'a'});
+  assert.equal(await q.flush(), null);
+  assert.deepEqual([q.status.pending, q.status.stuck, q.status.lastError], [1, true, 'invalid tid']);
+  q.retryNow();
+  assert.equal(q.due(), true);
+  q.send = async () => {
+    throw new BackendError('нет связи');
+  };
+  await q.flush();
+  assert.equal(q.status.stuck, false);
+});
+
+test('queue: a reply answering none of the batch counts as a failure, with its pause', async () => {
+  for (const reply of [{ok: true}, {results: []}, null, {results: [{scan_id: 'other'}]}]) {
+    const q = memoryQueue(async () => reply);
+    q.add({scan_id: 'a'});
+    assert.equal(await q.flush(), null);
+    assert.equal(q.status.failing, true);
+    assert.equal(q.due(), false);
+    assert.equal(q.status.pending, 1);
+  }
+});
+
+test('session: marks are computed once until something changes', () => {
+  const teams = [{team_id: 'A01', name: 'A'}];
+  const s = new Session({
+    tid: 'T',
+    state: {tournament: {name: 'T', round_sizes: [3]}, teams, marks: {}},
+    uuid: () => 'x',
+  });
+  const first = s.marks;
+  assert.equal(s.marks, first);
+  s.record('A01', 1, null, 'correct');
+  assert.notEqual(s.marks, first);
+  assert.equal(s.valueOf('A01', 1), 1);
+  s.rejected(['x']);
+  assert.equal(s.valueOf('A01', 1), '');
+});
+
+test('session: a spare card never moves the current question; a numbered card does', () => {
+  const teams = [{team_id: 'A01', name: 'A'}];
+  const s = new Session({tid: 'T', state: {tournament: {name: 'T', round_sizes: [40]}, teams, marks: {}}, current: 3});
+  assert.equal(s.card('A01', 31, 1).kind, 'card');
+  assert.equal(s.current, 3);
+  s.card('A01', 4, null);
+  assert.equal(s.current, 4);
+});
+
+test('session: a reserve team on the tabs is playing before its first mark', () => {
+  const teams = [
+    {team_id: 'R1', name: 'Сова', reserve: true, on_tabs: true},
+    {team_id: 'R2', name: 'R2 · впишите название', reserve: true, on_tabs: false},
+  ];
+  const s = new Session({tid: 'T', state: {tournament: {name: 'T', round_sizes: [3]}, teams, marks: {}}, current: 1});
+  assert.deepEqual(
+    s.missing().map((t) => t.team_id),
+    ['R1'],
+  );
+  assert.deepEqual(s.card('R1', 1, null).warnings, []);
+  assert.equal(s.card('R2', 1, null).warnings[0].code, WARN.RESERVE);
+});
+
+function fakeStream() {
+  const track = {
+    readyState: 'live',
+    stop() {
+      this.readyState = 'ended';
+    },
+  };
+  return {track, getTracks: () => [track]};
+}
+
+function fakeCamera() {
+  globalThis.ZXingWASM ??= {prepareZXingModule: async () => {}};
+  const opened = [];
+  Object.defineProperty(globalThis, 'navigator', {
+    configurable: true,
+    value: {
+      mediaDevices: {
+        getUserMedia: async () => {
+          const stream = fakeStream();
+          opened.push(stream);
+          return stream;
+        },
+      },
+    },
+  });
+  const camera = Object.create(Camera.prototype);
+  Object.assign(camera, {
+    video: {play: async () => {}},
+    running: true,
+    starting: null,
+    wanted: false,
+    onTrouble: () => {},
+  });
+  return {camera, opened};
+}
+
+test('camera: two starts open one stream; a stream that ended is opened again', async () => {
+  const {camera, opened} = fakeCamera();
+  await Promise.all([camera.start(), camera.start()]);
+  assert.equal(opened.length, 1);
+  await camera.start();
+  assert.equal(opened.length, 1);
+  opened[0].track.readyState = 'ended';
+  await camera.start();
+  assert.equal(opened.length, 2);
+});
+
+test('camera: stopped while waiting for the camera: the new stream is closed at once', async () => {
+  const {camera, opened} = fakeCamera();
+  const starting = camera.start();
+  camera.stop();
+  await starting;
+  assert.equal(opened[0].track.readyState, 'ended');
+  assert.equal(camera.stream, null);
+});
+
+test('camera: a decoder that keeps failing is reported once', async () => {
+  const trouble = [];
+  const camera = Object.create(Camera.prototype);
+  Object.assign(camera, {
+    running: true,
+    paused: true,
+    failures: 29,
+    last: {text: null, seenAt: 0},
+    onTrouble: (m) => trouble.push(m),
+  });
+  globalThis.requestAnimationFrame = (f) => setTimeout(f, 0);
+  let calls = 0;
+  camera.decodeFrame = async () => {
+    calls += 1;
+    if (calls === 2) {
+      camera.running = false;
+    }
+    throw new Error('wasm');
+  };
+  await camera.loop();
+  delete globalThis.requestAnimationFrame;
+  assert.deepEqual(trouble, ['Сканер не читает кадры']);
+});
+
+test('offline: the service worker waits 3 s for the network; only a page falls back to index.html', () => {
+  const sw = readFileSync(new URL('../../web/s/sw.js', import.meta.url), 'utf8');
+  assert.match(sw, /NETWORK_LIMIT_MS = 3000/);
+  assert.match(sw, /request\.mode === 'navigate' \? await caches\.match\('index\.html'\)/);
 });

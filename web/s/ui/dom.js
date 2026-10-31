@@ -15,6 +15,8 @@ export function sheet(id) {
     s.hidden = s.id !== id;
   }
   app.lookingUp = id === 'lookup'; // any other sheet ends «Чья карточка?»
+  // A card waits for its verdict: nothing behind it can open another sheet over it.
+  $('main').inert = id === 'card' || id === 'spare';
   if (app.camera) {
     id && id !== 'lookup' ? app.camera.pause() : app.camera.resume();
   }
