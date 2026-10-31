@@ -1,3 +1,4 @@
+import re
 from dataclasses import replace
 from datetime import date, datetime
 
@@ -81,7 +82,10 @@ def test_invalid_tournament(overrides):
 @pytest.mark.parametrize(
     "build",
     [
-        lambda: Layout(cols=0),
+        lambda: Layout(cols=1),
+        lambda: Layout(cols=5),
+        lambda: Layout(rows=1),
+        lambda: Layout(rows=7),
         lambda: Layout(qr_size=0.2),
         lambda: Layout(margin=-0.1),
         lambda: CardFields(logo_grey=0),
@@ -214,3 +218,11 @@ def test_numbers_must_be_whole():
             scanner_url="https://x.github.io/s/",
             reserve_teams=1.5,
         )
+
+
+def test_a_qr_code_too_large_for_the_grid_is_refused_on_loading(folder):
+    config = folder / "config.py"
+    text = re.sub(r"Layout\([^)]*\)", "Layout(cols=4, rows=6, qr_size=2.0)", config.read_text(encoding="utf-8"))
+    config.write_text(text, encoding="utf-8")
+    with pytest.raises(ValueError, match="too small"):
+        load_config(folder)

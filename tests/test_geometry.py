@@ -14,7 +14,7 @@ from chgk.cards.geometry import (
 )
 from chgk.config import Layout
 
-GRIDS = [(3, 5), (2, 4), (2, 3), (1, 1), (3, 4), (2, 5)]
+GRIDS = [(3, 5), (2, 4), (2, 3), (2, 2), (3, 4), (2, 5), (4, 6)]
 
 
 @pytest.mark.parametrize("grid", GRIDS)

@@ -13,7 +13,7 @@ from PIL import Image, ImageOps
 
 from chgk import PROJECT_DIR
 from chgk.config import CardFields, LogoMode
-from chgk.svg import open_svg
+from chgk.svg import CUT_FROM, INK_THRESHOLD, open_svg
 
 if TYPE_CHECKING:
     from chgk.teams import Team
@@ -49,7 +49,6 @@ def resolve_logo(name: str, folder: Path) -> Path | None:
     return None
 
 
-INK_THRESHOLD = 250  # luminance below this counts as part of the drawing
 REFERENCE_PERCENTILE = 0.10  # the darkest 10% of the drawing defines "full ink"
 
 
@@ -119,6 +118,8 @@ def load_logos(folder: Path, fields: CardFields, teams: "list[Team]") -> tuple[d
             continue
         try:
             images[key] = open_logo(path)
+            if CUT_FROM in images[key].info:
+                warnings.append(f"{what}: logo {name!r} is not square; cut to a square around its drawing")
         except ValueError as err:
             warnings.append(f"{what}: logo {name!r}: {err}; using the next fallback")
     return images, warnings

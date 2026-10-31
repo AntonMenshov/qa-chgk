@@ -344,8 +344,9 @@ The app doesn't show it (decided).
 ### 8.1 Page and card
 - Letter (8.5″×11″), printed at 100%, so it's safe to send to a copy shop. The 0.25″
   margins cover printers that can't print to the edge.
-- The grid is configurable; the default is **3 columns × 4 rows = 12 cards** (whatever the
-  number of questions), about 2.67″ × 2.63″ each.
+- The grid is configurable within **2–4 columns × 2–6 rows** (user decision; anything else, or a QR
+  code or margin too large for the cards, is refused when the config loads). The default is
+  **3 columns × 4 rows = 12 cards** (whatever the number of questions), about 2.67″ × 2.63″ each.
 - Cards sit edge to edge, so neighbouring cards share one cut line and no paper is
   wasted. Thin grey cut lines; crop marks in the margin for the guillotine modes.
 
@@ -471,6 +472,9 @@ A pale greyscale watermark. The source is chosen per team and per tournament (ta
 The Claude API does not output raster images, but it can write SVG.
 
 ### 9.1 SVG and Claude-drawn logos (user decisions)
+- **An SVG logo is always square** (user decision). Claude is asked for a square canvas and a drawing of
+  another shape goes back to it. A supplied file is cut, with a warning: a square of its shorter side,
+  centred on the drawing. PNG and JPG are not cut: they fit inside the logo's square.
 - **SVG input** wherever PNG/JPG is accepted (`chgk/svg.py`): rendered by resvg (`resvg-py`,
   no system libraries) to 600 px, then the same pale step. Every text is set in PT Sans,
   the cards' font, whatever font the file names; no system font is used, so a logo looks

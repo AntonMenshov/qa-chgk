@@ -31,7 +31,7 @@ from PIL import Image
 from chgk import logos
 from chgk.cards.geometry import INCH, card_parts, card_rects
 from chgk.config import CardFields, Layout
-from chgk.svg import check_svg, render_svg
+from chgk.svg import CUT_FROM, check_svg, render_svg
 from chgk.teams import Team, write_teams
 
 API_KEY_ENV = "ANTHROPIC_API_KEY"
@@ -135,6 +135,7 @@ The owl
   hats, but it stays recognisably that owl and is the largest figure in the scene.
 
 Layout (viewBox="0 0 1000 1000")
+- The canvas must be square: a file of any other shape is sent back or cut.
 - The drawing sits in the upper part, y 40 to 720, centred, with balanced weight; a thin
   ground line under it is fine. The name block sits below y 760.
 - Nothing within {EDGE_MARGIN} units of any edge, nothing outside the canvas.
@@ -371,6 +372,8 @@ def draw_logo(
             candidate = extract_svg(text)
             check_svg(candidate)
             image = render_svg(candidate, RENDER_SIDE)
+            if CUT_FROM in image.info:
+                raise ValueError(f'the canvas is {image.info[CUT_FROM]}, not square: use viewBox="0 0 1000 1000"')
         except ValueError as err:
             problem = str(err)
             log(f"{label}: unusable ({problem}; {note})")

@@ -58,6 +58,11 @@ class CardFields:
             raise ConfigError("logo=TOURNAMENT needs tournament_logo")
 
 
+# One row covers the test page, one column has room for one sample; past the maximum, too small to write on.
+MIN_COLS, MAX_COLS = 2, 4
+MIN_ROWS, MAX_ROWS = 2, 6
+
+
 @dataclass(frozen=True)
 class Layout:
     """Card grid on a Letter page. Sizes are in inches."""
@@ -68,8 +73,10 @@ class Layout:
     margin: float = 0.25
 
     def __post_init__(self) -> None:
-        if self.cols < 1 or self.rows < 1:
-            raise ConfigError(f"grid must be at least 1×1, got {self.cols}×{self.rows}")
+        if not (MIN_COLS <= self.cols <= MAX_COLS and MIN_ROWS <= self.rows <= MAX_ROWS):
+            raise ConfigError(
+                f"grid must be {MIN_COLS}–{MAX_COLS} columns × {MIN_ROWS}–{MAX_ROWS} rows, got {self.cols}×{self.rows}"
+            )
         if not 0.4 <= self.qr_size <= 2.0:
             raise ConfigError(f"qr_size must be 0.4–2.0 in, got {self.qr_size}")
         if not 0 <= self.margin <= 1:
@@ -181,4 +188,9 @@ def load_config(folder: Path) -> Tournament:
             f"{path}: slug={tournament.slug!r} but the folder is {name!r}; they must be the same "
             "(the slug names out/<slug>/): change slug or rename the folder"
         )
+    from chgk.cards.geometry import INCH, card_parts, card_rects  # it imports this module
+
+    layout = tournament.layout
+    # A large QR code or margin can still leave no room: say so now, not at the first printing.
+    card_parts(card_rects(layout)[0], layout.qr_size * INCH, None, tournament.card.no_qr)
     return tournament

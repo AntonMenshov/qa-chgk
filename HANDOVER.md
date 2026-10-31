@@ -169,7 +169,7 @@ One line each; SPEC has the details. Decisions recorded only here are written ou
   are 1-8 `[0-9A-Z]`; the QR is version 4-M except for the longest mix (both 8 characters, a
   3-digit question), where `chgk cards` warns.
 - **Scanner**, sync, card photos (kept forever), access via the jury link, no Google sign-in (user) — SPEC §7.
-- **Cards** — SPEC §8: default grid 3×4 (user), edge to edge in every mode (the
+- **Cards** — SPEC §8: default grid 3×4 (user), allowed 2–4 columns × 2–6 rows, edge to edge in every mode (the
   user rejected gutters in scissors mode), the CLI asks the cut mode, no date unless
   `CardFields(date=True)` (user), `CardFields(no_qr=True)` for a paper-only
   game (default False; the QR corner stays empty), at least 2 spares and free slots

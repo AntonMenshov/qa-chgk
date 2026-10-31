@@ -1,7 +1,7 @@
 import pytest
 
 from chgk.logos import open_logo, pale
-from chgk.svg import check_svg, render_svg
+from chgk.svg import CUT_FROM, check_svg, render_svg
 
 NS = 'xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"'
 
@@ -14,9 +14,32 @@ SQUARE = '<rect x="10" y="10" width="80" height="80" fill="#888"/>'
 NAME = '<text x="100" y="80" font-family="{family}" font-weight="bold" font-size="30">ФИАСКО</text>'
 
 
-def test_render_keeps_aspect_and_fits_the_longer_side():
-    assert render_svg(svg(SQUARE), 600).size == (600, 300)
-    assert render_svg(svg(SQUARE, "0 0 100 400"), 600).size == (150, 600)
+def test_a_square_svg_is_not_cut():
+    image = render_svg(svg(SQUARE, "0 0 100 100"), 600)
+    assert image.size == (600, 600) and CUT_FROM not in image.info
+
+
+@pytest.mark.parametrize("view_box", ["0 0 200 100", "0 0 100 400"])
+def test_a_non_square_svg_is_cut_to_a_square_of_its_shorter_side(view_box):
+    image = render_svg(svg(SQUARE, view_box), 600)
+    assert image.size == (600, 600) and CUT_FROM in image.info
+
+
+def test_the_cut_follows_the_drawing_and_keeps_it_whole():
+    off_centre = '<rect x="150" y="10" width="40" height="80" fill="#888"/>'  # at the right of a 200×100 canvas
+    image = render_svg(svg(off_centre, "0 0 200 100"), 100)
+    box = image.getchannel("A").getbbox()
+    assert box == (50, 10, 90, 90)  # the square was centred on the rectangle's x 150–190 and clamped to the canvas
+
+
+def test_a_drawing_wider_than_the_square_is_cut_around_its_centre():
+    wide = '<rect x="0" y="10" width="200" height="80" fill="#888"/>'
+    image = render_svg(svg(wide, "0 0 200 100"), 100)
+    assert image.getchannel("A").getbbox() == (0, 10, 100, 90)
+
+
+def test_an_empty_non_square_svg_is_still_square():
+    assert render_svg(svg("", "0 0 200 100"), 100).size == (100, 100)
 
 
 def test_svg_becomes_a_pale_logo_like_a_png(tmp_path):
@@ -92,13 +115,6 @@ def test_broken_svg_file_is_a_value_error(tmp_path):
 def test_a_very_tall_svg_is_refused_before_it_is_drawn():
     with pytest.raises(ValueError, match="long and narrow"):
         render_svg('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 100000"/>', 300)
-
-
-def test_a_tall_svg_fits_its_height():
-    image = render_svg(
-        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 400"><rect width="9" height="9"/></svg>', 600
-    )
-    assert image.size == (150, 600)
 
 
 def test_width_and_height_decide_the_size_not_the_viewbox():

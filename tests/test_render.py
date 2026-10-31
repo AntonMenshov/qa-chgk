@@ -11,7 +11,7 @@ from pypdf import PdfReader
 from reportlab.pdfbase import pdfmetrics
 
 from chgk.cards.build import build_cards, build_test_page
-from chgk.cards.geometry import PAGE_H, card_parts, card_rects
+from chgk.cards.geometry import INCH, PAGE_H, card_parts, card_rects
 from chgk.cards.impose import Mode
 from chgk.cards.render import (
     ELLIPSIS,
@@ -23,7 +23,7 @@ from chgk.cards.render import (
     spare_box,
 )
 from chgk.cli import app
-from chgk.config import CardFields, LogoMode
+from chgk.config import CardFields, Layout, LogoMode
 from chgk.ids import TID_ALPHABET, CardId, decode_payload
 from chgk.logos import first_logo
 from chgk.state import load_or_create_state, save_state
@@ -497,3 +497,16 @@ def test_a_tournament_name_cut_on_the_cards_is_a_warning(folder):
     config.write_text(new, encoding="utf-8")
     warnings = build_cards(folder, Mode.TEAM_PAGES).warnings
     assert any(w.startswith("cut on the cards:") for w in warnings)
+
+
+@pytest.mark.parametrize("grid", [(2, 2), (2, 6), (4, 2), (4, 6)])
+def test_the_ends_of_the_grid_range_print(folder, tmp_path, grid):
+    config = folder / "config.py"
+    layout = f"Layout(cols={grid[0]}, rows={grid[1]}, qr_size=0.85)"
+    config.write_text(re.sub(r"Layout\([^)]*\)", layout, config.read_text(encoding="utf-8")), encoding="utf-8")
+    assert build_cards(folder, Mode.TEAM_PAGES, tmp_path / "cards.pdf").pages
+    assert build_test_page(folder, tmp_path / "test.pdf")[0].is_file()
+
+
+def test_the_test_pages_cards_leave_its_samples_alone():
+    assert card_rects(Layout(cols=2, rows=2))[-1].top <= 6.4 * INCH  # the logo shades' labels end above this

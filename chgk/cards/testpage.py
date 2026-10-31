@@ -101,7 +101,8 @@ def render_test_page(
     qr_pt = tournament.layout.qr_size * INCH
     c.setStrokeGray(GUIDE_GREY)
     c.setLineWidth(0.3)
-    for card, rect in zip(samples, bottom_row, strict=False):  # fewer samples than slots is fine
+    # Whichever is shorter: two columns leave out the spare, a longer row stays part empty.
+    for card, rect in zip(samples, bottom_row, strict=False):
         key = first_logo(tournament.card, card.team.team_id, logos)
         logo_pt = tournament.card.logo_size * INCH if tournament.card.logo_size else None
         draw_card(

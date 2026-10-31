@@ -5,6 +5,8 @@ An SVG is only drawing: no scripts, no event handlers, no references outside the
 whatever font the file names, and no system font is used, so a logo looks the same on
 every machine.
 
+A logo is square: a file of another shape is cut to one around its drawing (`_square`).
+
 Known gap (PLAN.md Phase 9): the checks can be got past (`@IMPORT`, CSS escapes, CSS after a child of
 <style>, <set>/<animate>, <?xml-stylesheet?>). Harmless for now: resvg fetches nothing from outside.
 """
@@ -25,6 +27,8 @@ FONT_FILES = [str(FONT_REGULAR_FILE), str(FONT_BOLD_FILE)]
 FONT_FAMILY = "PT Sans"
 FORCE_FONT = f'* {{ font-family: "{FONT_FAMILY}" !important; }}'
 MAX_BYTES = 2_000_000
+INK_THRESHOLD = 250  # luminance below this counts as part of the drawing
+CUT_FROM = "cut_from"  # Image.info key: the "W×H" a non-square file was cut from
 
 UNSAFE_TAGS = {"script", "foreignObject", "iframe", "embed", "object", "audio", "video"}
 LOCAL_REF = re.compile(r"^#|^data:image/(png|jpeg);base64,", re.IGNORECASE)
@@ -85,8 +89,24 @@ def _size(text: str) -> tuple[float, float]:
     return (w, h) if w > 0 and h > 0 else (1.0, 1.0)
 
 
+def _square(image: Image.Image) -> Image.Image:
+    """A square of the image's shorter side, centred on the drawing: nothing is lost if the drawing fits in it."""
+    w, h = image.size
+    if w == h:
+        return image
+    flat = Image.new("L", image.size, 255)
+    flat.paste(image.convert("L"), mask=image)
+    box = flat.point(lambda v: 255 if v < INK_THRESHOLD else 0).getbbox() or (0, 0, w, h)
+    side = min(w, h)
+    left = min(max((box[0] + box[2] - side) // 2, 0), w - side)
+    top = min(max((box[1] + box[3] - side) // 2, 0), h - side)
+    square = image.crop((left, top, left + side, top + side))
+    square.info[CUT_FROM] = f"{w}×{h}"
+    return square
+
+
 def render_svg(text: str, max_side: int) -> Image.Image:
-    """The SVG as an RGBA image whose longer side is `max_side` px; ValueError if unsafe or unreadable."""
+    """The SVG as a square RGBA image `max_side` px across (`_square`); ValueError if unsafe or unreadable."""
     check_svg(text)
     options: dict[str, Any] = {
         "svg_string": text,
@@ -98,18 +118,17 @@ def render_svg(text: str, max_side: int) -> Image.Image:
     w, h = _size(text)
     if max(w, h) > MAX_ASPECT * min(w, h):
         raise ValueError(f"SVG too long and narrow ({w:g}×{h:g}) to be a logo")
-    side: dict[str, Any] = (
-        {"height": max_side} if h > w else {"width": max_side}
-    )  # chosen first: a tall one can't fill the memory
+    longest = round(max_side * max(w, h) / min(w, h))  # so that the cut square is still max_side across
+    side: dict[str, Any] = {"height": longest} if h > w else {"width": longest}  # MAX_ASPECT bounds the memory
     try:
         image = Image.open(io.BytesIO(bytes(resvg_py.svg_to_bytes(**options, **side))))
-        if max(image.size) > max_side:  # units _size can't compare: fit the other side instead
-            other: dict[str, Any] = {"width": max_side} if "height" in side else {"height": max_side}
+        if max(image.size) > longest:  # units _size can't compare: fit the other side instead
+            other: dict[str, Any] = {"width": longest} if "height" in side else {"height": longest}
             image = Image.open(io.BytesIO(bytes(resvg_py.svg_to_bytes(**options, **other))))
         image.load()
     except (ValueError, OSError, Image.DecompressionBombError) as err:
         raise ValueError(f"SVG could not be drawn ({err})") from err
-    return image.convert("RGBA")
+    return _square(image.convert("RGBA"))
 
 
 def open_svg(path: Path, max_side: int) -> Image.Image:

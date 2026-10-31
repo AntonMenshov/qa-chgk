@@ -3,7 +3,8 @@ from conftest import TEAM_ROWS, write_teams_file
 from PIL import Image, ImageDraw
 
 from chgk.config import CardFields, LogoMode
-from chgk.logos import FALLBACK_KEY, TOURNAMENT_KEY, first_logo, logo_chain, open_logo, pale
+from chgk.logos import FALLBACK_KEY, TOURNAMENT_KEY, first_logo, load_logos, logo_chain, open_logo, pale
+from chgk.teams import Team
 
 
 def sample_logo(mode="RGB", size=(120, 80)) -> Image.Image:
@@ -61,7 +62,7 @@ def test_load_png_and_svg_refuse_unsafe_svg(tmp_path):
     assert pale(open_logo(tmp_path / "logo.png"), 0.03).mode == "L"
     svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 20">{}</svg>'
     (tmp_path / "logo.svg").write_text(svg.format('<rect width="10" height="10"/>'))
-    assert open_logo(tmp_path / "logo.svg").size == (600, 400)
+    assert open_logo(tmp_path / "logo.svg").size == (600, 600)
     (tmp_path / "bad.svg").write_text(svg.format("<script>alert(1)</script>"))
     with pytest.raises(ValueError, match="refused"):
         open_logo(tmp_path / "bad.svg")
@@ -179,3 +180,13 @@ def test_a_palette_logo_is_shrunk_smoothly(tmp_path):
     logo = open_logo(path)
     assert logo.mode == "RGBA"
     assert len(logo.convert("L").getcolors(256)) > 2
+
+
+def test_a_cut_svg_logo_is_reported(tmp_path):
+    (tmp_path / "wide.svg").write_text('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 20"/>')
+    (tmp_path / "square.svg").write_text('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"/>')
+    fields = CardFields(logo=LogoMode.TEAM, fallback_logo="square.svg")
+    teams = [Team(team_id="A01", name="Синие зайцы", logo_file="wide.svg")]
+    images, warnings = load_logos(tmp_path, fields, teams)
+    assert images["A01"].size == (600, 600)
+    assert len(warnings) == 1 and "'wide.svg' is not square" in warnings[0]

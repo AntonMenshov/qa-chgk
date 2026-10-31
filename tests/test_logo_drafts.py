@@ -569,3 +569,17 @@ def test_accept_never_overwrites_a_second_fallback_name_or_hides_behind_the_tour
     (library / "taken-a01.svg").write_text("other tournament", encoding="utf-8")
     assert drafts._free_name("taken-a01", (library,), set()) == "taken-a01-2.svg"
     assert (library / "taken-a01.svg").read_text(encoding="utf-8") == "other tournament"
+
+
+def test_a_non_square_drawing_goes_back_as_feedback():
+    seen, lines = [], []
+    wide = OWL_SVG.replace('viewBox="0 0 1000 1000"', 'viewBox="0 0 1000 500"')
+    assert wide != OWL_SVG
+    replies = [sse(fenced(wide)), sse(fenced(OWL_SVG)), sse(drafts.APPROVED)]
+    assert drafts.draw_logo(mock_client(replies, seen), "Синие зайцы", [], log=lines.append) == OWL_SVG
+    assert "not square" in lines[0]
+    assert "not square" in body(seen[1])["messages"][-1]["content"]
+
+
+def test_the_prompt_and_the_brief_ask_for_a_square_canvas():
+    assert "must be square" in drafts.style_rules("Синие зайцы")
