@@ -35,12 +35,11 @@ Full design: [SPEC.md](SPEC.md). Build order: [PLAN.md](PLAN.md).
   profile `personal`), with the «Google Sheets API» service on. `uv run chgk backend check`
   compares it with the local code, and says when `out/apps_script/Code.gs` is an old bundle.
 - **Phase 7 tournament:** `tournaments/osenniy-salat/` «Осенний салат», 2026-11-20, TID **18376**,
-  the user's four teams, 3 rounds of 12; the same card look as the examples. `out/osenniy-salat/`
-  has its cards (team-pages, 3×4, 24 pages). `chgk new` has not run yet: it needs the backend
-  profile, which isn't on the current machine, and the jury sheet has no access QR until then.
-- **Current machine (since 2026-10-30):** no `backends.json`, and no `state.json` for the examples,
-  so a `chgk cards` there would give them new IDs that don't match their Sheets. The user's logos
-  are here; `ANTHROPIC_API_KEY` is not set, and for now isn't needed (user).
+  the user's four teams, 3 rounds of 12; the same card look as the examples. Created on the backend
+  (profile `personal`); `out/osenniy-salat/` has its cards (team-pages, 3×4, 24 pages) and jury.pdf.
+- **Current machine (since 2026-10-30):** no `state.json` for the examples, so a `chgk cards` there
+  would give them new IDs that don't match their Sheets. The user's logos are here;
+  `ANTHROPIC_API_KEY` is not set, and for now isn't needed (user).
 - **Example tournament:** `tournaments/example/` (the user's four teams 645 «42», 58746
   Фиаско, 40400 Совхоз Победа, A01 Звезды сошлись; reserve decks R1, R2), TID **UYDJ7** on
   that backend; `out/example/` holds its cards (team-pages, 3×4, 24 pages) and jury.pdf.
@@ -363,5 +362,9 @@ exactly its level. Latest:
   in, board OK.
 - **2026-10-30, 44f8934ea10c (comment fixes only):** `backend check` clean; both examples' jury
   and board access.
+- **2026-10-30, 44f8934ea10c (Осенний салат, 18376):** `backend check` clean; created; get_state,
+  get_results and get_board answer with the right name, date, teams and 36 empty marks (reserve
+  decks off the board and standings); the board token is refused on get_state, a wrong token on
+  get_board; jury.pdf's QR codes carry the jury token on page 1 and the board token on page 2.
 
 Throwaway tournaments: the user deletes them.
