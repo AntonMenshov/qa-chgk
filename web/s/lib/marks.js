@@ -5,7 +5,11 @@
 import {mergeCell, STATUS_VALUE} from '../../shared/logic.js';
 
 export const STATUS_LABEL = {correct: 'верно', incorrect: 'неверно', disputed: 'спорно', received: 'получена'};
-const VALUE_STATUS = Object.fromEntries(Object.entries(STATUS_VALUE).map(([status, value]) => [value, status]));
+// No prototype: a cell holding the text "constructor" is no status either.
+const VALUE_STATUS = Object.assign(
+  Object.create(null),
+  Object.fromEntries(Object.entries(STATUS_VALUE).map(([status, value]) => [value, status])),
+);
 
 /** Status name for a cell value (1 → "correct"), or null for an empty cell. */
 export function statusOf(value) {

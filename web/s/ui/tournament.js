@@ -58,7 +58,7 @@ export async function startTournament(cardText = null) {
   show('main');
   render();
   app.camera ??= new Camera($('video'), handleCode);
-  $('start').hidden = false;
+  $('start').hidden = app.camera.running; // a new jury QR scanned here: the camera keeps running
   // Opened from the iPhone Camera with a card URL.
   if (cardText) {
     handleCode(cardText);

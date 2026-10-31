@@ -32,6 +32,9 @@ export class Session {
     this.name = state.tournament.name;
     this.roundSizes = state.tournament.round_sizes;
     this.total = this.roundSizes.reduce((a, b) => a + b, 0);
+    if (this.current > this.total) {
+      this.current = this.total;
+    }
     this.teams = state.teams;
     this.byId = new Map(state.teams.map((t) => [t.team_id, t]));
     this.snapshot = state.marks || {};

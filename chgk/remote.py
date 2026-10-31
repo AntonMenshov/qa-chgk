@@ -103,8 +103,9 @@ def sync_teams(folder: Path, profiles: Profiles, client: BackendClient | None = 
     for t in normalize_teams(given, "Teams tab"):
         mine = local.get(t.team_id)
         teams.append(replace(t, logo_file=t.logo_file or mine.logo_file, logo_grey=mine.logo_grey) if mine else t)
-    write_teams(folder / TEAMS_FILE, teams)
+    reserve_teams(load_config(folder).reserve_teams, teams)  # R1, R2, … are printed on the reserve decks
     client.set_teams(state.tid, _team_dicts(teams))  # writes assigned IDs back and adds rows on every tab
+    write_teams(folder / TEAMS_FILE, teams)  # only once the Sheet has the same IDs
     return teams
 
 

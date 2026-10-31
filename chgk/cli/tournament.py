@@ -34,7 +34,7 @@ def new(
     if result.created:
         typer.echo(f"Created on backend '{s.backend_profile}' ({s.backend_account}).")
     else:
-        typer.echo(f"Already created on backend '{s.backend_profile}' ({s.backend_account}); nothing changed.")
+        typer.echo(f"Already created on backend '{s.backend_profile}' ({s.backend_account}); the Sheet is unchanged.")
     typer.echo(f"Sheet: {s.spreadsheet_url}")
     typer.echo(f"{jury_path}: jury sheet with the access QR. Re-run `chgk cards` to refresh it next to the cards.")
 

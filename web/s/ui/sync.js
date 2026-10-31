@@ -4,7 +4,7 @@ import {STATUS_LABEL} from '../lib/marks.js';
 import {$, toast} from './dom.js';
 import {app, K, store} from './state.js';
 
-export const REFRESH_AFTER_SEND_MS = 1500;
+const REFRESH_AFTER_SEND_MS = 1500;
 
 export async function flush() {
   if (!app.queue || !app.queue.due()) {
@@ -87,7 +87,11 @@ export function renderMissing() {
 
 export function renderSync() {
   const st = app.queue.status;
-  $('s-summary').textContent = st.pending ? `Ждут отправки: ${st.pending}.` : 'Все отметки отправлены.';
+  $('s-summary').textContent = st.pending
+    ? `Ждут отправки: ${st.pending}.`
+    : st.rejected
+      ? 'Отправлено всё, кроме отклонённых (ниже).'
+      : 'Все отметки отправлены.';
   $('s-error').textContent = st.lastError ? `Последняя ошибка: ${st.lastError}. Повтор — автоматически.` : '';
   $('s-rejected').replaceChildren(
     ...app.queue.rejected.map(({event, error}) => {

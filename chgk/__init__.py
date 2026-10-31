@@ -1,5 +1,7 @@
 """Answer cards with QR codes and jury scanning for in-person sport ЧГК."""
 
+import os
+import tempfile
 from importlib.metadata import version
 from pathlib import Path
 
@@ -24,6 +26,20 @@ def run_python_file(path: Path) -> dict:
     names = {"__name__": f"chgk_{path.parent.name}_{path.stem}", "__file__": str(path)}
     exec(compile(path.read_text(encoding="utf-8"), str(path), "exec"), names)  # the organiser's own file
     return names
+
+
+def write_file(path: Path, text: str, private: bool = False) -> None:
+    """Replace a file whole: a crash or a full disk never leaves half of it. `private`: owner-only."""
+    path = Path(path)
+    fd, temporary = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(text)
+        os.chmod(temporary, 0o600 if private else 0o644)
+        os.replace(temporary, path)
+    except BaseException:
+        Path(temporary).unlink(missing_ok=True)
+        raise
 
 
 def out_dir(*parts: str) -> Path:

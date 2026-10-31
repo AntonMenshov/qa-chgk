@@ -1,5 +1,7 @@
 """Draw imposed pages into a Letter PDF."""
 
+import re
+import unicodedata
 from functools import cache
 from pathlib import Path
 
@@ -57,6 +59,8 @@ def missing_glyphs(text: str) -> set[str]:
 
 
 def printable(text: str, warnings: list[str]) -> str:
+    # Pasted names: decomposed letters and thin spaces, which have no glyph but the normal forms do.
+    text = re.sub(r"[^\S \u00a0]", " ", unicodedata.normalize("NFC", text))
     missing = missing_glyphs(text)
     if not missing:
         return text
@@ -155,6 +159,7 @@ def spare_box(number: Rect) -> Rect:
 def draw_card(
     c: Canvas, card: Card, parts: CardParts, tournament: Tournament, logo: ImageReader | None, warnings: list[str]
 ) -> None:
+    c.saveState()  # the caller's pen stays as it was (the test page draws outlines between cards)
     fields = tournament.card
     if logo is not None:
         lr = parts.logo
@@ -196,7 +201,7 @@ def draw_card(
     info = " · ".join(
         part
         for part, on in (
-            (printable(tournament.name, warnings), fields.tournament_name),
+            (printable(tournament.name, warnings) if fields.tournament_name else "", fields.tournament_name),
             (tournament.date.strftime("%d.%m.%Y"), fields.date),
         )
         if on
@@ -211,6 +216,7 @@ def draw_card(
         text, size = fit_text(info, FONT, INFO_SIZE, fr.w - id_w, 5)
         c.setFont(FONT, size)
         c.drawString(fr.x, parts.info_baseline, text)
+    c.restoreState()
 
 
 def render_cards(

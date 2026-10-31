@@ -12,6 +12,7 @@ from chgk.backend import (
     bundle_apps_script,
     bundle_file,
     bundle_version,
+    check_backend_url,
     source_version,
 )
 from chgk.cli.common import backend_app, fail, warn_permissions
@@ -30,18 +31,24 @@ def backend_bundle(
 def backend_add(
     name: str = typer.Argument(..., help="Profile name, e.g. personal or club"),
     url: str = typer.Option(..., help="The web app /exec URL"),
-    token: str = typer.Option(..., help="Admin token printed by setup() in the script editor"),
+    token: str = typer.Option(
+        ..., prompt="Admin token", hide_input=True, help="Admin token printed by setup() in the script editor"
+    ),
     account: str = typer.Option("", help="Label, e.g. the Gmail address (filled in from the backend if empty)"),
     check: bool = typer.Option(True, help="Ping the backend before saving"),
 ) -> None:
     """Add (or replace) a backend profile and make it active."""
+    try:
+        check_backend_url(url)  # before the token is sent anywhere
+    except ValueError as err:
+        raise fail(err) from err
     profiles = Profiles()
     if check:
         try:
             reply = BackendClient(url, token).ping()
         except BackendError as err:
             raise fail(err) from err
-        account = account or reply.get("account", "")
+        account = account or reply.get("account") or ""
         warn_permissions(reply)
     try:
         profiles.add(Profile(name, url, token, account))
@@ -83,7 +90,8 @@ def backend_remove(name: str) -> None:
     except ValueError as err:
         raise fail(err) from err
     profiles.save()
-    typer.echo(f"Removed backend '{name}'.")
+    now = f" Active now: '{profiles.active_name}'." if profiles.active_name else ""
+    typer.echo(f"Removed backend '{name}'.{now}")
 
 
 @backend_app.command("check")
@@ -96,7 +104,9 @@ def backend_check(name: str | None = typer.Argument(None, help="Profile (default
     except (ValueError, BackendError) as err:
         raise fail(err) from err
     local = source_version()
-    typer.echo(f"Backend '{profile.name}' OK: account {reply.get('account') or '?'}, version {reply.get('version')}.")
+    typer.echo(
+        f"Backend '{profile.name}' OK: account {reply.get('account') or '?'}, version {reply.get('version') or '?'}."
+    )
     warn_permissions(reply)
     if reply.get("version") != local:
         bundled = bundle_version()

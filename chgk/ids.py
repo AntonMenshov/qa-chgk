@@ -93,7 +93,7 @@ def assign_team_ids(existing: list[str | None]) -> list[str]:
     for team_id in existing:
         if team_id is None:
             continue
-        if not TEAM_ID_RE.match(team_id):
+        if not TEAM_ID_RE.fullmatch(team_id):
             raise ValueError(f"invalid team_id {team_id!r}: use 1-8 digits or capital Latin letters, e.g. 58746 or A07")
         if team_id in used:
             raise ValueError(f"duplicate team_id {team_id}")
@@ -129,7 +129,7 @@ def generate_jury_token() -> str:
 
 
 def encode_jury_link(scanner_url: str, access: JuryAccess) -> str:
-    m = BACKEND_URL_RE.match(access.backend_url)
+    m = BACKEND_URL_RE.fullmatch(access.backend_url)
     if not m:
         raise ValueError(f"not an Apps Script web app URL: {access.backend_url!r}")
     return f"{scanner_url}#setup={access.tid}.{access.jury_token}.{m['id']}"
@@ -163,7 +163,7 @@ def board_page_url(scanner_url: str) -> str:
 
 
 def encode_board_link(scanner_url: str, access: BoardAccess, grid_max_teams: int) -> str:
-    m = BACKEND_URL_RE.match(access.backend_url)
+    m = BACKEND_URL_RE.fullmatch(access.backend_url)
     if not m:
         raise ValueError(f"not an Apps Script web app URL: {access.backend_url!r}")
     return f"{board_page_url(scanner_url)}?grid={grid_max_teams}#board={access.tid}.{access.board_token}.{m['id']}"

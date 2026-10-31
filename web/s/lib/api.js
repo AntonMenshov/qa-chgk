@@ -5,6 +5,7 @@ export class BackendError extends Error {
   /** `retry`: false when the server says the request itself is wrong (sending it again won't help). */
   constructor(message, retry = true) {
     super(message);
+    this.name = 'BackendError';
     this.retry = retry;
   }
 }
@@ -34,31 +35,30 @@ export function backend(url, token, fetchImpl = (...a) => fetch(...a), timeoutMs
     const abort = new AbortController();
     const timer = setTimeout(() => abort.abort(), timeoutMs);
     let response;
+    let data;
     try {
       response = await fetchImpl(url, {
         method: 'POST',
         headers: {'Content-Type': 'text/plain;charset=utf-8'},
-        body: JSON.stringify({action, token, ...payload}),
+        body: JSON.stringify({...payload, action, token}),
         redirect: 'follow',
         signal: abort.signal,
       });
+      data = await response.json(); // within the limit too: a reply can stall halfway
     } catch (err) {
       if (abort.signal.aborted) {
         throw new BackendError(`сервер не ответил за ${Math.round(timeoutMs / 1000)} с`);
+      }
+      if (err instanceof SyntaxError) {
+        throw new BackendError(`сервер ответил не JSON (HTTP ${response.status})`);
       }
       throw new BackendError(`нет связи с сервером (${err && err.message ? err.message : err})`);
     } finally {
       clearTimeout(timer);
     }
-    let data;
-    try {
-      data = await response.json();
-    } catch {
-      throw new BackendError(`сервер ответил не JSON (HTTP ${response.status})`);
-    }
-    if (!data.ok) {
-      const message = REFUSED[data.error] || data.error || `ошибка сервера (HTTP ${response.status})`;
-      throw new BackendError(message, data.retry !== false);
+    if (!data?.ok) {
+      const message = REFUSED[data?.error] || data?.error || `ошибка сервера (HTTP ${response.status})`;
+      throw new BackendError(message, data?.retry !== false);
     }
     return data;
   };

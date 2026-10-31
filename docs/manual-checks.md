@@ -34,6 +34,7 @@ afterwards (`docs/google-account.md` §5).
 - [ ] A spare card asks for the question (keypad); a reserve deck card (R1) puts the
       team on the tabs. The spare card's photo is filed under that question (`…_q<NNN>_S1_…`).
 - [ ] Airplane mode for a few scans, then back online: the marks arrive by themselves.
+- [ ] Open the app once online, then reload it in airplane mode: it still opens (the offline copy installed).
 - [ ] Scan a card already judged: it says «Уже отмечено», and «Отмена (останется: …)» closes
       it with the mark unchanged.
 - [ ] «Чья карточка?» shows team, question and mark without recording anything.

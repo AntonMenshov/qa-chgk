@@ -649,3 +649,128 @@ test('the same tournament with a new jury token (a replaced link) is a new acces
   assert.equal(sameAccess(a, {...a, tid: 'QHZJ8'}), false);
   assert.equal(sameAccess(a, null), false);
 });
+
+// ---------- found by the code review ----------
+
+test('api: a reply that stalls after its headers fails at the time limit too', async () => {
+  const stalls = async (url, init) => ({
+    status: 200,
+    json: () => new Promise((_, reject) => init.signal.addEventListener('abort', () => reject(new Error('aborted')))),
+  });
+  const err = await backend('u', 't', stalls, 20)('record_events').catch((e) => e);
+  assert.ok(err instanceof BackendError);
+  assert.match(err.message, /не ответил/);
+  assert.equal(err.retry, true);
+});
+
+test('api: a connection lost while reading is «нет связи», a null reply a server error', async () => {
+  const lost = async () => ({
+    status: 200,
+    json: async () => {
+      throw new TypeError('Load failed');
+    },
+  });
+  await assert.rejects(backend('u', 't', lost)('x'), /нет связи/);
+  const nothing = async () => ({status: 200, json: async () => null});
+  const err = await backend('u', 't', nothing)('x').catch((e) => e);
+  assert.ok(err instanceof BackendError);
+  assert.equal(err.name, 'BackendError');
+  assert.match(err.message, /ошибка сервера/);
+});
+
+test('api: a payload cannot replace the action or the token', async () => {
+  let sent = null;
+  const call = backend('u', 'real', async (url, init) => {
+    sent = JSON.parse(init.body);
+    return {status: 200, json: async () => ({ok: true})};
+  });
+  await call('upload_photo', {action: 'other', token: 'old', image: 'x'});
+  assert.deepEqual(sent, {action: 'upload_photo', token: 'real', image: 'x'});
+});
+
+test('statusOf: a cell holding the name of an Object method is no status', () => {
+  assert.equal(statusOf('constructor'), null);
+  assert.equal(statusOf('toString'), null);
+  assert.equal(statusOf(1), 'correct');
+});
+
+test('session: a shorter tournament in a new state brings the current question back in range', () => {
+  const teams = [{team_id: 'A01', name: 'A'}];
+  const state = (sizes) => ({tournament: {name: 'T', round_sizes: sizes}, teams, marks: {}});
+  const s = new Session({tid: 'T', state: state([10, 10]), current: 18});
+  s.setSnapshot(state([6, 6]), 0);
+  assert.equal(s.current, 12);
+});
+
+test('camera: a failing onCode does not end the decoding loop', async () => {
+  const seen = [];
+  const original = console.error;
+  console.error = () => {};
+  globalThis.requestAnimationFrame = (f) => setTimeout(f, 0);
+  const camera = Object.create(Camera.prototype);
+  Object.assign(camera, {running: true, paused: false, last: {text: null, seenAt: 0}});
+  const codes = ['a', 'b'];
+  camera.decodeFrame = async () => codes.shift() ?? null;
+  camera.onCode = (text) => {
+    seen.push(text);
+    if (text === 'b') {
+      camera.running = false;
+    }
+    if (text === 'a') {
+      throw new Error('a bad card');
+    }
+  };
+  await camera.loop();
+  console.error = original;
+  delete globalThis.requestAnimationFrame;
+  assert.deepEqual(seen, ['a', 'b']);
+});
+
+test('camera: a code decoded just as the camera stopped is not reported', async () => {
+  globalThis.requestAnimationFrame = (f) => setTimeout(f, 0);
+  const seen = [];
+  const camera = Object.create(Camera.prototype);
+  Object.assign(camera, {running: true, paused: false, last: {text: null, seenAt: 0}, onCode: (t) => seen.push(t)});
+  camera.decodeFrame = async () => {
+    camera.running = false;
+    return 'a';
+  };
+  await camera.loop();
+  delete globalThis.requestAnimationFrame;
+  assert.deepEqual(seen, []);
+});
+
+test('storage: a browser that blocks localStorage only loses persistence', async () => {
+  const {storage} = await import('../../web/s/lib/storage.js');
+  const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    get() {
+      throw new Error('SecurityError');
+    },
+  });
+  try {
+    const s = storage();
+    s.set('k', 1);
+    assert.equal(s.get('k'), null);
+    s.remove('k');
+  } finally {
+    if (descriptor) {
+      Object.defineProperty(globalThis, 'localStorage', descriptor);
+    } else {
+      delete globalThis.localStorage;
+    }
+  }
+});
+
+test('offline: every file the service worker lists exists, the wasm is listed, other caches are left alone', () => {
+  const root = new URL('../../web/s/', import.meta.url);
+  const sw = readFileSync(new URL('sw.js', root), 'utf8');
+  const files = [...sw.match(/const FILES = \[([\s\S]*?)\];/)[1].matchAll(/'([^']+)'/g)].map((m) => m[1]);
+  for (const file of files.filter((f) => f !== './')) {
+    assert.ok(readFileSync(new URL(file, root)).length > 0, file);
+  }
+  const wasm = readFileSync(new URL('lib/camera.js', root), 'utf8').match(/const WASM = '([^']+)'/)[1];
+  assert.ok(files.includes(wasm));
+  assert.match(sw, /k\.startsWith\('chgk-scanner-'\) && k !== CACHE/);
+});

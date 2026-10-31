@@ -189,8 +189,9 @@ One line each; SPEC has the details. Decisions recorded only here are written ou
 
 ## Next steps
 
-0. **Code review, 2026-10-31:** per-file findings, unverified and not yet triaged, are in `out/code-review/`
-   (start at its README.md; local only, kept out of the public repo). Triage before the mock game.
+0. **Code review, 2026-10-31:** all findings triaged in `out/code-review/TRIAGE.md` (local only: the repo is
+   public; by theme, with `triage.tsv`). The small fixes are in; the rest wait for the user's decisions, then one
+   backend redeploy, before the mock game.
 1. **Phase 7**, the rest: reprint `out/osenniy-salat/`, the fixes' own checks on an iPhone
    ([docs/manual-checks.md](docs/manual-checks.md)), the mock game, fixes, a docs/comments check.
    Then **Phase 8**, an external test at a tournament, with the same loop.

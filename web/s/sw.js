@@ -2,7 +2,7 @@
 // updates arrive at once) and from this cache when not. Requests to other sites (the
 // Apps Script backend) are never touched.
 
-const CACHE = 'chgk-scanner-v5';
+const CACHE = 'chgk-scanner-v6';
 const FILES = [
   './',
   'index.html',
@@ -47,7 +47,9 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches
       .keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+      .then((keys) =>
+        Promise.all(keys.filter((k) => k.startsWith('chgk-scanner-') && k !== CACHE).map((k) => caches.delete(k))),
+      )
       .then(() => self.clients.claim()),
   );
 });
@@ -62,7 +64,7 @@ self.addEventListener('fetch', (event) => {
       .then((response) => {
         if (response.ok) {
           const copy = response.clone();
-          caches.open(CACHE).then((cache) => cache.put(event.request, copy));
+          event.waitUntil(caches.open(CACHE).then((cache) => cache.put(event.request, copy)));
         }
         return response;
       })

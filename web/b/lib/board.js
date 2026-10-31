@@ -23,7 +23,7 @@ export function cellMark(value) {
  * @param {object} o
  * @param {number} o.gridMax  up to this many teams: the full grid of every round, else "compact"
  * @param {"grid"|"compact"|null} [o.view]  forced view (the G key), else by team count
- * @returns {{name, date, rounds, revealed, view, groups, rows, took, teams}}
+ * @returns {{name, date, rounds, revealed, view, groups, rows, took}}
  *   groups: the question columns shown, [{round, questions: [q, …]}]
  *   rows:   [{team_id, name, place, total, sums: [per revealed round], marks: {q: "+"|"×"|"•"|"?"}}]
  *   took:   {q: number of teams that took it}
@@ -73,6 +73,5 @@ export function boardModel(data, revealed, {gridMax, view = null}) {
     groups,
     rows,
     took,
-    teams: data.teams.length,
   };
 }

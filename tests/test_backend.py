@@ -511,3 +511,56 @@ def test_cli_commands_that_need_new_write_nothing_before_it(folder, command):
     result = runner.invoke(app, [command, str(folder)])
     assert result.exit_code == 1 and "chgk new" in result.output
     assert not (folder / "state.json").exists()  # no tournament ID made up on the way
+
+
+def test_a_url_with_a_trailing_newline_is_refused(tmp_path):
+    profiles = Profiles(tmp_path / "backends.json")
+    with pytest.raises(ValueError, match="not an Apps Script"):
+        profiles.add(Profile("x", URL_A + "\n", "t"))
+
+
+def test_the_admin_token_stays_out_of_repr_and_the_profiles_file_is_private(tmp_path):
+    path = tmp_path / "backends.json"
+    profiles = Profiles(path)
+    profiles.add(Profile("x", URL_A, "very-secret"))
+    profiles.save()
+    assert "very-secret" not in repr(profiles.get("x"))
+    assert path.stat().st_mode & 0o777 == 0o600
+
+
+@respx.mock
+def test_a_json_reply_that_is_no_object_is_a_backend_error():
+    respx.post(URL_A).mock(return_value=httpx.Response(200, text="null"))
+    with pytest.raises(BackendError, match="unexpected JSON"):
+        BackendClient(URL_A, "t").call("ping")
+
+
+@respx.mock
+def test_a_payload_cannot_replace_the_token():
+    route = respx.post(URL_A).mock(return_value=httpx.Response(200, json={"ok": True}))
+    BackendClient(URL_A, "real").call("ping", token="other")
+    assert json.loads(route.calls.last.request.content) == {"action": "ping", "token": "real"}
+
+
+@respx.mock
+def test_backend_add_refuses_a_bad_url_before_sending_the_token(backends):
+    bad = "http://script.google.com.evil.example/exec"
+    route = respx.post(bad).mock(return_value=httpx.Response(200, json={"ok": True}))
+    result = runner.invoke(app, ["backend", "add", "x", "--url", bad, "--token", "t"])
+    assert result.exit_code == 1
+    assert not route.called
+    assert "not an Apps Script" in result.output
+
+
+def test_sync_teams_refuses_a_registered_team_on_a_reserve_id_before_changing_anything(folder, backends):
+    a, _ = backends
+    profiles = Profiles()
+    profiles.add(Profile("personal", URL_A, "tokA"))
+    profiles.save()
+    state = new_tournament(folder, profiles.active()).state
+    before = (folder / "teams.py").read_text(encoding="utf-8")
+    a.set_cell(state.tid, "Teams", 2, 1, "R1")  # a registered team retyped as R1
+    with pytest.raises(ValueError, match="kept for reserve"):
+        sync_teams(folder, Profiles())
+    assert (folder / "teams.py").read_text(encoding="utf-8") == before
+    assert not sent(a, "set_teams")

@@ -53,13 +53,13 @@ export function handleCode(text) {
 }
 
 /** One photo per card per phone (a card scanned again is not photographed again). */
-export function keepPhoto(r, shot) {
+function keepPhoto(r, shot) {
   const photographed = {
     get: () => store.get(K.photographed(app.setup.tid)),
     set: (keys) => store.set(K.photographed(app.setup.tid), keys),
   };
   const photoQueue = app.photos;
-  firstPhoto(shot, `${r.team.team_id}:${r.question}`, photographed).then((blob) => {
+  firstPhoto(shot, `${r.team.team_id}:${r.question}${r.spare ? `:S${r.spare}` : ''}`, photographed).then((blob) => {
     if (!blob) {
       return;
     }
@@ -81,7 +81,7 @@ export function keepPhoto(r, shot) {
   });
 }
 
-export function openCard(r) {
+function openCard(r) {
   app.openCardResult = r;
   app.queue.add(app.session.record(r.team.team_id, r.question, r.spare, 'received'));
   keepPhoto(r, r.shot);
@@ -113,7 +113,7 @@ export function verdict(status) {
   flushSoon();
 }
 
-export function openSpare(r) {
+function openSpare(r) {
   app.spareResult = r;
   app.spareDigits = '';
   $('sp-team').textContent = r.team.name;

@@ -2,7 +2,7 @@
 
 import re
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime
 from enum import Enum
 from pathlib import Path
 
@@ -50,6 +50,8 @@ class CardFields:
         if self.logo_size is not None and not 0.2 <= self.logo_size <= 8:
             raise ConfigError(f"logo_size must be 0.2–8 in, got {self.logo_size}")
         check_logo_grey(self.logo_grey)
+        if not isinstance(self.logo, LogoMode):
+            raise ConfigError(f"logo must be a LogoMode, e.g. LogoMode.TEAM, got {self.logo!r}")
         if self.logo is LogoMode.TOURNAMENT and not self.tournament_logo:
             raise ConfigError("logo=TOURNAMENT needs tournament_logo")
 
@@ -101,13 +103,15 @@ class Tournament:
     def __post_init__(self) -> None:
         if self.tid is not None:
             tid = str(self.tid).strip().upper()
-            if not TID_RE.match(tid):
+            if not TID_RE.fullmatch(tid):
                 raise ConfigError(f"tid must be 1-8 digits or Latin letters, e.g. 11234 or OSEN26, got {self.tid!r}")
             object.__setattr__(self, "tid", tid)
-        if not SLUG_RE.match(self.slug):
+        if not SLUG_RE.fullmatch(self.slug):
             raise ConfigError(f"slug must be lowercase letters, digits and dashes, got {self.slug!r}")
         if not self.name.strip():
             raise ConfigError("name must not be empty")
+        if not isinstance(self.date, date) or isinstance(self.date, datetime):
+            raise ConfigError(f"date must be a date, e.g. date(2026, 11, 15), got {self.date!r}")
         if self.rounds < 1:
             raise ConfigError(f"rounds must be ≥ 1, got {self.rounds}")
         per_round = self.round_sizes

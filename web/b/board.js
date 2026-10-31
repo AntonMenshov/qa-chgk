@@ -254,7 +254,15 @@ function wake() {
 // A board link opened into this tab only changes the #… (no reload): load the board it names.
 addEventListener('hashchange', () => {
   const next = decodeBoard(location.hash);
-  if (next && !(access && next.tid === access.tid && next.boardToken === access.boardToken)) {
+  if (
+    next &&
+    !(
+      access &&
+      next.tid === access.tid &&
+      next.boardToken === access.boardToken &&
+      next.backendUrl === access.backendUrl
+    )
+  ) {
     location.reload();
   }
 });
@@ -267,6 +275,10 @@ $('qr').onclick = toggleQr;
 $('full').onclick = () =>
   document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
 addEventListener('keydown', (e) => {
+  // A held key would reveal several rounds at once; Cmd+F and the like stay the browser's.
+  if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) {
+    return;
+  }
   if (['ArrowRight', ' ', 'PageDown', 'Enter'].includes(e.key)) {
     setRevealed(revealed + 1);
   } else if (['ArrowLeft', 'PageUp', 'Backspace'].includes(e.key)) {

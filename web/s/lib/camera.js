@@ -107,8 +107,10 @@ export class Camera {
     if (v.readyState < 2 || !v.videoWidth) {
       return null;
     }
-    this.canvas.width = v.videoWidth;
-    this.canvas.height = v.videoHeight;
+    if (this.canvas.width !== v.videoWidth || this.canvas.height !== v.videoHeight) {
+      this.canvas.width = v.videoWidth;
+      this.canvas.height = v.videoHeight;
+    }
     this.ctx.drawImage(v, 0, 0);
     const image = this.ctx.getImageData(0, 0, this.canvas.width, this.canvas.height);
     const results = await globalThis.ZXingWASM.readBarcodes(image, READER_OPTIONS);
@@ -125,8 +127,12 @@ export class Camera {
       } catch {
         text = null;
       }
-      if (text) {
-        this.seen(text, performance.now());
+      if (text && this.running) {
+        try {
+          this.seen(text, performance.now());
+        } catch (err) {
+          console.error(err); // one card's failure must not end the scanning
+        }
       }
       await new Promise((resolve) => requestAnimationFrame(resolve));
     }

@@ -55,7 +55,9 @@ def build_cards(folder: Path, mode: Mode, out: Path | None = None, team_ids: lis
     tournament = load_config(folder)
     teams = load_teams(folder, tournament)
     all_teams = teams
-    if team_ids:
+    if team_ids is not None:
+        if not team_ids:
+            raise ValueError("--teams gives no team IDs")
         unknown = set(team_ids) - {t.team_id for t in teams}
         if unknown:
             raise ValueError(f"unknown team_id(s): {', '.join(sorted(unknown))}")
@@ -68,12 +70,15 @@ def build_cards(folder: Path, mode: Mode, out: Path | None = None, team_ids: lis
         out = Path(out)
         jury_out = out.with_name(f"{out.stem}-jury.pdf")
     else:
-        out = out_dir(tournament.slug, f"cards-{mode.value}.pdf")
+        # A reprint of some teams has its own name: the full deck's PDF stays.
+        only = f"-{'-'.join(team_ids)}" if team_ids else ""
+        out = out_dir(tournament.slug, f"cards-{mode.value}{only}.pdf")
         jury_out = out.with_name("jury.pdf")
     logos = _pale(sources, tournament.card.logo_grey, teams)
     warnings = logo_warnings + render_cards(pages, tournament, mode, out, logos)
     payloads = [encode_payload(tournament.scanner_url, card.id) for page in pages for card in page if card]
-    warnings += [w for w in [denser_qr_warning(payloads)] if w]
+    if not tournament.card.no_qr:
+        warnings += [w for w in [denser_qr_warning(payloads)] if w]
     warnings += render_jury_sheet(tournament, state, all_teams, jury_out)
     n_cards = sum(1 for page in pages for card in page if card is not None)
     n_reserve = sum(1 for t in teams if t.reserve)

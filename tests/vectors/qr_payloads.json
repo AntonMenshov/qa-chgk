@@ -28,6 +28,8 @@
     {"payload": "https://example.github.io/qa-chgk/s/#K7M2Q.a07.1", "valid": false, "note": "lowercase team id"},
     {"payload": "https://example.github.io/qa-chgk/s/#K7M2Q.A-1.1", "valid": false, "note": "punctuation in team id"},
     {"payload": "https://example.github.io/qa-chgk/s/#K7M2Q..1", "valid": false, "note": "empty team id"},
-    {"payload": "https://example.github.io/qa-chgk/s/#K7M2Q.A07.27\n", "valid": false, "note": "trailing newline"}
+    {"payload": "https://example.github.io/qa-chgk/s/#K7M2Q.A07.27\n", "valid": false, "note": "trailing newline"},
+    {"payload": "https://example.github.io/qa-chgk/s/#K7M2Q.A07.1000", "valid": false, "note": "question above 999"},
+    {"payload": "https://example.github.io/qa-chgk/s/#K7M2Q.A07.S100", "valid": false, "note": "spare above 99"}
   ]
 }

@@ -8,6 +8,7 @@ import json
 from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
 
+from chgk import write_file
 from chgk.ids import BoardAccess, JuryAccess, generate_tid
 
 STATE_FILE = "state.json"
@@ -83,4 +84,4 @@ def load_or_create_state(folder: Path, tid: str | None = None) -> State:
 
 
 def save_state(folder: Path, state: State) -> None:
-    (Path(folder) / STATE_FILE).write_text(json.dumps(asdict(state), indent=2) + "\n", encoding="utf-8")
+    write_file(Path(folder) / STATE_FILE, json.dumps(asdict(state), indent=2) + "\n", private=True)  # holds tokens

@@ -8,12 +8,12 @@ import hashlib
 import json
 import os
 import re
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 import httpx
 
-from chgk import out_dir
+from chgk import out_dir, write_file
 from chgk.ids import BACKEND_URL_RE
 
 APPS_SCRIPT_DIR = Path(__file__).resolve().parent.parent / "apps_script"
@@ -40,11 +40,16 @@ class BackendError(RuntimeError):
     """The backend refused a request or could not be reached."""
 
 
+def check_backend_url(url: str) -> None:
+    if not BACKEND_URL_RE.fullmatch(url):
+        raise ValueError(f"not an Apps Script web app URL (…/macros/s/<id>/exec): {url}")
+
+
 @dataclass(frozen=True)
 class Profile:
     name: str
     url: str
-    admin_token: str
+    admin_token: str = field(repr=False)
     account: str = ""  # label only, e.g. the Gmail address
 
 
@@ -65,12 +70,10 @@ class Profiles:
             "active": self.active_name,
             "profiles": {n: {k: v for k, v in asdict(p).items() if k != "name"} for n, p in self.profiles.items()},
         }
-        self.path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
-        self.path.chmod(0o600)  # holds admin tokens
+        write_file(self.path, json.dumps(data, indent=2) + "\n", private=True)  # holds admin tokens
 
     def add(self, profile: Profile, activate: bool = True) -> None:
-        if not BACKEND_URL_RE.match(profile.url):
-            raise ValueError(f"not an Apps Script web app URL (…/macros/s/<id>/exec): {profile.url}")
+        check_backend_url(profile.url)
         self.profiles[profile.name] = profile
         if activate or self.active_name is None:
             self.active_name = profile.name
@@ -110,7 +113,7 @@ class BackendClient:
         self.http = http or httpx.Client(follow_redirects=True, timeout=90)
 
     def call(self, action: str, **payload) -> dict:
-        body = json.dumps({"action": action, "token": self.token, **payload}, ensure_ascii=False)
+        body = json.dumps({**payload, "action": action, "token": self.token}, ensure_ascii=False)
         try:
             # text/plain: Apps Script web apps don't answer CORS preflights; same as the phone.
             response = self.http.post(
@@ -125,6 +128,8 @@ class BackendClient:
                 f"backend answered HTTP {response.status_code} without JSON. Is the web app deployed with "
                 "'Execute as: Me' and 'Who has access: Anyone'?"
             ) from None
+        if not isinstance(data, dict):
+            raise BackendError(f"backend answered HTTP {response.status_code} with unexpected JSON: {data!r}")
         if not data.get("ok"):
             error = data.get("error") or f"backend error (HTTP {response.status_code})"
             if "permission to call" in error:
@@ -202,7 +207,8 @@ def bundle_apps_script(out: Path) -> tuple[Path, str]:
         text = re.sub(r"(?m)^export ", "", text)  # logic.js is an ES module for the web pages; Apps Script has none
         if name == "Code.js":
             marker = "const VERSION = 'dev';"  # single quotes, as Prettier writes them
-            assert marker in text, "Code.js must define VERSION"
+            if marker not in text:
+                raise BackendError("Code.js must define VERSION")
             text = text.replace(marker, f"const VERSION = '{version}';")
         parts.append(f"\n// ===== {name} =====\n\n{text}")
     out = Path(out)

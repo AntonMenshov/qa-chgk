@@ -1,7 +1,15 @@
 // JSON values in localStorage. Never throws: private mode or a full disk only loses
 // persistence, not the session.
 
-export function storage(backing = globalThis.localStorage) {
+function localStore() {
+  try {
+    return globalThis.localStorage;
+  } catch {
+    return null; // reading it throws where site data is blocked
+  }
+}
+
+export function storage(backing = localStore()) {
   return {
     get(key) {
       try {

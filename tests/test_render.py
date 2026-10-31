@@ -1,5 +1,6 @@
 import random
 import re
+import unicodedata
 from dataclasses import replace
 
 import pypdfium2
@@ -477,3 +478,11 @@ def test_a_team_id_that_clashes_with_a_reserve_id_is_an_error(folder, tmp_path):
         build_cards(folder, Mode.TEAM_PAGES, tmp_path / "out.pdf")
     result = runner.invoke(app, ["cards", str(folder), "--mode", "team-pages", "--out", str(tmp_path / "x.pdf")])
     assert result.exit_code == 1 and "reserve" in result.output
+
+
+def test_printable_composes_letters_and_normalises_spaces():
+    warnings = []
+    assert printable("Йод Ёж\tА", warnings) == "Йод Ёж А"
+    assert printable(unicodedata.normalize("NFD", "Йод"), warnings) == "Йод"
+    assert printable("а б", warnings) == "а б"  # the font has a no-break space
+    assert warnings == []

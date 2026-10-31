@@ -32,12 +32,15 @@ def cards(
     folder: Path = typer.Argument(..., help="Tournament folder with config.py and teams.py"),
     mode: Mode | None = typer.Option(None, help="Imposition; asked interactively when omitted"),
     teams: str | None = typer.Option(None, help="Only these team_ids, comma-separated, e.g. A01,A07"),
-    out: Path | None = typer.Option(None, help="Output PDF (default: out/<slug>/cards-<mode>.pdf)"),
+    out: Path | None = typer.Option(
+        None,
+        help="Output PDF (default: out/<slug>/cards-<mode>.pdf); the secret jury sheet goes beside it: <name>-jury.pdf",
+    ),
 ) -> None:
     """Generate the printable answer cards."""
     mode = mode or _ask_mode()
     try:
-        result = build_cards(folder, mode, out, team_ids(teams) if teams else None)
+        result = build_cards(folder, mode, out, team_ids(teams) if teams is not None else None)
     except ValueError as err:
         raise fail(err) from err
     for warning in result.warnings:
@@ -76,4 +79,6 @@ def jury_sheet(
         raise fail(err) from err
     for warning in warnings:
         typer.secho(f"Warning: {warning}", fg="yellow", err=True)
-    typer.echo(f"{path}: jury sheet. Keep it away from the teams: it holds the jury access QR.")
+    typer.echo(
+        f"{path}: jury sheet. Keep it away from the teams once `chgk new` has run: it then holds the jury access QR."
+    )

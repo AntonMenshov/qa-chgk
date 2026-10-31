@@ -17,7 +17,7 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-from chgk import run_python_file
+from chgk import run_python_file, write_file
 from chgk.config import check_logo_grey
 from chgk.ids import assign_team_ids
 
@@ -38,7 +38,7 @@ def team(name: str, id: str | None = None, city: str = "", logo: str = "", logo_
     """One entry in teams.py. Without `id` (e.g. the team's rating number) one is assigned."""
     if logo_grey is not None:
         check_logo_grey(logo_grey)
-    return Team(id or "", name, city, logo, logo_grey=logo_grey)
+    return Team("" if id is None else str(id), name, city, logo, logo_grey=logo_grey)
 
 
 def normalize_teams(teams: list[Team], source: str) -> list[Team]:
@@ -103,4 +103,4 @@ def write_teams(path: Path, teams: list[Team]) -> None:
             args.append(f"logo_grey={t.logo_grey}")
         lines.append(f"    team({', '.join(args)}),")
     lines.append("]")
-    Path(path).write_text("\n".join(lines) + "\n", encoding="utf-8")
+    write_file(path, "\n".join(lines) + "\n")

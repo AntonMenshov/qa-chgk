@@ -80,7 +80,7 @@ function wire() {
       `Турнир ${app.setup.tid} · ${app.session.name}. Сервер: ${app.setup.backendUrl.replace(/^https:\/\//, '').slice(0, 48)}…`;
     sheet('settings');
   };
-  $('juror').onchange = () => {
+  $('juror').oninput = () => {
     store.set(K.juror, $('juror').value.trim());
     app.session.juror = $('juror').value.trim();
   };

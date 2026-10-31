@@ -1,5 +1,5 @@
 from dataclasses import replace
-from datetime import date
+from datetime import date, datetime
 
 import pytest
 
@@ -171,3 +171,28 @@ def test_tid_from_config(given, tid):
 def test_invalid_tid(given):
     with pytest.raises(ConfigError, match="tid must be 1-8 digits or Latin letters"):
         make(tid=given)
+
+
+def test_date_must_be_a_date():
+    for bad in ("2026-11-15", datetime(2026, 11, 15)):
+        with pytest.raises(ConfigError, match="date must be a date"):
+            Tournament(
+                slug="t", name="T", date=bad, rounds=1, questions_per_round=12, scanner_url="https://x.github.io/s/"
+            )
+
+
+def test_logo_mode_must_be_a_logomode():
+    with pytest.raises(ConfigError, match="logo must be a LogoMode"):
+        CardFields(logo="none")
+
+
+def test_a_trailing_newline_is_no_part_of_a_slug():
+    with pytest.raises(ConfigError, match="slug"):
+        Tournament(
+            slug="t\n",
+            name="T",
+            date=date(2026, 11, 15),
+            rounds=1,
+            questions_per_round=12,
+            scanner_url="https://x.github.io/s/",
+        )

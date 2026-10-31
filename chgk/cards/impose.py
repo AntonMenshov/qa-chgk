@@ -1,7 +1,7 @@
 """Imposition: which card goes into which slot of which page.
 
-A page is a list of `per_page` slots in reading order (left to right, top to
-bottom); an empty slot is None.
+A page is a list of `per_page` cards in reading order (left to right, top to
+bottom). Pages come out full: free slots become spare cards.
 """
 
 from enum import Enum

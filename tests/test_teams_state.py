@@ -1,10 +1,11 @@
 import json
+from unittest import mock
 
 import pytest
 
 from chgk.ids import TID_ALPHABET
-from chgk.state import load_or_create_state
-from chgk.teams import Team, read_teams, write_teams
+from chgk.state import State, load_or_create_state, load_state, save_state
+from chgk.teams import Team, read_teams, team, write_teams
 
 
 def write(path, text):
@@ -131,3 +132,20 @@ def test_state_derived_links_and_tolerates_unknown_keys(tmp_path):
 def test_state_without_backend_has_no_jury_access(tmp_path):
     state = load_or_create_state(tmp_path)
     assert state.jury_access is None and state.spreadsheet_url is None
+
+
+def test_team_takes_a_numeric_id_as_text():
+    assert team("Фиаско", id=58746).team_id == "58746"
+    assert team("Ноль", id=0).team_id == "0"
+    assert team("Без номера").team_id == ""
+
+
+def test_files_are_replaced_whole_and_state_is_private(tmp_path):
+    save_state(tmp_path, State(tid="K7M2Q", jury_token="secret"))
+    assert (tmp_path / "state.json").stat().st_mode & 0o777 == 0o600
+    assert [p.name for p in tmp_path.iterdir()] == ["state.json"]  # no temporary file left
+
+    with mock.patch("os.replace", side_effect=OSError("disk full")), pytest.raises(OSError):
+        save_state(tmp_path, State(tid="OTHER"))
+    assert load_state(tmp_path).tid == "K7M2Q"
+    assert [p.name for p in tmp_path.iterdir()] == ["state.json"]
