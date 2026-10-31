@@ -34,6 +34,13 @@ Full design: [SPEC.md](SPEC.md). Build order: [PLAN.md](PLAN.md).
 - **Deployed backend:** version **44f8934ea10c** (2026-10-30) under the user's Gmail (local
   profile `personal`), with the «Google Sheets API» service on. `uv run chgk backend check`
   compares it with the local code, and says when `out/apps_script/Code.gs` is an old bundle.
+- **Phase 7 tournament:** `tournaments/osenniy-salat/` «Осенний салат», 2026-11-20, TID **18376**,
+  the user's four teams, 3 rounds of 12; the same card look as the examples. `out/osenniy-salat/`
+  has its cards (team-pages, 3×4, 24 pages). `chgk new` has not run yet: it needs the backend
+  profile, which isn't on the current machine, and the jury sheet has no access QR until then.
+- **Current machine (since 2026-10-30):** no `backends.json`, and no `state.json` for the examples,
+  so a `chgk cards` there would give them new IDs that don't match their Sheets. The user's logos
+  are here; `ANTHROPIC_API_KEY` is not set, and for now isn't needed (user).
 - **Example tournament:** `tournaments/example/` (the user's four teams 645 «42», 58746
   Фиаско, 40400 Совхоз Победа, A01 Звезды сошлись; reserve decks R1, R2), TID **UYDJ7** on
   that backend; `out/example/` holds its cards (team-pages, 3×4, 24 pages) and jury.pdf.
@@ -77,6 +84,7 @@ apps_script/          backend, one global scope, joined in the order of bundle.j
 logos/                shared logo library (team logos git-ignored; nologo.png public); drafts/<slug>/<team_id>.svg
 tournaments/example/  working example: config.py, teams.py (the user's real teams)
 tournaments/example-15/  the same teams, 3 rounds of 15 questions
+tournaments/osenniy-salat/  the Phase 7 test game
 tests/                pytest (tests/test_*.py) and node:test (tests/js/*.test.mjs), e.g.:
   conftest.py         shared `folder` fixture: a small tournament on disk (TEST_GRID: 3×5, 0.65 in QR on purpose)
   node_backend.py     the real backend (js/fake_backend_server.mjs in Node) answering the CLI tests through respx
