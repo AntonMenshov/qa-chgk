@@ -15,8 +15,8 @@ Rules that override your defaults (details in HANDOVER «Working conventions» a
 - A change under `apps_script/` needs a redeploy by the user: run `uv run chgk backend bundle`
   and `pbcopy < out/apps_script/Code.gs` first, then give the version and the steps. After
   "deployed": `uv run chgk backend check`, a live check, HANDOVER's version line.
-- After a change to how cards or the jury sheet are drawn, regenerate `out/example/` and
-  `out/example-15/` in the mode already used, without asking.
+- After a change to how cards or the jury sheet are drawn, regenerate the current tournament's
+  cards and jury sheet (now `out/osenniy-salat/`) in the mode already used, without asking.
 - `logos/drafts/` holds the user's logo test drafts: never delete, overwrite or accept them.
 - `ANTHROPIC_API_KEY` is set in the user's shell profile; if a command doesn't see it, run it
   through `zsh -ic '…'`. Never print or store it.

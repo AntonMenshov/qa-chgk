@@ -1,4 +1,4 @@
-"""Example tournament. Copy this folder to start a new one."""
+"""A reference to copy when starting a tournament; chgk refuses to run on this folder itself."""
 
 from datetime import date
 

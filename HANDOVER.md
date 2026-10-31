@@ -35,23 +35,20 @@ Full design: [SPEC.md](SPEC.md). Build order: [PLAN.md](PLAN.md).
   profile `personal`), with the «Google Sheets API» service on. `uv run chgk backend check`
   compares it with the local code, and says when `out/apps_script/Code.gs` is an old bundle.
 - **Phase 7 tournament:** `tournaments/osenniy-salat/` «Осенний салат», 2026-11-20, TID **18376**,
-  the user's four teams, 3 rounds of 12; the same card look as the examples. Created on the backend
+  the user's four teams, 3 rounds of 12; the same card look as the example. Created on the backend
   (profile `personal`); `out/osenniy-salat/` has its cards (team-pages, 3×4, 24 pages) and jury.pdf.
 - **Phase 7 feedback (2026-10-30), fixed:** a card already entered offers «Отмена (останется: …)»;
   board: wrong is a red «×», no card yet a small grey «•»; board on a phone: the buttons stay, it says
   what to tap, no QR codes and the last round's grid by default; the QR sits 20% farther from the
   card's top and right edges (the printed cards changed by ~0.4 mm, no reprint needed to test).
   Screen rotation can't be locked from a web page on an iPhone: use its Portrait Orientation Lock.
-- **Current machine (since 2026-10-30):** no `state.json` for the examples, so a `chgk cards` there
-  would give them new IDs that don't match their Sheets. The user's logos are here;
+- **Current machine (since 2026-10-30):** the user's logos are here;
   `ANTHROPIC_API_KEY` is not set, and for now isn't needed (user): the `--draw` checks are out of
   scope for Phases 7 and 8.
-- **Example tournament:** `tournaments/example/` (the user's four teams 645 «42», 58746
-  Фиаско, 40400 Совхоз Победа, A01 Звезды сошлись; reserve decks R1, R2), TID **UYDJ7** on
-  that backend; `out/example/` holds its cards (team-pages, 3×4, 24 pages) and jury.pdf.
-- **Second example:** `tournaments/example-15/` — the same four teams, 3 rounds of 15
-  questions, TID **U9FP4**; `out/example-15/` has its cards (team-pages, 3×4, 24 pages)
-  and jury.pdf.
+- **Example:** `tournaments/example/` is only a reference to copy (the user's four teams 645 «42»,
+  58746 Фиаско, 40400 Совхоз Победа, A01 Звезды сошлись). It is never run and never has a `state.json`
+  (user, 2026-10-30); `load_config` refuses it. The second example, example-15, was removed. Sheets
+  made from them earlier (UYDJ7, U9FP4) are no longer used.
 
 ### Repository layout
 ```
@@ -87,8 +84,7 @@ apps_script/          backend, one global scope, joined in the order of bundle.j
                       disputed.js, photos.js, trigger.js. logic.js is an ES module (package.json);
                       the bundler and the Node fake drop its `export`s, since Apps Script has none
 logos/                shared logo library (team logos git-ignored; nologo.png public); drafts/<slug>/<team_id>.svg
-tournaments/example/  working example: config.py, teams.py (the user's real teams)
-tournaments/example-15/  the same teams, 3 rounds of 15 questions
+tournaments/example/  reference to copy, never run: config.py, teams.py (the user's real teams)
 tournaments/osenniy-salat/  the Phase 7 test game
 tests/                pytest (tests/test_*.py) and node:test (tests/js/*.test.mjs), e.g.:
   conftest.py         shared `folder` fixture: a small tournament on disk (TEST_GRID: 3×5, 0.65 in QR on purpose)
@@ -126,7 +122,7 @@ README.md             organiser guide (end to end) and contributor commands
 ```
 
 ### How to run
-- Tests: `uv run pytest` (540, incl. 4 browser tests that need Google Chrome + Node) and
+- Tests: `uv run pytest` (541, incl. 4 browser tests that need Google Chrome + Node) and
   `npm test` (231, then 78 backend and calculation tests again with the Sheets API off).
 - Lint and format: `uv run ruff format . && uv run ruff check .`, `npm run format && npm run lint`.
 - Backend: `uv run chgk backend add|use|list|check|remove|bundle` (docs/google-account.md).
@@ -317,8 +313,8 @@ Kept in one place: [SPEC.md §14](SPEC.md) (defaults used unless the user says o
   the CLI needs the deployment's `/exec` URL.
 - The Apps Script editor's Run button starts on the file's first function. Code.js goes
   first in the bundle and its first function is `setup()` (tested).
-- After a change to how cards or the jury sheet are drawn, regenerate `out/example/` and
-  `out/example-15/` in the mode already used; don't ask (user feedback).
+- After a change to how cards or the jury sheet are drawn, regenerate the current tournament's
+  output in the mode already used; don't ask (user feedback).
 
 ## On a new machine
 
@@ -337,8 +333,8 @@ on any laptop. Not in the repo (git-ignored, private or generated), so set up by
 - **`ANTHROPIC_API_KEY`** in the shell profile, for `chgk logos --draw`.
 - **Claude's memory** stays on the old machine (`~/.claude/projects/…`); everything in it is in
   this file, and `CLAUDE.md` points a new session here.
-- `out/` is regenerated: `uv run chgk cards tournaments/example --mode team-pages` (and
-  example-15), `uv run chgk backend bundle`.
+- `out/` is regenerated: `uv run chgk cards tournaments/osenniy-salat --mode team-pages`,
+  `uv run chgk backend bundle`.
 
 ## GitHub
 

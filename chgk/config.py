@@ -28,6 +28,7 @@ class LogoMode(Enum):
     TEAM_ELSE_TOURNAMENT = "team_else_tournament"
 
 
+EXAMPLE_FOLDER = "example"  # tournaments/example is never run: it would get a state.json of its own
 MIN_SPARES = 2  # spare cards per team at the least (user rule)
 
 
@@ -163,6 +164,8 @@ def load_config(folder: Path) -> Tournament:
     if not isinstance(tournament, Tournament):
         raise ConfigError(f"{path} must define `tournament = Tournament(...)`")
     name = Path(folder).resolve().name
+    if name == EXAMPLE_FOLDER:
+        raise ConfigError(f"{path} is only a reference: copy its config.py and teams.py into a new folder")
     if tournament.slug != name:
         # A copied config that keeps the old slug would write into the other tournament's out/<slug>/.
         raise ConfigError(

@@ -3,6 +3,7 @@ from datetime import date
 
 import pytest
 
+from chgk import PROJECT_DIR
 from chgk.config import CardFields, ConfigError, Layout, LogoMode, Tournament, load_config
 
 
@@ -133,6 +134,11 @@ def test_slug_must_match_the_folder(tmp_path):
     write_config(tmp_path / "autumn-cup", "example")
     with pytest.raises(ConfigError, match=r"slug='example' but the folder is 'autumn-cup'"):
         load_config(tmp_path / "autumn-cup")
+
+
+def test_the_example_is_only_a_reference():
+    with pytest.raises(ConfigError, match="only a reference"):
+        load_config(PROJECT_DIR / "tournaments" / "example")
 
 
 def test_load_config_missing_file(tmp_path):

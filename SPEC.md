@@ -165,7 +165,8 @@ Python like config.py (user request, replacing teams.csv):
 Given team IDs are kept (upper-cased); missing ones are assigned and written back (the
 file is then regenerated). `chgk teams` regenerates it from the Sheet's Teams tab; a team
 whose logo is blank on the Sheet keeps the logo from teams.py (and the Sheet gets it).
-`tournaments/example/` (3 × 12) and `tournaments/example-15/` (3 × 15) are working examples.
+`tournaments/example/` (3 × 12) is only a reference to copy: it never has a `state.json`, and
+chgk refuses to run on it (user).
 
 ## 5. Google Sheet (one spreadsheet per tournament)
 
