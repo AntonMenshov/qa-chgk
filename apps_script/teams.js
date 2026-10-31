@@ -17,7 +17,7 @@ function teamsFromRows_(values) {
       name: String(r[1]).trim(),
       city: String(r[2]).trim(),
       logo_file: String(r[3]).trim(),
-      reserve: String(r[4]).trim() !== '',
+      reserve: String(r[4]).trim() === RESERVE_MARK,
       row: i + 2,
     }))
     .filter((t) => t.team_id !== '' || t.name !== '');
@@ -37,7 +37,7 @@ function writeTeams_(ss, teams, newReserve) {
     .concat((newReserve || []).map((id) => ({team_id: id, name: ''})));
   const rows = teams
     .map((t) => [t.team_id, t.name, t.city || '', t.logo_file || '', ''])
-    .concat(reserve.map((t) => [t.team_id, t.name, '', '', RESERVE_MARK]));
+    .concat(reserve.map((t) => [t.team_id, t.name, t.city || '', t.logo_file || '', RESERVE_MARK]));
   if (sheet.getLastRow() > 1) {
     sheet.getRange(2, 1, sheet.getLastRow() - 1, TEAMS_HEADER.length).clearContent();
   }
@@ -78,14 +78,17 @@ function activateReserve_(ss, sizes, ids) {
 
 /**
  * A name typed in column B of «Итоги», a round tab or Teams goes to every tab. Matched by
- * team ID (rows may have been re-sorted since the edit); a cleared name is put back.
+ * team ID (rows may have been re-sorted since the edit); a name cleared on a tab other than
+ * Teams is put back (Teams itself is the only record of it).
  */
 function propagateNames_(ss, sizes, sourceName) {
   const teams = readTeams_(ss);
   const truth = {};
-  teams.forEach((t) => {
-    truth[t.team_id] = t.name;
-  });
+  teams
+    .filter((t) => t.team_id) // rows typed without an ID yet: each keeps its own name
+    .forEach((t) => {
+      truth[t.team_id] = t.name;
+    });
   if (sourceName !== TABS.teams) {
     const typed = {};
     teamRowsOf_(ss.getSheetByName(sourceName)).forEach((t) => {
@@ -97,7 +100,7 @@ function propagateNames_(ss, sizes, sourceName) {
   }
   const teamsTab = ss.getSheetByName(TABS.teams);
   teams.forEach((t) => {
-    if (truth[t.team_id] && t.name !== truth[t.team_id]) {
+    if (t.team_id && truth[t.team_id] && t.name !== truth[t.team_id]) {
       teamsTab.getRange(t.row, 2).setValue(truth[t.team_id]);
     }
   });
@@ -105,7 +108,9 @@ function propagateNames_(ss, sizes, sourceName) {
   activateReserve_(
     ss,
     sizes,
-    teams.filter((t) => t.reserve && truth[t.team_id]).map((t) => t.team_id),
+    teams
+      .filter((t) => t.reserve && t.team_id && truth[t.team_id] && truth[t.team_id] !== reservePlaceholder(t.team_id))
+      .map((t) => t.team_id),
   );
   [summaryOf_(ss)].concat(sizes.map((_, i) => ss.getSheetByName(roundSheetName(i + 1)))).forEach((sheet) => {
     teamRowsOf_(sheet).forEach((t) => {

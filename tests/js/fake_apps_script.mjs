@@ -557,6 +557,7 @@ export function loadBackend({
   const folders = new Map();
   const root = new FakeFolder('root', folders);
   const triggers = [];
+  const triggerSources = [];
   const sharing = new Map(); // spreadsheet id → "ACCESS:PERMISSION"
   const options = {allScopes}; // changeable later (the HTTP server's /__options)
   const api = {
@@ -587,6 +588,7 @@ export function loadBackend({
       getScriptProperties: () => ({
         getProperty: (k) => (props.has(k) ? props.get(k) : null),
         setProperty: (k, v) => props.set(k, String(v)),
+        deleteProperty: (k) => props.delete(k),
       }),
     },
     ContentService: {
@@ -643,7 +645,22 @@ export function loadBackend({
     ScriptApp: {
       newTrigger: (fn) => {
         triggers.push(fn);
-        return chain();
+        const index = triggers.length - 1;
+        const builder = {
+          forSpreadsheet(ss) {
+            triggerSources[index] = ss.getId();
+            return builder;
+          },
+          onEdit: () => builder,
+          create: () => ({}),
+        };
+        return builder;
+      },
+      getProjectTriggers: () =>
+        triggers.map((fn, index) => ({fn, index, getTriggerSourceId: () => triggerSources[index]})),
+      deleteTrigger: (t) => {
+        triggers.splice(t.index, 1);
+        triggerSources.splice(t.index, 1);
       },
       getService: () => ({getUrl: () => serviceUrl}),
       AuthMode: {FULL: 'FULL'},

@@ -174,3 +174,7 @@ test("qrSvg draws the vendored generator's matrix with a 4-module white quiet zo
   assert.equal((svg.match(/h1v1h-1z/g) || []).length, dark);
   assert.ok(!/M[0-3] |M\d+ [0-3]h/.test(svg)); // nothing drawn in the quiet zone
 });
+
+test('a cell that is not a mark shows as undecided, not as «no card»', () => {
+  assert.equal(cellMark('!'), '?');
+});

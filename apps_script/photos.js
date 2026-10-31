@@ -3,8 +3,10 @@
 /**
  * One card's photo from a phone: saved as a JPEG in the tournament's Photos folder (Latin
  * name), then logged (source «photo») with its link, which «Спорные» shows for a «?».
- * The Drive save (~2 s) runs outside the lock, so marks never wait for photos. Idempotent
- * by photo_id: a phone retrying after a lost reply doesn't save it twice.
+ * The Drive save (~2 s) runs outside the lock; under the lock marks wait only for one read of
+ * the Log and that card's tab, and its write (everything else only for a «?»). A photo_id is
+ * logged once: a retry may leave an extra file in Drive (the first request still running, or
+ * the lock timed out), harmless and never linked.
  */
 function uploadPhoto_(ss, reg, req) {
   if (req.question > totalQuestions(reg.round_sizes)) {
@@ -29,11 +31,12 @@ function uploadPhoto_(ss, reg, req) {
     return DriveApp.getFolderById(reg.photos_folder_id).createFile(blob).getUrl();
   });
   return withLock_(() => {
-    const m = readMarks_(ss, reg, {log: true});
+    const at = questionCell(reg.round_sizes, req.question);
+    const [logRows, tab] = readBlocks_(ss, [LOG_BLOCK, {name: at.name, row: 2, col: 1, cols: at.col}]);
+    const m = {log: logFromRows_(logRows), w: writer_(ss)};
     if (m.log.seen.has(req.photo_id)) {
       return {ok: true, photo_id: req.photo_id, duplicate: true};
     }
-    const before = disputedBefore_(m);
     const now = logTime_(Date.now());
     appendLog_(m, [
       [
@@ -52,11 +55,19 @@ function uploadPhoto_(ss, reg, req) {
         url,
       ],
     ]);
-    // A «?» shows its photo on «Спорные» at once (the set of «?» didn't change).
-    if (markValues_(m)[`${req.team_id}:${req.question}`] === '?') {
-      m.w.set(TABS.disputed, 1, 1, disputedBlock_(m, markValues_(m), m.log.photos, before.rows));
-    }
     m.w.flush();
+    // A «?» shows its photo on «Спорные» at once (the set of «?» didn't change).
+    const row = tab.find((r) => String(r[0]).trim() === req.team_id);
+    if (row && row[at.col - 1] === '?') {
+      const full = readMarks_(ss, reg, {log: true});
+      full.w.set(
+        TABS.disputed,
+        1,
+        1,
+        disputedBlock_(full, markValues_(full), full.log.photos, disputedBefore_(full).rows),
+      );
+      full.w.flush();
+    }
     return {ok: true, photo_id: req.photo_id, url};
   });
 }

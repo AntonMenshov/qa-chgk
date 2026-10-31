@@ -4,7 +4,10 @@
  * Re-sort round tabs (by «Сумма») and «Итоги» (by Итого, then the last round, …), then
  * rewrite any per-row formula that the move left pointing at another row.
  */
-function sortTabs_(ss, sizes, rounds, m, reg) {
+function sortTabs_(ss, sizes, changedRounds, m, reg) {
+  // Computed keys that disagree with the marks: a formula typed over. Every tab gets its formulas back.
+  const repair = Boolean(m) && !m.sortKeysOk;
+  const rounds = repair ? sizes.map((_, i) => i + 1) : changedRounds;
   // With the marks at hand (`m` from readMarks_), a tab already in the right order is left
   // alone: most batches don't change the order.
   const values = m ? marksByTeam_(m, m.teams) : {};
@@ -19,7 +22,7 @@ function sortTabs_(ss, sizes, rounds, m, reg) {
       const current = Object.keys(values)
         .filter((id) => m.where[`${id}:${lay.first}`])
         .sort((a, b) => m.where[`${a}:${lay.first}`].row - m.where[`${b}:${lay.first}`].row);
-      if (inOrder(current, roundOrder(sizes, round, current, values))) {
+      if (!repair && inOrder(current, roundOrder(sizes, round, current, values))) {
         return;
       }
       rows = current.map((id) => m.where[`${id}:${lay.first}`].row);
@@ -45,7 +48,7 @@ function sortTabs_(ss, sizes, rounds, m, reg) {
   };
   if (m) {
     const current = m.summaryRows.map((t) => t.team_id);
-    if (!inOrder(current, summaryOrder(sizes, current, values))) {
+    if (repair || !inOrder(current, summaryOrder(sizes, current, values))) {
       tabs.push(Object.assign(summaryTab, {rows: m.summaryRows.map((t) => t.row)}));
     }
   } else {
@@ -54,6 +57,7 @@ function sortTabs_(ss, sizes, rounds, m, reg) {
   if (!tabs.length) {
     return;
   }
+  SpreadsheetApp.flush(); // queued writes use today's row numbers: they must land before rows move
   if (m && m.sortKeysOk && reg && sheetsApi_() && sortWithApi_(ss, reg, tabs)) {
     return;
   }
@@ -97,7 +101,12 @@ function sortWithApi_(ss, reg, tabs) {
       tabs.map((tab) => tab.name),
     );
     const requests = [];
-    tabs.forEach((tab) => {
+    // «Итоги» first: its keys read the round tabs' formulas, and a formula rewritten earlier in
+    // this call isn't calculated yet (see above).
+    const summaryFirst = tabs
+      .filter((tab) => tab.name === TABS.summary)
+      .concat(tabs.filter((tab) => tab.name !== TABS.summary));
+    summaryFirst.forEach((tab) => {
       const n = tab.rows.length;
       if (!n) {
         return;

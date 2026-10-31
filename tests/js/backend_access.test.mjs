@@ -28,6 +28,7 @@ const BODIES = {
   upload_photo: () => ({tid: TID, ...photo()}),
   get_board: () => ({tid: TID}),
   replace_token: () => ({tid: TID, which: 'jury', new_token: 'replaced-jury-token-0123'}),
+  delete_tournament: () => ({tid: TID}),
 };
 
 // The access rule, written here on its own: the table must match it, so a weakened
@@ -43,6 +44,7 @@ const WHO = {
   upload_photo: 'jury',
   get_board: 'board',
   replace_token: 'admin',
+  delete_tournament: 'admin',
 };
 
 // Each level also takes every stronger token.
@@ -90,7 +92,13 @@ test('the actions that write hold the lock; reads never wait for it', () => {
   const locked = Object.entries(actionsOf(b))
     .filter(([, a]) => a.lock)
     .map(([name]) => name);
-  assert.deepEqual(locked.sort(), ['create_tournament', 'record_events', 'replace_token', 'set_teams']);
+  assert.deepEqual(locked.sort(), [
+    'create_tournament',
+    'delete_tournament',
+    'record_events',
+    'replace_token',
+    'set_teams',
+  ]);
   const LOCKS_ITSELF = ['upload_photo']; // saves to Drive first, then locks only for its Log write
   for (const name of Object.keys(BODIES)) {
     const {b: fresh, admin} = world();

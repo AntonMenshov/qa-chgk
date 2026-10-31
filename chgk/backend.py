@@ -170,6 +170,9 @@ class BackendClient:
             board_token=board_token,
         )
 
+    def delete_tournament(self, tid: str) -> dict:
+        return self.call("delete_tournament", tid=tid)
+
     def get_state(self, tid: str) -> dict:
         return self.call("get_state", tid=tid)
 

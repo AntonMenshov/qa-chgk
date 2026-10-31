@@ -30,7 +30,11 @@ function createTournament_(props, req) {
   DriveApp.getFileById(ss.getId()).moveTo(folder);
   buildTabs_(ss, req);
   shareView_(ss.getId());
-  ScriptApp.newTrigger('onSheetEdit').forSpreadsheet(ss).onEdit().create();
+  try {
+    ScriptApp.newTrigger('onSheetEdit').forSpreadsheet(ss).onEdit().create();
+  } catch (err) {
+    fail(`could not add the Sheet's edit trigger (Google allows 20): \`chgk delete\` old tournaments. ${err.message}`);
+  }
 
   const reg = {
     spreadsheet_id: ss.getId(),
@@ -44,6 +48,20 @@ function createTournament_(props, req) {
   };
   props.setProperty('t:' + req.tid, JSON.stringify(reg));
   return {ok: true, existed: false, spreadsheet_id: reg.spreadsheet_id, folder_id: reg.folder_id};
+}
+
+/** `chgk delete`: the Drive folder to the bin, the Sheet's edit trigger removed, the tournament forgotten. */
+function deleteTournament_(props, reg) {
+  ScriptApp.getProjectTriggers()
+    .filter((t) => t.getTriggerSourceId() === reg.spreadsheet_id)
+    .forEach((t) => ScriptApp.deleteTrigger(t));
+  try {
+    DriveApp.getFolderById(reg.folder_id).setTrashed(true);
+  } catch {
+    // deleted by hand already
+  }
+  props.deleteProperty('t:' + reg.tid);
+  return {ok: true};
 }
 
 function hideServiceTabs_(ss) {
@@ -85,15 +103,18 @@ function buildTabs_(ss, req) {
     .setValues([TEAMS_HEADER])
     .setFontWeight('bold');
   const log = ss.insertSheet(TABS.log, ss.getSheets().length);
+  // Plain text, or a slow write turns team ID 007 into 7 and a juror's «=…» into a formula.
+  log.getRange(1, 1, log.getMaxRows(), LOG_HEADER.length).setNumberFormat('@');
   log.getRange(1, 1, 1, LOG_HEADER.length).setValues([LOG_HEADER]).setFontWeight('bold');
   log.setFrozenRows(1);
   const settings = ss.insertSheet(TABS.settings, ss.getSheets().length);
+  settings.getRange(1, 1, 6, 2).setNumberFormat('@'); // or a TID such as 01234 comes back as a number
   settings.getRange(1, 1, 6, 2).setValues([
     ['tid', req.tid],
     ['name', req.name],
     ['date', req.date],
     ['round_sizes', JSON.stringify(sizes)],
-    ['created', new Date()],
+    ['created', new Date().toISOString()],
     ['backend_version', VERSION],
   ]);
   // Per team: last-write time of each mark, and the last value the backend knows (metaLayout).

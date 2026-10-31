@@ -102,7 +102,7 @@ function doPost(e) {
   try {
     body = JSON.parse(e.postData.contents);
   } catch {
-    return json_({ok: false, error: 'request body is not JSON'});
+    return json_({ok: false, error: 'request body is not JSON', retry: false});
   }
   try {
     const reply = handle_(body);
@@ -133,7 +133,7 @@ const ACTIONS = {
     run: () => ({
       ok: true,
       version: VERSION,
-      account: Session.getEffectiveUser().getEmail(),
+      account: account_(),
       authorized: authorized_(),
       sheets_api: sheetsApi_(),
     }),
@@ -152,6 +152,7 @@ const ACTIONS = {
   upload_photo: {who: 'jury', run: (req, reg) => uploadPhoto_(open_(reg), reg, req)}, // locks only its Log write
   get_board: {who: 'board', run: (req, reg) => readBoard_(open_(reg), reg)},
   replace_token: {who: 'admin', lock: true, run: (req, reg) => replaceToken_(reg, req)},
+  delete_tournament: {who: 'admin', lock: true, run: (req, reg, props) => deleteTournament_(props, reg)},
 };
 
 function handle_(req) {
@@ -163,11 +164,28 @@ function handle_(req) {
   const props = timed_('access', () => PropertiesService.getScriptProperties());
   const reg = action.noTournament ? null : timed_('access', () => registry_(props, req.tid));
   requireToken_(action.who, props, reg, req);
-  const run = () => action.run(req, reg, props);
-  return action.lock ? withLock_(run) : run();
+  if (!action.lock) {
+    return action.run(req, reg, props);
+  }
+  return withLock_(() => {
+    // Read again now that this request holds the lock: a token replaced while it waited counts,
+    // and saving the record (sort.js caches tab IDs in it) can't bring the old token back.
+    const current = action.noTournament ? null : registry_(PropertiesService.getScriptProperties(), req.tid);
+    requireToken_(action.who, props, current, req);
+    return action.run(req, current, props);
+  });
 }
 
 // ---- access ----
+
+/** The owner's address; a label only, so an unticked permission can't hide the rest of `ping`'s report. */
+function account_() {
+  try {
+    return Session.getEffectiveUser().getEmail();
+  } catch {
+    return '';
+  }
+}
 
 /** False when the owner left some permission (Sheets, Drive, triggers) unticked; null if unknown. */
 function authorized_() {
@@ -243,7 +261,12 @@ function withLock_(fn) {
   try {
     return fn();
   } finally {
-    lock.releaseLock();
+    // SpreadsheetApp buffers its writes: the next request must find them done.
+    try {
+      timed_('flush', () => SpreadsheetApp.flush());
+    } finally {
+      lock.releaseLock();
+    }
   }
 }
 

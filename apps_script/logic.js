@@ -7,6 +7,7 @@ const APP_STATUSES = ['received', 'correct', 'incorrect', 'disputed']; // "clear
 const TID_RE = /^[0-9A-Z]{1,8}$/; // generated, or given in config.py (chgk/ids.py TID_PATTERN)
 const TEAM_ID_RE = /^[0-9A-Z]{1,8}$/; // e.g. a rating.chgk.info number (58746) or A07
 const MAX_EVENTS_PER_REQUEST = 500;
+const MAX_DATE_MS = 8.64e15; // beyond it JavaScript has no Date, and formatting one throws
 export const MAX_PHOTO_CHARS = 4000000; // base64 of a ~3 MB JPEG; phones send ~150-300 KB
 
 export class RequestError extends Error {}
@@ -86,7 +87,7 @@ function validatePhoto(p) {
   if (p.spare !== undefined && p.spare !== null && !(Number.isInteger(p.spare) && p.spare >= 1)) {
     fail('invalid spare');
   }
-  if (typeof p.client_ts !== 'number' || !isFinite(p.client_ts)) {
+  if (typeof p.client_ts !== 'number' || !(p.client_ts > 0 && p.client_ts <= MAX_DATE_MS)) {
     fail('invalid client_ts');
   }
   // JPEG files start with FF D8 FF, which is "/9j/" in base64.
@@ -258,6 +259,8 @@ export function validateRequest(body) {
     case 'set_teams':
       validateTeams(body.teams);
       return body;
+    case 'delete_tournament':
+      return body;
     case 'replace_token':
       if (!TOKEN_KINDS.includes(body.which)) {
         fail(`which must be one of ${TOKEN_KINDS.join(', ')}`);
@@ -275,6 +278,24 @@ export function validateRequest(body) {
     default:
       fail(`unknown action ${JSON.stringify(action)}`);
   }
+}
+
+/** What phones and the board get for a cell that isn't a mark (text the jury typed by mistake). */
+export const NOT_A_MARK = '!';
+
+/**
+ * The marks as sent to phones and the board: what was typed but not yet normalised («+») as
+ * its value, anything unreadable as NOT_A_MARK. {team_id: [cell value, …]}.
+ */
+export function sentMarks(marks) {
+  const out = {};
+  for (const [teamId, values] of Object.entries(marks)) {
+    out[teamId] = values.map((v) => {
+      const status = normalizeCellInput(v);
+      return status === null ? NOT_A_MARK : STATUS_VALUE[status];
+    });
+  }
+  return out;
 }
 
 /** Validate one scanner event against the tournament; returns an error message or null. */
@@ -337,7 +358,8 @@ export function applyEvents(cells, seen, events, teamIds, roundSizes, nowMs) {
     seen.add(ev.scan_id);
     const key = `${ev.team_id}:${ev.question}`;
     const before = cells[key] || {value: '', ts: 0};
-    const after = mergeCell(before, ev.status, ev.client_ts);
+    // A phone's clock running fast must not beat later marks or the jury's edits.
+    const after = mergeCell(before, ev.status, Math.min(ev.client_ts, nowMs));
     cells[key] = after;
     return {scan_id: ev.scan_id, applied: after !== before, duplicate: false};
   });
@@ -351,10 +373,10 @@ export function normalizeCellInput(raw) {
   if (v === '') {
     return 'cleared';
   }
-  if (['1', '+', 'да', 'верно'].includes(v)) {
+  if (['1', '+', '✓', 'да', 'верно'].includes(v)) {
     return 'correct';
   }
-  if (['0', '-', '−', 'нет', 'неверно'].includes(v)) {
+  if (['0', '-', '−', '–', '—', '×', '✗', 'нет', 'неверно'].includes(v)) {
     return 'incorrect';
   }
   if (v === '?') {

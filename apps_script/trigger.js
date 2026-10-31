@@ -31,7 +31,9 @@ function onSheetEdit(e) {
       touchesMarks = true;
     }
   }
-  if (!touchesNames && !touchesMarks) {
+  // A computed cell typed over («Сумма», «Итого», …): the same pass below finds and repairs it.
+  const touchesFormulas = name !== TABS.teams && last > 2 && !touchesMarks;
+  if (!touchesNames && !touchesMarks && !touchesFormulas) {
     return;
   }
   const user = e.user && e.user.getEmail ? e.user.getEmail() : '';
@@ -41,14 +43,14 @@ function onSheetEdit(e) {
       propagateNames_(ss, sizes, name);
       refreshDisputed_(ss, sizes);
     }
-    if (touchesMarks) {
+    if (touchesMarks || touchesFormulas) {
       SpreadsheetApp.flush(); // names written just above must be in the batched read
       const m = readMarks_(ss, {round_sizes: sizes}, {log: true});
       const disputedBefore = disputedBefore_(m);
       const rounds = applySheetEdits_(ss, m, user);
       updateDisputed_(m, disputedBefore);
       m.w.flush();
-      if (rounds.size) {
+      if (rounds.size || !m.sortKeysOk) {
         let reg = null;
         try {
           reg = registry_(PropertiesService.getScriptProperties(), tid);

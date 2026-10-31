@@ -3,14 +3,14 @@
 // with shared places as "2-3". The place labels and the order are the Sheet's own
 // (apps_script/logic.js, served as ../../shared/logic.js).
 
-import {compareStandings, placeLabels} from '../../shared/logic.js';
+import {compareStandings, NOT_A_MARK, placeLabels} from '../../shared/logic.js';
 
-/** "+" taken, "×" wrong, "•" no card yet (counts as not taken), "?" not decided yet («?» or only received). */
+/** "+" taken, "×" wrong, "•" no card yet (counts as not taken), "?" not decided yet («?», only received, or unreadable). */
 export function cellMark(value) {
   if (value === 1) {
     return '+';
   }
-  if (value === '?' || value === 'R') {
+  if (value === '?' || value === 'R' || value === NOT_A_MARK) {
     return '?';
   }
   return value === 0 ? '×' : '•';

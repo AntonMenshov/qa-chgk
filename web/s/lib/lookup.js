@@ -3,6 +3,7 @@
 // what the QR code itself holds).
 
 import {decodeBoard, decodeCard, decodeSetup} from './payload.js';
+import {NOT_A_MARK} from '../../shared/logic.js';
 import {statusOf, STATUS_LABEL} from './marks.js';
 
 /**
@@ -50,14 +51,19 @@ export function identify(text, session = null) {
   if (c.question > session.total) {
     return {tone: 'bad', title: team.name, details: [`Вопрос ${c.question}, а в турнире всего ${session.total}`, id]};
   }
-  const status = statusOf(session.valueOf(team.team_id, c.question));
+  const value = session.valueOf(team.team_id, c.question);
+  const status = statusOf(value);
   return {
     tone: 'ok',
     title: team.name,
     details: [
       `Вопрос ${c.question} · тур ${session.roundOf(c.question)}`,
       id,
-      status ? `Отметка: ${STATUS_LABEL[status]}` : 'Отметки пока нет',
+      value === NOT_A_MARK
+        ? 'В таблице непонятное значение: исправьте его там'
+        : status
+          ? `Отметка: ${STATUS_LABEL[status]}`
+          : 'Отметки пока нет',
     ],
   };
 }

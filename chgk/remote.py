@@ -7,7 +7,7 @@ from pathlib import Path
 from chgk.backend import BackendClient, Profile, Profiles
 from chgk.config import load_config
 from chgk.ids import generate_jury_token
-from chgk.state import State, check_tid, load_or_create_state, load_state, remember_team_ids, save_state
+from chgk.state import STATE_FILE, State, check_tid, load_or_create_state, load_state, remember_team_ids, save_state
 from chgk.teams import TEAMS_FILE, Team, normalize_teams, read_teams, reserve_teams, write_teams
 
 
@@ -139,6 +139,15 @@ def sync_teams(
     write_teams(folder / TEAMS_FILE, teams)  # only once the Sheet has the same IDs
     remember_team_ids(folder, [t.team_id for t in teams])
     return teams
+
+
+def delete_tournament(folder: Path, profiles: Profiles) -> State:
+    """The Drive folder to the bin, the Sheet's trigger removed, the backend forgets it; then state.json goes."""
+    folder = Path(folder)
+    state, client = tournament_client(folder, profiles)
+    client.delete_tournament(state.tid)
+    (folder / STATE_FILE).unlink()
+    return state
 
 
 TOKEN_KINDS = ("jury", "board")

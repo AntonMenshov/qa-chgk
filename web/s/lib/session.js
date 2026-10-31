@@ -3,6 +3,7 @@
 // the events to record. ui/ wires it to the camera, the screen and the queue.
 
 import {decodeCard, decodeSetup} from './payload.js';
+import {NOT_A_MARK} from '../../shared/logic.js';
 import {overlay, statusOf, STATUS_LABEL} from './marks.js';
 
 export const WARN = {EARLIER: 'earlier', ALREADY: 'already', RESERVE: 'reserve'};
@@ -147,6 +148,9 @@ export class Session {
     }
     if (previous && previous !== 'received') {
       warnings.push({code: WARN.ALREADY, text: `Уже отмечено: ${STATUS_LABEL[previous]}`});
+    }
+    if (this.valueOf(teamId, question) === NOT_A_MARK) {
+      warnings.push({code: WARN.ALREADY, text: 'В таблице здесь непонятное значение: исправьте его там'});
     }
     if (team.reserve && !this.isPlaying(team)) {
       warnings.push({

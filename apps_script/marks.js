@@ -12,8 +12,6 @@ function readMarks_(ss, reg, with_) {
   const n = totalQuestions(sizes);
   const ml = metaLayout(n);
   const lays = sizes.map((_, i) => roundLayout(sizes, i + 1));
-  const logFirst = LOG_HEADER.indexOf('scan_id') + 1;
-  const logCols = LOG_HEADER.length - logFirst + 1;
   const sl = summaryLayout(sizes);
   // Up to and including the computed sort keys: Итого on «Итоги», «Сумма» on round tabs.
   const specs = [
@@ -24,7 +22,7 @@ function readMarks_(ss, reg, with_) {
     specs.push({name: TABS.teams, row: 2, col: 1, cols: TEAMS_HEADER.length});
   }
   if (opts.log) {
-    specs.push({name: TABS.log, row: 2, col: logFirst, cols: logCols});
+    specs.push(LOG_BLOCK);
   }
   const blocks = readBlocks_(ss, specs);
   const w = writer_(ss);
@@ -103,18 +101,26 @@ function readMarks_(ss, reg, with_) {
     m.teamsTab = teamsFromRows_(extra.shift());
   }
   if (opts.log) {
-    const logRows = extra.shift();
-    const at = (name) => LOG_HEADER.indexOf(name) + 1 - logFirst;
-    const photos = {};
-    logRows.forEach((r) => {
-      const photo = String(r[at('photo')]).trim();
-      if (photo) {
-        photos[`${String(r[at('team_id')]).trim()}:${Number(r[at('question')])}`] = photo;
-      }
-    });
-    m.log = {seen: new Set(logRows.map((r) => String(r[0]))), photos, next: logRows.length + 2};
+    m.log = logFromRows_(extra.shift());
   }
   return m;
+}
+
+// The Log from scan_id on: what a request needs to know of it.
+const LOG_FIRST_COL = LOG_HEADER.indexOf('scan_id') + 1;
+const LOG_BLOCK = {name: TABS.log, row: 2, col: LOG_FIRST_COL, cols: LOG_HEADER.length - LOG_FIRST_COL + 1};
+
+/** m.log from those rows: the scan IDs seen, the photos by TEAM:Q, the next free row. */
+function logFromRows_(logRows) {
+  const at = (name) => LOG_HEADER.indexOf(name) + 1 - LOG_FIRST_COL;
+  const photos = {};
+  logRows.forEach((r) => {
+    const photo = String(r[at('photo')]).trim();
+    if (photo) {
+      photos[`${String(r[at('team_id')]).trim()}:${Number(r[at('question')])}`] = photo;
+    }
+  });
+  return {seen: new Set(logRows.map((r) => String(r[0]))), photos, next: logRows.length + 2};
 }
 
 /** {team_id: [question 1's mark, 2's, …]} for `teams`, from readMarks_; '' where empty. */
@@ -180,6 +186,12 @@ function applySheetEdits_(ss, m, user) {
     const range = ss.getSheetByName(at.name).getRange(at.row, at.col);
     if (edit.status === null) {
       timed_('notes', () => range.setNote('Непонятное значение: используйте 1, 0, ? или R'));
+      // Known from now on: noted once, not on every request. The sums changed, so the tab re-sorts.
+      m.w.set(TABS.meta, metaRowOf_(m, edit.key.split(':')[0]), m.meta.ml.knownCol(Number(edit.key.split(':')[1])), [
+        [edit.raw],
+      ]);
+      m.known[edit.key] = edit.raw;
+      rounds.add(at.round);
       return;
     }
     timed_('notes', () => range.clearNote());
@@ -214,17 +226,22 @@ function readState_(ss, reg) {
   const present = new Set(m.teams.map((t) => t.team_id));
   // Phones need reserve IDs too, to accept those cards before their first scan.
   const teams = m.teams
-    .map((t) => ({team_id: t.team_id, name: t.name, reserve: reserveIds.has(t.team_id)}))
+    .map((t) => ({team_id: t.team_id, name: t.name, reserve: reserveIds.has(t.team_id), on_tabs: true}))
     .concat(
       reserve
         .filter((t) => !present.has(t.team_id))
-        .map((t) => ({team_id: t.team_id, name: t.name || reservePlaceholder(t.team_id), reserve: true})),
+        .map((t) => ({
+          team_id: t.team_id,
+          name: t.name || reservePlaceholder(t.team_id),
+          reserve: true,
+          on_tabs: false,
+        })),
     );
   return {
     ok: true,
     tournament: {name: reg.name, date: reg.date, round_sizes: reg.round_sizes},
     teams: teams,
-    marks: marksByTeam_(m, teams),
+    marks: sentMarks(marksByTeam_(m, teams)),
   };
 }
 
@@ -238,7 +255,7 @@ function readBoard_(ss, reg) {
     ok: true,
     tournament: {name: reg.name, date: reg.date, round_sizes: reg.round_sizes},
     teams: m.teams,
-    marks: marksByTeam_(m, m.teams),
+    marks: sentMarks(marksByTeam_(m, m.teams)),
     // The view-only table, for its QR code on the board (the same link as on the jury sheet).
     view_url: `https://docs.google.com/spreadsheets/d/${reg.spreadsheet_id}/htmlview`,
   };
@@ -301,12 +318,7 @@ function recordEvents_(ss, reg, req) {
   const before = Object.assign({}, cells);
   // Teams with rows on the round tabs can be marked. Unused reserve teams count as known,
   // so their invalid events report the real problem (their valid ones activated them above).
-  const teamIds = new Set(
-    m.teams
-      .map((t) => t.team_id)
-      .filter((id) => m.where[`${id}:1`])
-      .concat([...reserveIds]),
-  );
+  const teamIds = new Set(m.teams.map((t) => t.team_id).concat([...reserveIds]));
 
   // An event whose cell has no row (the jury deleted the team's row from that round's tab) is
   // refused on its own; otherwise it would fail the whole batch, and the phone retries it forever.
@@ -354,7 +366,7 @@ function recordEvents_(ss, reg, req) {
   appendLog_(m, logRows);
   updateDisputed_(m, disputedBefore);
   m.w.flush(); // before sorting: the rows above are where the read found them
-  if (rounds.size) {
+  if (rounds.size || !m.sortKeysOk) {
     sortTabs_(ss, reg.round_sizes, [...rounds], m, reg);
   }
   return {ok: true, results: outcomes};

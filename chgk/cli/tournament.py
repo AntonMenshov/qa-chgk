@@ -11,7 +11,7 @@ from chgk.cards.build import build_jury_sheet, load_teams
 from chgk.cli.common import app, fail
 from chgk.config import load_config
 from chgk.jury import board_link, sheet_version
-from chgk.remote import new_tournament, replace_token, sync_teams
+from chgk.remote import delete_tournament, new_tournament, replace_token, sync_teams
 from chgk.state import check_tid, load_state
 
 
@@ -77,6 +77,25 @@ def view_cmd(folder: Path = typer.Argument(..., help="Tournament folder")) -> No
     typer.echo("Results, view-only for anyone with the link (marks appear as the jury enters them):")
     typer.echo(state.view_url)
     typer.echo("Its QR code is on page 2 of the jury sheet and on the projector board.")
+
+
+@app.command("delete")
+def delete_cmd(
+    folder: Path = typer.Argument(..., help="Tournament folder"),
+    yes: bool = typer.Option(False, "--yes", help="Don't ask for confirmation"),
+) -> None:
+    """Delete a tournament: its Drive folder goes to the bin, its Sheet's trigger and state.json are removed."""
+    tournament = load_config(folder)
+    if not yes:
+        typer.confirm(
+            f"«{tournament.name}» ({tournament.slug}): its Sheet, marks and photos go to the bin of Google Drive, "
+            "and every jury and board link stops working. Delete it?",
+            abort=True,
+        )
+    state = delete_tournament(folder, Profiles())
+    typer.echo(
+        f"Tournament {state.tid} deleted; config.py and teams.py stay. Its Drive folder is in the bin for 30 days."
+    )
 
 
 class TokenKind(StrEnum):
