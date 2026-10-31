@@ -26,7 +26,7 @@ Full design: [SPEC.md](SPEC.md). What's left: [PLAN.md](PLAN.md).
 | 8 — External test at a tournament | not started: the same loop with real teams |
 | 9 — Next version | the deferred list in PLAN.md |
 
-- **Deployed backend:** version **a3b8fe829421** (2026-10-31; live check passed: sorting, public copy, private Sheet, clock cap, `chgk delete`) under the user's Gmail (local
+- **Deployed backend:** version **daff47713628** (2026-10-31; live check passed: the one-off timer publishes with nobody polling, a deleted ID is refused, `chgk delete`) under the user's Gmail (local
   profile `personal`), with the «Google Sheets API» service on. `uv run chgk backend check`
   compares it with the local code, and says when `out/apps_script/Code.gs` is an old bundle.
 - **Phase 7 tournament:** `tournaments/osenniy-salat/` «Осенний салат», 2026-11-20, TID **18376**,
@@ -190,8 +190,7 @@ One line each; SPEC has the details. Decisions recorded only here are written ou
 
 ## Next steps
 
-0. **Code review, 2026-10-31:** all findings triaged with the user and the decisions implemented. The second pass's backend, version
-   `daff47713628`, still has to be deployed by the user, then checked live (one-off publish timer, deleted ID refused).
+0. **Code review, 2026-10-31:** all findings triaged with the user and the decisions implemented and deployed
    (`out/code-review/TRIAGE.md`, `DECISIONS.md`, `second-pass/` for the review of those changes; local only: the repo is public). Not yet tried for real: the iPhone
    side and edits typed in the Sheet ([docs/manual-checks.md](docs/manual-checks.md)).
 1. **Phase 7**, the rest: reprint `out/osenniy-salat/`, the fixes' own checks on an iPhone
@@ -220,5 +219,8 @@ exactly its level, replacing a leaked token, and a tid from config.py. Latest:
   get_results and get_board answer with the right name, date, teams and 36 empty marks (reserve
   decks off the board and standings); the board token is refused on get_state, a wrong token on
   get_board; jury.pdf's QR codes carry the jury token on page 1 and the board token on page 2.
+
+- **2026-10-31, daff47713628 (throwaway, deleted):** `backend check` clean; marks with no phone or board polling
+  reached the public copy in 92 s (one-off timer); `chgk delete`, then `chgk new` under that ID refused.
 
 Throwaway tournaments: the user deletes them.

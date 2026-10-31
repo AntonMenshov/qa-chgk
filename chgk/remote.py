@@ -48,16 +48,22 @@ def new_tournament(folder: Path, profile: Profile, client: BackendClient | None 
     state = replace(state, jury_token=jury_token, board_token=board_token)
     save_state(folder, state)
 
-    reply = client.create_tournament(
-        tid=state.tid,
-        name=tournament.name,
-        date=tournament.date.isoformat(),
-        round_sizes=tournament.round_sizes,
-        jury_token=jury_token,
-        teams=_team_dicts(teams),
-        reserve=[t.team_id for t in reserve],
-        board_token=board_token,
-    )
+    try:
+        reply = client.create_tournament(
+            tid=state.tid,
+            name=tournament.name,
+            date=tournament.date.isoformat(),
+            round_sizes=tournament.round_sizes,
+            jury_token=jury_token,
+            teams=_team_dicts(teams),
+            reserve=[t.team_id for t in reserve],
+            board_token=board_token,
+        )
+    except BackendError as err:
+        if "belonged to a deleted tournament" in str(err):
+            # A dead ID, and nothing was made with it: kept, state.json would bring it back on every try.
+            (folder / STATE_FILE).unlink()
+        raise
     state = replace(
         state,
         backend_url=profile.url,
