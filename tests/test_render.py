@@ -262,7 +262,7 @@ def test_test_page_has_real_qr_codes_and_marks_chosen_settings(folder, tmp_path)
 
     text = PdfReader(out).pages[0].extract_text()
     assert "0.65 in (chosen)" in text
-    assert "12% grey (chosen)" in text
+    assert "14% grey (chosen)" in text
 
 
 @pytest.mark.parametrize("mode", list(Mode))
@@ -381,6 +381,28 @@ def test_spare_cards_have_an_empty_number_box_and_no_words(folder, tmp_path):
     mid_x, mid_y = box.x + box.w / 2, box.y + box.h / 2
     assert max(px(box.x, mid_y), px(box.right, mid_y), px(mid_x, box.y), px(mid_x, box.top)) < 160  # the outline
     assert min(px(mid_x, mid_y), px(box.x + 8, box.top - 8)) > 200  # empty inside
+
+
+def test_a_teams_logo_grey_overrides_the_tournaments_for_its_own_logo_only(folder, tmp_path):
+    Image.new("L", (200, 200), 0).save(folder / "dark.png")
+    (folder / "teams.py").write_text(
+        "from chgk.teams import team\n\nteams = [\n"
+        "    team('Обычные', id='A01', logo='dark.png'),\n"
+        "    team('Темнее', id='A02', logo='dark.png', logo_grey=0.4),\n"
+        "    team('Без логотипа', id='A03', logo_grey=0.4),\n"  # no logo of its own: the shared one, unchanged
+        "]\n",
+        encoding="utf-8",
+    )
+    Image.new("L", (200, 200), 0).save(folder / "t.png")
+    out = tmp_path / "out.pdf"
+    build_cards(folder, Mode.TEAM_PAGES, out)
+    scale = DPI / 72
+    logo = card_parts(card_rects(TEST_GRID)[0], 0.65 * 72).logo
+    box = tuple(
+        round(v) for v in (logo.x * scale, (PAGE_H - logo.top) * scale, logo.right * scale, (PAGE_H - logo.y) * scale)
+    )
+    darkest = [image.convert("L").crop(box).getextrema()[0] for image in page_images(out)[:3]]
+    assert [255 - v for v in darkest] == pytest.approx([255 * 0.14, 255 * 0.4, 255 * 0.14], abs=2)
 
 
 def test_spare_box_is_white_inside_over_a_big_centred_logo(folder, tmp_path):

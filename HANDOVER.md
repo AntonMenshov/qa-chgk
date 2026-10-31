@@ -125,7 +125,7 @@ README.md             organiser guide (end to end) and contributor commands
 ```
 
 ### How to run
-- Tests: `uv run pytest` (535, incl. 4 browser tests that need Google Chrome + Node) and
+- Tests: `uv run pytest` (540, incl. 4 browser tests that need Google Chrome + Node) and
   `npm test` (231, then 78 backend and calculation tests again with the Sheets API off).
 - Lint and format: `uv run ruff format . && uv run ruff check .`, `npm run format && npm run lint`.
 - Backend: `uv run chgk backend add|use|list|check|remove|bundle` (docs/google-account.md).
@@ -193,13 +193,13 @@ One line each; SPEC has the details. Decisions recorded only here are written ou
   `CardFields(date=True)` (user), `CardFields(no_qr=True)` for a paper-only
   game (default False; the QR corner stays empty), at least 2 spares and free slots
   as extra spares, reserve decks R1, R2… (§8.7), the jury printout (§8.6).
-- **Logos** — SPEC §9: private library `logos/`, fallback chain, 12% shade; SVG and Claude-drawn
+- **Logos** — SPEC §9: private library `logos/`, fallback chain, 14% shade (user, after the Phase 7 prints; was 12%), a team's `logo_grey` in teams.py overrides it; SVG and Claude-drawn
   drafts §9.1 (always Claude Opus 5.5 at max effort, a 100k task budget, a render-and-review loop;
   the key only from `ANTHROPIC_API_KEY`). Drafts are never deleted or overwritten (user). The
   user's test drafts (22 teams each) in `logos/drafts/logo-drafts/` (session) and
   `logos/drafts/logo-drafts-api/` (API) are never deleted, overwritten or accepted without
   asking; their tournament folders were deleted, so `chgk logos` can't preview them. The
-  examples have no team name on cards, logo 10%, logo_size 1.85 in (user); elsewhere the
+  examples have no team name on cards, logo_size 1.85 in (user); elsewhere the
   defaults stay.
 - **A leaked jury or board link** — `chgk replace-token`, a new jury-v<N>.pdf saying what
   happened; phones keep their waiting marks and photos (SPEC §7.4).

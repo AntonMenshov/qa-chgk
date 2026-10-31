@@ -271,6 +271,21 @@ def test_sync_teams_keeps_a_local_logo_unless_the_sheet_has_one(folder, backends
     assert [t["logo_file"] for t in sent(a, "set_teams")[-1]["teams"]] == ["z.png", "new.svg", "sheet.png"]
 
 
+def test_sync_teams_keeps_a_teams_logo_grey_which_stays_off_the_sheet(folder, backends):
+    a, _ = backends
+    profiles = Profiles()
+    profiles.add(Profile("personal", URL_A, "tokA"))
+    profiles.save()
+    state = new_tournament(folder, profiles.active()).state
+    text = (folder / "teams.py").read_text(encoding="utf-8")
+    (folder / "teams.py").write_text(text.replace("id='A03'", "id='A03', logo_grey=0.3"), encoding="utf-8")
+    a.set_cell(state.tid, "Teams", 4, 4, "sheet.png")  # a logo from the Sheet wins; the shade is still the team's
+    teams = sync_teams(folder, Profiles())
+    assert [(t.logo_file, t.logo_grey) for t in teams][2] == ("sheet.png", 0.3)
+    assert read_teams(folder / "teams.py")[2].logo_grey == 0.3
+    assert all("logo_grey" not in t for t in sent(a, "set_teams")[-1]["teams"])
+
+
 def test_sync_teams_leaves_reserve_teams_on_the_backend(folder, backends):
     a, _ = backends
     profiles = Profiles()

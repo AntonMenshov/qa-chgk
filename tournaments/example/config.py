@@ -20,7 +20,6 @@ tournament = Tournament(
         logo=LogoMode.TEAM_ELSE_TOURNAMENT,  # team logo → tournament logo → fallback
         tournament_logo=None,  # e.g. "cup.png": tournament folder first, then the logos/ library
         fallback_logo="nologo.png",
-        logo_grey=0.10,
         logo_size=1.85,  # inches, centred on the card (a 3×4 card allows up to ~2.48)
         no_qr=False,  # True: no QR code, for a paper-only game without scanning
     ),

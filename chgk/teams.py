@@ -5,6 +5,7 @@
     teams = [
         team("42", id="645", logo="42.png"),
         team("Звезды сошлись", logo="zvezdy.png"),  # no id: one is assigned and written back
+        team("Фиаско", id="58746", logo="fiasko.png", logo_grey=0.2),  # this logo's shade, not the tournament's
     ]
 
 IDs end up in the cards' QR codes, so a team without one gets the next free A01, A02, …
@@ -17,6 +18,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from chgk import run_python_file
+from chgk.config import check_logo_grey
 from chgk.ids import assign_team_ids
 
 TEAMS_FILE = "teams.py"
@@ -29,11 +31,14 @@ class Team:
     city: str = ""
     logo_file: str = ""  # file name: tournament folder first, then the logos/ library
     reserve: bool = False  # a deck for a team that turns up unregistered; the jury names it later
+    logo_grey: float | None = None  # the ink of this team's own logo; None: the tournament's CardFields.logo_grey
 
 
-def team(name: str, id: str | None = None, city: str = "", logo: str = "") -> Team:
+def team(name: str, id: str | None = None, city: str = "", logo: str = "", logo_grey: float | None = None) -> Team:
     """One entry in teams.py. Without `id` (e.g. the team's rating number) one is assigned."""
-    return Team(id or "", name, city, logo)
+    if logo_grey is not None:
+        check_logo_grey(logo_grey)
+    return Team(id or "", name, city, logo, logo_grey=logo_grey)
 
 
 def normalize_teams(teams: list[Team], source: str) -> list[Team]:
@@ -44,7 +49,7 @@ def normalize_teams(teams: list[Team], source: str) -> list[Team]:
         name = t.name.strip()
         if not name:
             raise ValueError(f"{source}: team {team_id} has no name")
-        out.append(Team(team_id, name, t.city.strip(), t.logo_file.strip()))
+        out.append(Team(team_id, name, t.city.strip(), t.logo_file.strip(), logo_grey=t.logo_grey))
     return out
 
 
@@ -94,6 +99,8 @@ def write_teams(path: Path, teams: list[Team]) -> None:
             args.append(f"city={_py(t.city)}")
         if t.logo_file:
             args.append(f"logo={_py(t.logo_file)}")
+        if t.logo_grey is not None:
+            args.append(f"logo_grey={t.logo_grey}")
         lines.append(f"    team({', '.join(args)}),")
     lines.append("]")
     Path(path).write_text("\n".join(lines) + "\n", encoding="utf-8")

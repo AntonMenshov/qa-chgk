@@ -74,6 +74,23 @@ def test_invalid_team_files(tmp_path, text):
         read_teams(write(tmp_path / "teams.py", text))
 
 
+def test_a_teams_logo_grey_survives_the_file_being_written_back(tmp_path):
+    path = write(
+        tmp_path / "teams.py", HEADER + 'teams = [team("Первые", logo="a.png", logo_grey=0.2), team("Вторые")]\n'
+    )
+    teams = read_teams(path)  # the missing IDs make it write the file back
+    assert [t.logo_grey for t in teams] == [0.2, None]
+    assert 'logo="a.png", logo_grey=0.2)' in path.read_text(encoding="utf-8")
+    assert read_teams(path) == teams
+
+
+@pytest.mark.parametrize("grey", [0, 0.9])
+def test_a_teams_logo_grey_must_be_a_usable_shade(tmp_path, grey):
+    path = write(tmp_path / "teams.py", HEADER + f'teams = [team("Первые", id="A01", logo_grey={grey})]\n')
+    with pytest.raises(ValueError, match="logo_grey"):
+        read_teams(path)
+
+
 def test_missing_teams_file(tmp_path):
     with pytest.raises(ValueError, match=r"no teams\.py"):
         read_teams(tmp_path / "teams.py")

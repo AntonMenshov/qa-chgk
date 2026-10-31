@@ -147,7 +147,7 @@ tournament = Tournament(
         fallback_logo="nologo.png",  # when a card would otherwise have no logo
         logo_size=None,  # inches; None fits the writing area (§9)
         no_qr=False,  # True: no QR code, for a paper-only game without scanning (§8.2)
-        logo_grey=0.12,
+        logo_grey=0.14,
     ),
     layout=Layout(cols=3, rows=4, qr_size=0.85),  # 12 cards per Letter page
 )
@@ -160,7 +160,8 @@ Values the system generates or records (tournament ID, backend, spreadsheet ID, 
 tokens, token replacements) are stored next to the config in `tournaments/<slug>/state.json`,
 which is never hand-edited and is git-ignored because it contains secrets. Teams are in `tournaments/<slug>/teams.py`,
 Python like config.py (user request, replacing teams.csv):
-`teams = [team("42", id="645", logo="42.png"), team("Звезды сошлись"), …]`.
+`teams = [team("42", id="645", logo="42.png"), team("Звезды сошлись"), …]`. `logo_grey=0.2` next to
+`logo=` gives that team's own logo its own shade (user; only in teams.py, not on the Sheet).
 Given team IDs are kept (upper-cased); missing ones are assigned and written back (the
 file is then regenerated). `chgk teams` regenerates it from the Sheet's Teams tab; a team
 whose logo is blank on the Sheet keeps the logo from teams.py (and the Sheet gets it).
@@ -365,7 +366,7 @@ The app doesn't show it (decided).
 - The QR is drawn over the logo with its white quiet zone, so a logo never shows through it.
 - `CardFields(no_qr=True)` (user, 2026-10-30; default False): cards without the QR code, for a
   purely paper game with no scanning. Its corner stays empty; nothing else on the card moves.
-- Logo watermark default: **12% grey** (the user's choice from real cards), configurable:
+- Logo watermark default: **14% grey** (the user's choice from real cards; a team's `logo_grey` in teams.py overrides it), configurable:
   the ink of the logo's dark parts (its darkest 10%), not of a single darkest pixel; see §9.
 
 ### 8.3 Imposition: all three modes are available, and the CLI **asks which one** before generating unless it's passed

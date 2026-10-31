@@ -38,8 +38,10 @@ class BuildResult:
     warnings: list[str]
 
 
-def _pale(sources: dict, grey: float) -> dict:
-    return {key: pale(image, grey) for key, image in sources.items()}
+def _pale(sources: dict, grey: float, teams: list[Team]) -> dict:
+    """The pale logos: `grey`, or a team's own logo_grey for its own logo (keyed by its team_id)."""
+    own = {t.team_id: t.logo_grey for t in teams if t.logo_grey is not None}
+    return {key: pale(image, own.get(key, grey)) for key, image in sources.items()}
 
 
 def load_teams(folder: Path, tournament: Tournament) -> list[Team]:
@@ -68,7 +70,7 @@ def build_cards(folder: Path, mode: Mode, out: Path | None = None, team_ids: lis
     else:
         out = out_dir(tournament.slug, f"cards-{mode.value}.pdf")
         jury_out = out.with_name("jury.pdf")
-    logos = _pale(sources, tournament.card.logo_grey)
+    logos = _pale(sources, tournament.card.logo_grey, teams)
     warnings = logo_warnings + render_cards(pages, tournament, mode, out, logos)
     payloads = [encode_payload(tournament.scanner_url, card.id) for page in pages for card in page if card]
     warnings += [w for w in [denser_qr_warning(payloads)] if w]
@@ -98,7 +100,9 @@ def build_test_page(folder: Path, out: Path | None = None) -> Path:
     team = next((t for t in teams if t.team_id in sources), teams[0])
     key = first_logo(tournament.card, team.team_id, sources)
     out = Path(out) if out else out_dir(tournament.slug, "test-page.pdf")
-    render_test_page(tournament, state.tid, team, out, sources.get(key), _pale(sources, tournament.card.logo_grey))
+    render_test_page(
+        tournament, state.tid, team, out, sources.get(key), _pale(sources, tournament.card.logo_grey, teams)
+    )
     return out
 
 
@@ -115,7 +119,8 @@ def build_logo_preview(folder: Path, drafts: dict[str, Path], out: Path | None =
     images, warnings = {}, []
     for t in teams:
         try:
-            images[t.team_id] = pale(open_logo(drafts[t.team_id]), tournament.card.logo_grey)
+            grey = tournament.card.logo_grey if t.logo_grey is None else t.logo_grey
+            images[t.team_id] = pale(open_logo(drafts[t.team_id]), grey)
         except ValueError as err:
             warnings.append(f"draft {drafts[t.team_id]}: {err}")
     preview = replace(tournament, card=replace(tournament.card, logo=LogoMode.TEAM, fallback_logo=None))

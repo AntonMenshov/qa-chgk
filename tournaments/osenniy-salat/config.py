@@ -20,7 +20,6 @@ tournament = Tournament(
         logo=LogoMode.TEAM_ELSE_TOURNAMENT,
         tournament_logo=None,
         fallback_logo="nologo.png",
-        logo_grey=0.10,
         logo_size=1.85,
         no_qr=False,
     ),

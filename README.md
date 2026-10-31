@@ -25,7 +25,7 @@ Needs [uv](https://docs.astral.sh/uv/) and a Gmail account for the results.
    questions; team names (IDs such as rating numbers are optional, missing ones are assigned).
    To use your own tournament ID (e.g. its rating.chgk.info number), set `tid=` in config.py
    before the first `chgk cards`, `test-page`, `jury-sheet` or `new`; otherwise one is generated.
-   The examples' cards differ from the defaults (no team name, logo shade 0.10, a 1.85 in
+   The examples' cards differ from the defaults (no team name, a 1.85 in
    logo): change or delete those lines in `card=CardFields(...)` to get the defaults.
 3. **Create its Sheet:** `uv run chgk new tournaments/<slug>`.
 4. **Print:** `uv run chgk cards tournaments/<slug>` writes `out/<slug>/cards-<mode>.pdf`
@@ -46,7 +46,7 @@ Needs [uv](https://docs.astral.sh/uv/) and a Gmail account for the results.
    on the Sheet later.
 
 **Logos** (a pale watermark on each team's cards): put PNG, JPG or SVG files in `logos/` (shared
-by all tournaments, kept off GitHub) and name them in teams.py (`logo="fiasko.png"`).
+by all tournaments, kept off GitHub) and name them in teams.py (`logo="fiasko.png"`; add `logo_grey=0.2` for one logo that prints too pale or too dark).
 `uv run chgk logos tournaments/<slug>` shows which logo each team's cards use. With
 `--draw`, Claude (Opus, max effort) draws SVG drafts in the style of your logos for teams
 without one, then reviews its own rendering and fixes it (with

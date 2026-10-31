@@ -16,6 +16,11 @@ class ConfigError(ValueError):
     """The tournament config is invalid."""
 
 
+def check_logo_grey(value: float) -> None:
+    if not 0 < value <= 0.5:
+        raise ConfigError(f"logo_grey must be in (0, 0.5], got {value}")
+
+
 class LogoMode(Enum):
     NONE = "none"
     TEAM = "team"
@@ -37,14 +42,13 @@ class CardFields:
     tournament_logo: str | None = None  # file name: tournament folder first, then the logos/ library
     fallback_logo: str | None = "nologo.png"  # for cards that would otherwise have no logo
     logo_size: float | None = None  # inches; None fits the writing area, a number up to the card's shorter inner side
-    logo_grey: float = 0.12  # ink of the logo's dark parts: 0 = white, 1 = black (user's choice)
+    logo_grey: float = 0.14  # ink of the logo's dark parts: 0 = white, 1 = black (user's choice)
     no_qr: bool = False  # True: no QR code (a paper-only game, no scanning); its corner stays empty
 
     def __post_init__(self) -> None:
         if self.logo_size is not None and not 0.2 <= self.logo_size <= 8:
             raise ConfigError(f"logo_size must be 0.2–8 in, got {self.logo_size}")
-        if not 0 < self.logo_grey <= 0.5:
-            raise ConfigError(f"logo_grey must be in (0, 0.5], got {self.logo_grey}")
+        check_logo_grey(self.logo_grey)
         if self.logo is LogoMode.TOURNAMENT and not self.tournament_logo:
             raise ConfigError("logo=TOURNAMENT needs tournament_logo")
 

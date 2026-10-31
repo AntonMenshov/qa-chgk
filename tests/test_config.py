@@ -52,7 +52,7 @@ def test_defaults_match_user_choices():
     assert t.board_grid_max_teams == 5  # user: full grid on the board up to 5 teams
     assert (t.layout.cols, t.layout.rows, t.layout.per_page) == (3, 4, 12)
     assert t.layout.qr_size == 0.85
-    assert t.card.logo_grey == 0.12
+    assert t.card.logo_grey == 0.14
     assert t.card.logo is LogoMode.NONE
 
 
