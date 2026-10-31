@@ -1,6 +1,7 @@
 # Manual checks
 
-What the automated tests can't cover (SPEC §11). It opens Phase 7 (PLAN.md); after that, run the relevant parts after a release that touches them, and before a real game.
+What the automated tests can't cover (SPEC §11). It opens Phase 7 (PLAN.md); after that,
+run the relevant parts after a release that touches them, and before a real game.
 Use a throwaway tournament for anything that records marks, and delete its Drive folder
 afterwards (`docs/google-account.md` §5).
 
@@ -75,7 +76,8 @@ afterwards (`docs/google-account.md` §5).
 
 - [ ] `uv run chgk logos <folder>`: every team's row matches its logo file; an SVG logo
       prints with its lettering in PT Sans.
-The two `--draw` checks below are not needed for Phases 7 and 8 (user): no new logos are drawn there.
+
+The three drawing checks below are not needed for Phases 7 and 8 (user): no new logos are drawn there.
 
 - [ ] With `ANTHROPIC_API_KEY` set: `--draw --team <id>` on a throwaway tournament gives a
       draft in the style of the library's logos (owl acting out the name, the name in bold
