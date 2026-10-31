@@ -60,5 +60,15 @@ function onSheetEdit(e) {
         sortTabs_(ss, sizes, [...rounds], m, reg);
       }
     }
+    // Edits are rare, and no phone may be polling by then (a correction after the game).
+    let current = null;
+    try {
+      current = registry_(PropertiesService.getScriptProperties(), tid);
+    } catch {
+      // a Sheet the backend doesn't know (copied?): nothing to publish to
+    }
+    if (current) {
+      publish_(ss, current, PropertiesService.getScriptProperties());
+    }
   });
 }

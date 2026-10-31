@@ -21,6 +21,7 @@ class State:
     backend_profile: str | None = None  # local profile name, e.g. "club"
     backend_account: str | None = None  # label only, e.g. "chgk.club@gmail.com"
     spreadsheet_id: str | None = None
+    public_id: str | None = None  # the public copy with the results only; older tournaments may have none
     jury_token: str | None = None
     board_token: str | None = None  # read-only token for the projector board
     # Each token replaced after a leaked link (`chgk replace-token`): {"which": "jury"|"board",
@@ -38,10 +39,9 @@ class State:
 
     @property
     def view_url(self) -> str | None:
-        """Read-only page of the Sheet for anyone with the link (Google's HTML view)."""
-        if self.spreadsheet_id:  # shared "anyone with the link can view" when created
-            return f"https://docs.google.com/spreadsheets/d/{self.spreadsheet_id}/htmlview"
-        return None
+        """Read-only page of the results for anyone with the link (Google's HTML view of the public copy)."""
+        sheet = self.public_id or self.spreadsheet_id
+        return f"https://docs.google.com/spreadsheets/d/{sheet}/htmlview" if sheet else None
 
     @property
     def board_access(self) -> BoardAccess | None:

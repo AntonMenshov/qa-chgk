@@ -239,5 +239,6 @@ function setTeams_(ss, reg, teams) {
   writeTeams_(ss, teams);
   const counts = syncTeamRows_(ss, reg.round_sizes, teams);
   refreshDisputed_(ss, reg.round_sizes); // names may have changed
+  markUnpublished_(PropertiesService.getScriptProperties(), reg);
   return {ok: true, appended: counts.appended, renamed: counts.renamed};
 }

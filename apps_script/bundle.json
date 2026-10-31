@@ -10,6 +10,7 @@
     "drive.js",
     "disputed.js",
     "photos.js",
+    "results.js",
     "trigger.js"
   ]
 }

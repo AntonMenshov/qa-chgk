@@ -257,7 +257,7 @@ function readBoard_(ss, reg) {
     teams: m.teams,
     marks: sentMarks(marksByTeam_(m, m.teams)),
     // The view-only table, for its QR code on the board (the same link as on the jury sheet).
-    view_url: `https://docs.google.com/spreadsheets/d/${reg.spreadsheet_id}/htmlview`,
+    view_url: `https://docs.google.com/spreadsheets/d/${reg.public_id || reg.spreadsheet_id}/htmlview`,
   };
 }
 
@@ -368,6 +368,7 @@ function recordEvents_(ss, reg, req) {
   m.w.flush(); // before sorting: the rows above are where the read found them
   if (rounds.size || !m.sortKeysOk) {
     sortTabs_(ss, reg.round_sizes, [...rounds], m, reg);
+    markUnpublished_(PropertiesService.getScriptProperties(), reg);
   }
   return {ok: true, results: outcomes};
 }

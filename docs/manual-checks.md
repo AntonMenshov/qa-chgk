@@ -41,7 +41,11 @@ afterwards (`docs/google-account.md` §5).
 - [ ] Photos: after a few cards, the pill's «фото N» counts down to nothing; the
       tournament's `Photos` folder in Drive has one readable photo per card; a «?» card's
       photo link is on «Спорные».
-- [ ] Scanning speed: a card on the table is read within about a second.
+- [ ] Scanning speed: a card on the table is read within about a second (decoding is capped at 15 frames a second).
+- [ ] Lock the iPhone with the scanner open, unlock: scanning goes on by itself, or «Начать проверку» says why not.
+- [ ] A card open: the buttons behind it do nothing until a verdict or «Решить позже».
+- [ ] A second tab of the scanner: a red line says to keep one.
+- [ ] Scan an old replaced jury QR: «этот QR уже не действует», and the phone keeps working.
 
 ## A leaked link (`chgk replace-token`, throwaway tournament)
 
@@ -61,10 +65,12 @@ afterwards (`docs/google-account.md` §5).
 - [ ] From the back of the hall, a phone reads both QR codes on the projector (the table
       and the board); Q hides and shows them.
 
-## View-only link
+## Public results
 
-- [ ] Open the view-only QR (page 2) in a private window, signed out of Google: only
+- [ ] Open the results QR (page 2) in a private window, signed out of Google: only
       «Итоги», the round tabs and «Статистика» are visible, and nothing can be edited.
+- [ ] File → Download there holds only those tabs, and the real Sheet's link (`chgk new` output) asks for access.
+- [ ] A mark from the phone shows there within about a minute; an edit in the Sheet within seconds.
 
 ## Printing
 

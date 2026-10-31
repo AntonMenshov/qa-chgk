@@ -210,3 +210,62 @@ test('the Log and Settings are plain text in a new tournament', () => {
   assert.equal(tab('Log').formats.get('2,7'), '@');
   assert.equal(tab('Settings').formats.get('1,2'), '@');
 });
+
+// ---- the public copy (results.js) ----
+
+function publicCopy(b, ss) {
+  const reg = JSON.parse(b.$.props.get(`t:${TID}`));
+  return {reg, copy: b.$.spreadsheets.get(reg.public_id), realId: ss.getId()};
+}
+
+test('a new tournament: the public copy has only the results tabs and is the shared one', () => {
+  const {b, ss} = world();
+  const {reg, copy, realId} = publicCopy(b, ss);
+  assert.deepEqual(
+    copy.getSheets().map((s) => s.getName()),
+    ['Итоги', 'Тур 1', 'Тур 2', 'Статистика'],
+  );
+  assert.equal(b.$.sharing.get(reg.public_id), 'ANYONE_WITH_LINK:VIEW');
+  assert.equal(b.$.sharing.get(realId), undefined);
+  assert.match(post(b, 'get_board').view_url ?? '', new RegExp(reg.public_id));
+});
+
+test('the copy holds values only, and follows the marks at the next poll after the pause', () => {
+  const {b, ss} = world();
+  const {copy} = publicCopy(b, ss);
+  const key = `pub:${TID}`;
+  assert.equal(copy.getSheetByName('Итоги').getRange(1, 1).getValues()[0][0], 'ID');
+  post(b, 'record_events', {events: [ev({team_id: 'A02', question: 1})]});
+  post(b, 'get_state'); // within the pause: nothing yet
+  const cell = () => {
+    const tab = copy.getSheetByName('Тур 1');
+    return tab.getRange(tab.rowOf('A02'), L.questionCell([3, 3], 1).col).getValues()[0][0];
+  };
+  assert.equal(cell(), '');
+  b.$.props.set(key, '0');
+  post(b, 'get_state');
+  assert.equal(cell(), 1);
+  assert.equal(b.$.props.has(`dirty:${TID}`), false);
+  const formulas = copy.getSheetByName('Итоги').getRange(2, 1, 2, 5).getFormulas().flat();
+  assert.deepEqual(formulas.filter(Boolean), []);
+});
+
+test('a failed publication never fails the request', () => {
+  const {b, ss} = world();
+  const {reg} = publicCopy(b, ss);
+  b.$.spreadsheets.delete(reg.public_id);
+  b.$.props.set(`pub:${TID}`, '0');
+  post(b, 'record_events', {events: [ev()]});
+  assert.equal(post(b, 'get_state').ok, true);
+});
+
+test('make_public_copy: an older tournament gets one, its real Sheet turns private; a second call changes nothing', () => {
+  const {b, admin, ss} = world();
+  const reg = JSON.parse(b.$.props.get(`t:${TID}`));
+  delete reg.public_id;
+  b.$.props.set(`t:${TID}`, JSON.stringify(reg));
+  const made = b.post({action: 'make_public_copy', tid: TID, token: admin});
+  assert.equal(made.existed, false);
+  assert.equal(b.$.sharing.get(ss.getId()), 'PRIVATE:EDIT');
+  assert.equal(b.post({action: 'make_public_copy', tid: TID, token: admin}).public_id, made.public_id);
+});

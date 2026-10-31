@@ -184,10 +184,11 @@ Created by `chgk new`. Tabs:
 | **Meta** (hidden) | Apps Script | per team: the time of each mark and the last value the backend knows (to find jury edits, §5 Rules) |
 
 Only «Итоги», the round tabs and «Статистика» are visible (user request): «Спорные»,
-Settings, Teams, Log and Meta are hidden, so the view-only link (§8.6) shows just the
-results. Google hides a tab for everyone, so editors open these from the list of sheets
-(«Все листы»). Hiding is not access control (a viewer could still export a hidden tab);
-nothing secret is kept there.
+Settings, Teams, Log and Meta are hidden to keep the Sheet tidy, not for secrecy: a viewer could
+export a hidden tab. So the real Sheet is private, and the public link (§8.6) is a separate copy
+holding only «Итоги», the round tabs and «Статистика», as values (`apps_script/results.js`; user
+decision). It is published after a change at most every 30 s, by the next phone or board read, and at
+once after an edit in the Sheet. `chgk results-copy <folder>` gives one to an older tournament.
 
 ### Cell values on the round tabs
 
@@ -254,7 +255,8 @@ instead of the card.
 
 ### 7.1 Flow (the only mode in v1)
 1. The **current question follows the scans** (user decision): the first numbered card of a later question makes it current, shown in big
-   digits at the top. The juror never has to set it; ◀ ▶ can still change it by hand.
+   digits at the top. The juror never has to set it; ◀ ▶ can still change it by hand. A spare card
+   never moves it (its number is handwritten, user decision).
    It is used only for spare cards, the "missing" list and the warnings below; every
    numbered card is marked for the question in its own QR code.
 2. The camera scans continuously. When a card is detected:
@@ -323,8 +325,11 @@ work, and a rule for two jurors who mark one card differently (now the later mar
   footer and a boxed notice of what happened and what to do (page 1; a board one on page 2
   too); later `jury.pdf` runs carry the same notices. On the phone, scanning the new jury QR
   of the same tournament takes the new token; marks and photos waiting there are sent with
-  it: a refused token is answered `retry: true`, so nothing is dropped, and the phone and
-  board say in words that the link was replaced.
+  it: a refused token is answered `retry: true`, so nothing is dropped, and the phone (a lasting
+  banner) and board say in words that the link was replaced. A jury QR is tried before it is saved,
+  so an old printout never replaces a working key; a different server asks first.
+- **Switching tournament** is rare (never several a day; user): with marks or photos waiting the phone
+  asks first, then the page reloads, so nothing of the old tournament can reach the new one.
 - No Google sign-in (user): the secret jury link stays the only way in.
 - Caveat: on iOS a Home-Screen app and Safari keep separate storage, so after adding the
   app to the Home Screen the jury QR is scanned once more inside it (the printed how-to
@@ -400,9 +405,9 @@ as `chgk jury-sheet <folder>`.
   framed, marked secret) across the top half, the Sheet with edit rights and the scanner below it.
   Only this page's footer says «секретно».
 - **Page 2, no secrets** (user request): QR codes for the projector board and the
-  **view-only Sheet** (`…/htmlview`; the backend shares every new Sheet as "anyone with
+  **view-only Sheet** (`…/htmlview` of the public copy, §5; shared as "anyone with
   the link can view"; `chgk view` prints the link). It may be shown to teams;
-  the view-only Sheet shows marks as soon as they're entered, the board only after a
+  the public copy shows marks within about a minute, the board only after a
   round is revealed. A link that doesn't exist yet gets a dashed empty box.
 - **Page 3:** tournament name, date, rounds × questions, teams (+ reserve decks), TID;
   the links as text (no QR codes) with the backend profile and Google-account label;
@@ -575,7 +580,9 @@ uv run chgk cards tournaments/<slug> [--mode team-pages|cut-stack|scissors] [--t
 uv run chgk test-page tournaments/<slug> [--out file.pdf]
 uv run chgk jury-sheet tournaments/<slug> [--out file.pdf]  # jury printout (also written by `cards`)
 uv run chgk board tournaments/<slug>        # projector board link
-uv run chgk view tournaments/<slug>         # view-only Sheet link
+uv run chgk view tournaments/<slug>         # public results link
+uv run chgk results-copy tournaments/<slug>  # older tournament: public copy, real Sheet private
+uv run chgk delete tournaments/<slug> [--yes]  # Drive folder to the bin, its trigger removed, state.json gone
 uv run chgk version
 ```
 

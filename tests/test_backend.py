@@ -490,7 +490,8 @@ def test_new_tournament_is_view_only_shared(folder, backends):
     runner.invoke(app, ["backend", "add", "personal", "--url", URL_A, "--token", "tokA"])
     runner.invoke(app, ["new", str(folder)])
     state = load_or_create_state(folder)
-    assert state.view_url == f"https://docs.google.com/spreadsheets/d/{state.spreadsheet_id}/htmlview"
+    assert state.public_id != state.spreadsheet_id
+    assert state.view_url == f"https://docs.google.com/spreadsheets/d/{state.public_id}/htmlview"
 
 
 def test_cli_view_prints_the_link_without_calling_the_backend(folder, backends):
@@ -502,7 +503,7 @@ def test_cli_view_prints_the_link_without_calling_the_backend(folder, backends):
     result = runner.invoke(app, ["view", str(folder)])
     assert result.exit_code == 0, result.output
     state = load_or_create_state(folder)
-    assert f"https://docs.google.com/spreadsheets/d/{state.spreadsheet_id}/htmlview" in result.output
+    assert f"https://docs.google.com/spreadsheets/d/{state.public_id}/htmlview" in result.output
     assert len(a.calls) == calls
 
 
@@ -623,3 +624,19 @@ def test_a_timeout_says_the_request_may_have_been_done():
         mock.post(URL_A).mock(side_effect=httpx.ReadTimeout("slow"))
         with pytest.raises(BackendError, match="may have done replace_token"):
             BackendClient(URL_A, "t").call("replace_token")
+
+
+def test_results_copy_and_delete_commands(folder, backends):
+    a, _ = backends
+    profiles = Profiles()
+    profiles.add(Profile("personal", URL_A, "tokA"))
+    profiles.save()
+    state = new_tournament(folder, profiles.active()).state
+    result = runner.invoke(app, ["results-copy", str(folder)])
+    assert result.exit_code == 0, result.output
+    assert state.public_id in result.output  # the tournament already has one: nothing new
+
+    result = runner.invoke(app, ["delete", str(folder), "--yes"])
+    assert result.exit_code == 0, result.output
+    assert not (folder / "state.json").exists()
+    assert sent(a, "delete_tournament")

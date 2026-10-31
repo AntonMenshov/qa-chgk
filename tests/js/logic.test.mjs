@@ -381,5 +381,6 @@ test('driveNames: everything Latin, the TID and date kept', () => {
     folder: '2026-11-15 Osenniy kubok (QHZJ8)',
     photos: 'Photos',
     spreadsheet: 'Osenniy kubok 2026-11-15 (QHZJ8)',
+    results: 'Osenniy kubok 2026-11-15 (QHZJ8) results',
   });
 });

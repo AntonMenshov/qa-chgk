@@ -63,6 +63,7 @@ def new_tournament(folder: Path, profile: Profile, client: BackendClient | None 
         backend_profile=profile.name,
         backend_account=account,
         spreadsheet_id=reply["spreadsheet_id"],
+        public_id=reply.get("public_id"),
     )
     save_state(folder, state)
     return NewResult(state, created=not reply.get("existed", False))
@@ -139,6 +140,15 @@ def sync_teams(
     write_teams(folder / TEAMS_FILE, teams)  # only once the Sheet has the same IDs
     remember_team_ids(folder, [t.team_id for t in teams])
     return teams
+
+
+def make_results_copy(folder: Path, profiles: Profiles) -> State:
+    """A tournament made before public copies gets one; its real Sheet stops being public."""
+    folder = Path(folder)
+    state, client = tournament_client(folder, profiles)
+    state = replace(state, public_id=client.make_public_copy(state.tid)["public_id"])
+    save_state(folder, state)
+    return state
 
 
 def delete_tournament(folder: Path, profiles: Profiles) -> State:

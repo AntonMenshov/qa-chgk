@@ -16,8 +16,8 @@ const TABS = {
   meta: 'Meta',
 };
 
-// Hidden, so the view-only link (`…/htmlview`) shows only «Итоги», the round tabs and «Статистика».
-// Google hides a tab for everyone: editors open these from the list of sheets (☰).
+// Hidden to keep the Sheet tidy: editors open these from the list of sheets (☰). Not for secrecy:
+// the public link is a separate copy (results.js).
 const HIDDEN_TABS = [TABS.disputed, TABS.teams, TABS.log, TABS.settings, TABS.meta];
 
 const TEAMS_HEADER = ['team_id', 'name', 'city', 'logo_file', 'reserve'];
@@ -152,8 +152,11 @@ const ACTIONS = {
   upload_photo: {who: 'jury', run: (req, reg) => uploadPhoto_(open_(reg), reg, req)}, // locks only its Log write
   get_board: {who: 'board', run: (req, reg) => readBoard_(open_(reg), reg)},
   replace_token: {who: 'admin', lock: true, run: (req, reg) => replaceToken_(reg, req)},
+  make_public_copy: {who: 'admin', lock: true, run: (req, reg, props) => makePublicCopy_(open_(reg), reg, props)},
   delete_tournament: {who: 'admin', lock: true, run: (req, reg, props) => deleteTournament_(props, reg)},
 };
+
+const POLLED = ['get_state', 'get_board'];
 
 function handle_(req) {
   validateRequest(req);
@@ -165,7 +168,11 @@ function handle_(req) {
   const reg = action.noTournament ? null : timed_('access', () => registry_(props, req.tid));
   requireToken_(action.who, props, reg, req);
   if (!action.lock) {
-    return action.run(req, reg, props);
+    const reply = action.run(req, reg, props);
+    if (POLLED.includes(req.action)) {
+      publishIfDue_(open_(reg), reg, props); // what phones and the board ask for all game: the public copy follows
+    }
+    return reply;
   }
   return withLock_(() => {
     // Read again now that this request holds the lock: a token replaced while it waited counts,

@@ -625,7 +625,7 @@ test('Drive gets Latin names only: CHGK / <date> <name> (<TID>) with Photos and 
   const folder = root.children[0];
   assert.deepEqual(
     [root.name, folder.name, folder.children.map((f) => f.name), folder.files.map((f) => f.name)],
-    ['CHGK', '2026-11-15 Kubok (K7M2Q)', ['Photos'], ['Kubok 2026-11-15 (K7M2Q)']],
+    ['CHGK', '2026-11-15 Kubok (K7M2Q)', ['Photos'], ['Kubok 2026-11-15 (K7M2Q)', 'Kubok 2026-11-15 (K7M2Q) results']],
   );
   assert.ok([root.name, folder.name, folder.children[0].name, ss.name].every(ascii));
   assert.ok(tab('Итоги') && tab('Тур 1') && tab('Статистика'));
@@ -659,7 +659,7 @@ test("get_board: the board token reads teams and marks but can't write; unused r
   assert.deepEqual(board.tournament, {name: 'Кубок', date: '2026-11-15', round_sizes: [3, 3]});
   assert.equal(
     board.view_url,
-    `https://docs.google.com/spreadsheets/d/${JSON.parse(b.$.props.get(`t:${TID}`)).spreadsheet_id}/htmlview`,
+    `https://docs.google.com/spreadsheets/d/${JSON.parse(b.$.props.get(`t:${TID}`)).public_id}/htmlview`,
   );
   assert.deepEqual(
     board.teams.map((t) => t.team_id),
@@ -673,10 +673,11 @@ test("get_board: the board token reads teams and marks but can't write; unused r
   assert.match(b.post({action: 'get_state', tid: TID, token: BOARD}).error, /forbidden/);
 });
 
-test('the Sheet is view-only for anyone with the link from its creation', () => {
+test('only the public copy is shared with anyone with the link; the real Sheet stays private', () => {
   const {b} = world();
-  const id = JSON.parse(b.$.props.get(`t:${TID}`)).spreadsheet_id;
-  assert.equal(b.$.sharing.get(id), 'ANYONE_WITH_LINK:VIEW');
+  const reg = JSON.parse(b.$.props.get(`t:${TID}`));
+  assert.equal(b.$.sharing.get(reg.public_id), 'ANYONE_WITH_LINK:VIEW');
+  assert.equal(b.$.sharing.get(reg.spreadsheet_id), undefined);
   assert.match(b.post({action: 'share_view', tid: TID, token: JURY}).error, /unknown action/); // no such action: sharing is part of create_tournament
 });
 

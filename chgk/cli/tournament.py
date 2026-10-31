@@ -11,7 +11,7 @@ from chgk.cards.build import build_jury_sheet, load_teams
 from chgk.cli.common import app, fail
 from chgk.config import load_config
 from chgk.jury import board_link, sheet_version
-from chgk.remote import delete_tournament, new_tournament, replace_token, sync_teams
+from chgk.remote import delete_tournament, make_results_copy, new_tournament, replace_token, sync_teams
 from chgk.state import check_tid, load_state
 
 
@@ -70,13 +70,24 @@ def board_cmd(folder: Path = typer.Argument(..., help="Tournament folder")) -> N
 
 @app.command("view")
 def view_cmd(folder: Path = typer.Argument(..., help="Tournament folder")) -> None:
-    """Print the Sheet's view-only link (shared "anyone with the link can view" when created)."""
+    """Print the public results link: a separate copy, the real Sheet stays private."""
     state = load_state(folder)
     if state is None or not state.view_url:
         raise fail(ValueError("this tournament has no Sheet yet: run `chgk new` first"))
     typer.echo("Results, view-only for anyone with the link (marks appear as the jury enters them):")
     typer.echo(state.view_url)
     typer.echo("Its QR code is on page 2 of the jury sheet and on the projector board.")
+
+
+@app.command("results-copy")
+def results_copy_cmd(folder: Path = typer.Argument(..., help="Tournament folder")) -> None:
+    """For a tournament made before public copies: make one, and make the real Sheet private."""
+    state = make_results_copy(folder, Profiles())
+    path, warnings = build_jury_sheet(folder)
+    for warning in warnings:
+        typer.secho(f"Warning: {warning}", fg="yellow", err=True)
+    typer.echo(f"Public results: {state.view_url}")
+    typer.echo(f"{path}: refreshed with the new link. Printed sheets and the old link no longer show the results.")
 
 
 @app.command("delete")

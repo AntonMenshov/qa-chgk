@@ -170,6 +170,9 @@ class BackendClient:
             board_token=board_token,
         )
 
+    def make_public_copy(self, tid: str) -> dict:
+        return self.call("make_public_copy", tid=tid)
+
     def delete_tournament(self, tid: str) -> dict:
         return self.call("delete_tournament", tid=tid)
 

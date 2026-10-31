@@ -247,6 +247,20 @@ export class FakeSheet {
       this.widths.set(col + i, w);
     }
   }
+  copyTo(ss) {
+    const copy = new FakeSheet(ss, `Copy of ${this.name}`);
+    Object.assign(copy, {maxRows: this.maxRows, maxCols: this.maxCols});
+    for (let r = 1; r <= this.getLastRow(); r++) {
+      for (let c = 1; c <= this.maxCols; c++) {
+        const value = this.get(r, c);
+        if (value !== '' && value !== undefined) {
+          copy.getRange(r, c).setValue(value);
+        }
+      }
+    }
+    ss.sheets.push(copy);
+    return copy;
+  }
   setTabColor(c) {
     this.tabColor = c;
     return this;
@@ -292,6 +306,9 @@ class FakeSpreadsheet {
   }
   getSheets() {
     return this.sheets;
+  }
+  deleteSheet(sheet) {
+    this.sheets = this.sheets.filter((s) => s !== sheet);
   }
   insertSheet(name, index = this.sheets.length) {
     if (this.getSheetByName(name)) {
@@ -596,7 +613,7 @@ export function loadBackend({
       createTextOutput: (text) => ({setMimeType: () => ({text, json: () => JSON.parse(text)})}),
     },
     Session: {getEffectiveUser: () => ({getEmail: () => account}), getScriptTimeZone: () => 'Etc/UTC'},
-    LockService: {getScriptLock: () => ({waitLock() {}, releaseLock() {}})},
+    LockService: {getScriptLock: () => ({waitLock() {}, tryLock: () => true, releaseLock() {}})},
     SpreadsheetApp: {
       create(name) {
         const ss = new FakeSpreadsheet(`ss${spreadsheets.size + 1}`, name);
@@ -639,8 +656,8 @@ export function loadBackend({
           },
         };
       },
-      Access: {ANYONE_WITH_LINK: 'ANYONE_WITH_LINK'},
-      Permission: {VIEW: 'VIEW'},
+      Access: {ANYONE_WITH_LINK: 'ANYONE_WITH_LINK', PRIVATE: 'PRIVATE'},
+      Permission: {VIEW: 'VIEW', EDIT: 'EDIT'},
     },
     ScriptApp: {
       newTrigger: (fn) => {

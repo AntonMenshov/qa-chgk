@@ -198,6 +198,7 @@ export function driveNames(tid, name, date) {
     folder: `${date} ${latin} (${tid})`,
     photos: 'Photos',
     spreadsheet: `${latin} ${date} (${tid})`,
+    results: `${latin} ${date} (${tid}) results`,
   };
 }
 
@@ -260,6 +261,7 @@ export function validateRequest(body) {
       validateTeams(body.teams);
       return body;
     case 'delete_tournament':
+    case 'make_public_copy':
       return body;
     case 'replace_token':
       if (!TOKEN_KINDS.includes(body.which)) {

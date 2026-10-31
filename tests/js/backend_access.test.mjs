@@ -28,6 +28,7 @@ const BODIES = {
   upload_photo: () => ({tid: TID, ...photo()}),
   get_board: () => ({tid: TID}),
   replace_token: () => ({tid: TID, which: 'jury', new_token: 'replaced-jury-token-0123'}),
+  make_public_copy: () => ({tid: TID}),
   delete_tournament: () => ({tid: TID}),
 };
 
@@ -44,6 +45,7 @@ const WHO = {
   upload_photo: 'jury',
   get_board: 'board',
   replace_token: 'admin',
+  make_public_copy: 'admin',
   delete_tournament: 'admin',
 };
 
@@ -95,6 +97,7 @@ test('the actions that write hold the lock; reads never wait for it', () => {
   assert.deepEqual(locked.sort(), [
     'create_tournament',
     'delete_tournament',
+    'make_public_copy',
     'record_events',
     'replace_token',
     'set_teams',
