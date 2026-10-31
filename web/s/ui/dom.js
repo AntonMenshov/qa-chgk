@@ -27,7 +27,7 @@ let audio = null;
 
 export function unlockAudio() {
   try {
-    audio ??= new (window.AudioContext || /** @type {any} */ (window).webkitAudioContext)();
+    audio ??= new AudioContext();
     if (audio.state !== 'running') {
       audio.resume().catch(() => {});
     }

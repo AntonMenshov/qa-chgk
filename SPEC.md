@@ -247,7 +247,8 @@ A missing card scores as incorrect, but the sheet always shows whether a card wa
 
 ## 7. Scanner web app (iPhone, GitHub Pages)
 
-Static HTML/JS (ES modules, no build step), installable to the Home Screen. Camera
+Static HTML/JS (ES modules, no build step), installable to the Home Screen. It supports
+iOS 16 and later (user decision); nothing checks the version or works around older ones. Camera
 access needs HTTPS, which GitHub Pages provides. The decoder reads standard QR codes
 only (`QRCodeModel2`): zxing's "QRCode" is the whole QR family, and a real QR's corner
 plus the modules beside it can form a valid Micro QR, which the phone must never read
