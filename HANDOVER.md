@@ -235,6 +235,8 @@ Kept in one place: [SPEC.md §14](SPEC.md) (defaults used unless the user says o
   left `__pycache__` in tournament folders (`run_python_file`).
 - **reportlab stores identical images once:** two teams with the same draft gave one image
   in the PDF; tests that count images need different drawings.
+- **Tokens never go through the chat:** the user runs `chgk backend add … --token …` in a separate
+  terminal, not with Claude Code's `!` prefix, which puts the command into the conversation.
 - **Redeploying:** whenever a commit changes `apps_script/`, run `chgk backend bundle` and
   `pbcopy < out/apps_script/Code.gs` *before* asking the user to redeploy, and give the version
   and the steps (paste, save, Deploy → Manage deployments → edit → New version). A stale
