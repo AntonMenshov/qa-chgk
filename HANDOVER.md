@@ -26,7 +26,7 @@ Full design: [SPEC.md](SPEC.md). What's left: [PLAN.md](PLAN.md).
 | 8 — External test at a tournament | not started: the same loop with real teams |
 | 9 — Next version | the deferred list in PLAN.md |
 
-- **Deployed backend:** version **daff47713628** (2026-10-31; live check passed: the one-off timer publishes with nobody polling, a deleted ID is refused, `chgk delete`) under the user's Gmail (local
+- **Deployed backend:** version **69bbce9b930e** (2026-10-31; live check passed: the one-off timer, a read publishing after the pause, private Sheet, reserve count and deleted ID refused, `chgk delete`) under the user's Gmail (local
   profile `personal`), with the «Google Sheets API» service on. `uv run chgk backend check`
   compares it with the local code, and says when `out/apps_script/Code.gs` is an old bundle.
 - **Phase 7 tournament:** `tournaments/osenniy-salat/` «Осенний салат», 2026-11-20, TID **18376**,
@@ -191,7 +191,7 @@ One line each; SPEC has the details. Decisions recorded only here are written ou
 ## Next steps
 
 0. **Code review, 2026-10-31:** all findings triaged with the user and the decisions implemented and deployed
-   (`out/code-review/TRIAGE.md`, `DECISIONS.md`, `second-pass/` and `third-pass/` for the reviews of those changes; local only: the repo is public). Backend `69bbce9b930e` (third pass) waits for the user's redeploy, then a live check. Not yet tried for real: the iPhone
+   (`out/code-review/TRIAGE.md`, `DECISIONS.md`, `second-pass/` and `third-pass/` for the reviews of those changes; local only: the repo is public). Not yet tried for real: the iPhone
    side and edits typed in the Sheet ([docs/manual-checks.md](docs/manual-checks.md)).
 1. **Phase 7**, the rest: reprint `out/osenniy-salat/`, the fixes' own checks on an iPhone
    ([docs/manual-checks.md](docs/manual-checks.md)), the mock game, fixes, a docs/comments check.
@@ -222,5 +222,9 @@ exactly its level, replacing a leaked token, and a tid from config.py. Latest:
 
 - **2026-10-31, daff47713628 (throwaway, deleted):** `backend check` clean; marks with no phone or board polling
   reached the public copy in 92 s (one-off timer); `chgk delete`, then `chgk new` under that ID refused.
+
+- **2026-10-31, 69bbce9b930e (throwaway, deleted):** `backend check` clean; marks reached the public copy in 113 s by the timer
+  and by a read after the pause; `chgk results-copy` on a tournament with a copy; real Sheet refuses anonymous reads; changed
+  `reserve_teams` and a deleted ID refused, leaving no state.json. Edits typed in the Sheet not tried: they need a person.
 
 Throwaway tournaments: the user deletes them.

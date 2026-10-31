@@ -189,7 +189,7 @@ export a hidden tab. So the real Sheet is private, and the public link (§8.6) i
 holding only «Итоги», the round tabs and «Статистика», as values (`apps_script/results.js`; user
 decision). It is published after a change at most every 30 s, by the next phone or board read (an edit in the
 Sheet counts as a change, so it shows within about 90 s; a row deleted by hand doesn't count until `chgk results-copy` or the next
-change); a one-off timer publishes what no read picked up (the last marks of a game). `chgk results-copy <folder>` gives one to an older tournament.
+change); a one-off timer publishes what no read picked up (the last marks of a game). `chgk results-copy <folder>` publishes at once, and gives an older tournament its copy.
 
 ### Cell values on the round tabs
 

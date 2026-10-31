@@ -167,7 +167,7 @@ def sync_teams(
 
 
 def make_results_copy(folder: Path, profiles: Profiles) -> State:
-    """A tournament made before public copies gets one; its real Sheet stops being public."""
+    """Publish the public copy now; a tournament made before public copies gets one, its real Sheet private."""
     folder = Path(folder)
     state, client = tournament_client(folder, profiles)
     state = replace(state, public_id=client.make_public_copy(state.tid)["public_id"])

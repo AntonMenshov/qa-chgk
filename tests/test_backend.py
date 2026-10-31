@@ -700,6 +700,7 @@ def test_results_copy_and_delete_commands(folder, backends):
     result = runner.invoke(app, ["results-copy", str(folder)])
     assert result.exit_code == 0, result.output
     assert state.public_id in result.output  # the tournament already has one: nothing new
+    assert "updated" in result.output and "no longer show" not in result.output  # the printed link still works
 
     result = runner.invoke(app, ["delete", str(folder), "--yes"])
     assert result.exit_code == 0, result.output

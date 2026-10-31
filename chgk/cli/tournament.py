@@ -81,8 +81,12 @@ def view_cmd(folder: Path = typer.Argument(..., help="Tournament folder")) -> No
 
 @app.command("results-copy")
 def results_copy_cmd(folder: Path = typer.Argument(..., help="Tournament folder")) -> None:
-    """For a tournament made before public copies: make one, and make the real Sheet private."""
+    """Update the public results copy now; a tournament made before public copies gets one, its real Sheet private."""
+    before = load_state(folder)
     state = make_results_copy(folder, Profiles())
+    if before and before.public_id == state.public_id:
+        typer.echo(f"Public results updated: {state.view_url}")
+        return
     path, warnings = build_jury_sheet(folder)
     for warning in warnings:
         typer.secho(f"Warning: {warning}", fg="yellow", err=True)
