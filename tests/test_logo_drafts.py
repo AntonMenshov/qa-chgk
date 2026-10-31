@@ -161,7 +161,7 @@ def test_the_system_text_follows_the_tournaments_card_settings():
     assert "about 4.7 cm wide centred on the card" in text and "about 10% ink" in text
     assert "QR code covers the logo's top-right corner" in text
     default = drafts.system_prompt(drafts.logo_look(CardFields(), Layout()))  # logo_size None: the writing area
-    assert "about 3.4 cm wide in the writing area" in default and "about 12% ink" in default
+    assert "about 3.3 cm wide in the writing area" in default and "about 12% ink" in default
     assert "QR code sits above it" in default
 
 

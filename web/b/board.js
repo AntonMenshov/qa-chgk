@@ -15,11 +15,13 @@ const access = decodeBoard(location.hash);
 // Links made by the CLI always carry ?grid=; 5 is board_grid_max_teams's default.
 const gridMax = Number(new URLSearchParams(location.search).get('grid') ?? 5);
 const key = (name) => `chgk.board.${name}.${access ? access.tid : ''}`;
+// A phone in the hall (no mouse, no arrow keys): the same page, with what fits a small screen.
+const touch = matchMedia('(hover: none)').matches;
 
 let data = null;
 let revealed = Number(store.get(key('revealed')) || 0);
-let view = store.get(key('view')); // null = by team count
-let showQr = store.get(key('qr')) !== false; // QR codes of the table and of the board (Q)
+let view = store.get(key('view')) ?? (touch ? 'compact' : null); // null = by team count
+let showQr = store.get(key('qr')) ?? !touch; // QR codes of the table and of the board (Q)
 let lastOk = null;
 
 const el = (tag, props = {}, ...children) => {
@@ -62,7 +64,10 @@ function titleScreen(m) {
     el('h1', {textContent: m.name}),
     el('div', {className: 'date', textContent: m.date ? m.date.split('-').reverse().join('.') : ''}),
     el('div', {className: 'wait', textContent: 'Результаты появятся после первого тура'}),
-    el('div', {className: 'hint', textContent: '→ или пробел — показать тур 1'}),
+    el('div', {
+      className: 'hint',
+      textContent: touch ? 'Нажмите «Показать тур 1» внизу экрана' : '→ или пробел — показать тур 1',
+    }),
     showQr ? qrCodes(true) : null,
   );
 }
@@ -102,7 +107,7 @@ function table(m) {
     for (const g of m.groups) {
       g.questions.forEach((q, i) => {
         const mark = r.marks[q];
-        const kind = mark === '+' ? 'plus' : mark === '?' ? 'maybe' : 'minus';
+        const kind = {'+': 'plus', '×': 'wrong', '?': 'maybe', '•': 'no-card'}[mark];
         tr.append(el('td', {className: `q ${kind} r${g.round}${i === 0 ? ' edge' : ''}`, textContent: mark}));
       });
       tr.append(el('td', {className: `sum r${g.round}`, textContent: r.sums[g.round - 1]}));
@@ -157,7 +162,9 @@ function fit() {
   if (!w || !h) {
     return;
   }
-  const scale = Math.min((innerWidth * 0.96) / w, (innerHeight * 0.9) / h, 4);
+  // On a phone the buttons stay on screen: the stage, centred, stays clear of them.
+  const height = touch ? innerHeight - 2 * ($('controls').offsetHeight + 12) : innerHeight * 0.9;
+  const scale = Math.min((innerWidth * 0.96) / w, height / h, 4);
   stage.style.transform = `translate(-50%, -50%) scale(${scale})`;
 }
 
@@ -252,6 +259,7 @@ addEventListener('hashchange', () => {
   }
 });
 
+$('full').hidden = !document.documentElement.requestFullscreen; // an iPhone has none
 $('next').onclick = () => setRevealed(revealed + 1);
 $('prev').onclick = () => setRevealed(revealed - 1);
 $('view').onclick = toggleView;

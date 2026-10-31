@@ -47,6 +47,10 @@ def test_card_parts_fit_and_do_not_overlap(grid, qr_in):
     for card in card_rects(Layout(cols=grid[0], rows=grid[1])):
         parts = card_parts(card, qr_in * INCH)
         assert parts.qr.w == parts.qr.h == pytest.approx(qr_in * INCH)
+        # The black modules stand 20% farther from the top and right edges than the quiet zone alone.
+        quiet = qr_in * INCH * 4 / 41
+        assert card.right - parts.qr.right == pytest.approx(0.2 * quiet)
+        assert card.top - parts.qr.top == pytest.approx(0.2 * quiet)
         for part in (parts.qr, parts.number, parts.writing, parts.logo, parts.footer):
             assert card.contains(part)
         named = {"qr": parts.qr, "number": parts.number, "writing": parts.writing, "footer": parts.footer}

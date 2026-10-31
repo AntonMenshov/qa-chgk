@@ -211,9 +211,9 @@ def test_jury_scans_cards_and_marks_reach_the_backend(folder, tmp_path, backend_
             ("Синие зайцы", 2): "#v-disputed",
             ("R1 · впишите название", 2): "#v-correct",
         }
-        handled, warnings, foreign = {}, {}, False
+        handled, warnings, foreign, cancels = {}, {}, False, set()
         deadline = time.time() + 90
-        while time.time() < deadline and (len(handled) < len(verdicts) or not foreign):
+        while time.time() < deadline and (len(handled) < len(verdicts) or not foreign or not cancels):
             if page.is_visible("#spare"):
                 assert page.inner_text("#sp-team") == "Синие зайцы"
                 page.click('.keypad button[data-k="2"]')
@@ -224,8 +224,10 @@ def test_jury_scans_cards_and_marks_reach_the_backend(folder, tmp_path, backend_
                 key = next((k for k in verdicts if team.startswith(k[0]) and k[1] == question), None)
                 assert key, f"unexpected card {team!r} {question}"
                 if key in handled:
-                    page.click("#v-later")  # the same card again (the video loops): only "received"
+                    cancels.add(page.inner_text("#v-later"))
+                    page.click("#v-later")  # the same card again (the video loops): the mark stays
                 else:
+                    assert page.inner_text("#v-later") == "Решить позже (карточка получена)"
                     warnings[key] = page.inner_text("#c-warn")
                     handled[key] = page.inner_text("#c-meta")
                     page.click(verdicts[key])
@@ -234,6 +236,7 @@ def test_jury_scans_cards_and_marks_reach_the_backend(folder, tmp_path, backend_
             time.sleep(0.1)
         assert set(handled) == set(verdicts), (handled, console)
         assert foreign, console
+        assert cancels <= {f"Отмена (останется: {s})" for s in ("верно", "неверно", "спорно")}, cancels
 
         # The spare card was marked as a spare for the juror's question; R1 got the reserve note.
         assert "запасная карточка" in handled[("Синие зайцы", 2)]
@@ -387,6 +390,11 @@ def test_projector_board_reveals_round_by_round(folder, tmp_path, backend_server
         # A03 now 3 and first; A01 2; A02 1 (its «?» shows as ? and doesn't count).
         assert [r[0] + " " + r[2] for r in rows()] == ["1 3", "2 2", "3 1"]
         assert "?" in page.inner_text("tbody")
+        # A03's question 3 was judged wrong: a red cross; a card not received: a grey dot.
+        assert page.inner_text("td.q.wrong") == "×"
+        assert page.evaluate("getComputedStyle(document.querySelector('td.q.wrong')).color") == "rgb(255, 90, 90)"
+        assert page.inner_text("td.q.no-card") == "•"
+        assert page.evaluate("getComputedStyle(document.querySelector('td.q.no-card')).color") == "rgb(127, 135, 150)"
         assert page.is_disabled("#next")
 
         page.keyboard.press("g")  # compact: only the last round's grid
@@ -401,6 +409,58 @@ def test_projector_board_reveals_round_by_round(folder, tmp_path, backend_server
         other = encode_board_link(f"{web_server}/s/", BoardAccess(tid, "x" * 24, BACKEND), 5)
         page.evaluate("hash => { location.hash = hash; }", other.split("#", 1)[1])
         page.wait_for_selector("text=Не удалось загрузить")
+        browser.close()
+    assert not errors, errors
+
+
+def test_board_on_a_phone_shows_how_to_reveal_a_round(backend_server, web_server):
+    """A touch screen: no QR codes in the way, the reveal button stays on screen, the last round's grid."""
+    tid, backend_url, _ = backend_server
+    link = encode_board_link(f"{web_server}/s/", BoardAccess(tid, BOARD_TOKEN, BACKEND), 5)
+    with playwright.sync_playwright() as p:
+        browser = p.chromium.launch(executable_path=CHROME, headless=True)
+        context = browser.new_context(viewport={"width": 390, "height": 844}, is_mobile=True, has_touch=True)
+        page = context.new_page()
+        errors = []
+        page.on("pageerror", lambda e: errors.append(str(e)))
+
+        def to_backend(route):
+            with urllib.request.urlopen(
+                urllib.request.Request(backend_url, data=route.request.post_data.encode(), method="POST")
+            ) as r:
+                route.fulfill(
+                    status=200,
+                    body=r.read(),
+                    headers={"Content-Type": "application/json", "Access-Control-Allow-Origin": "*"},
+                )
+
+        page.route("https://script.google.com/**", to_backend)
+        page.goto(link)
+        page.wait_for_selector("text=Нажмите «Показать тур 1» внизу экрана")
+        assert page.query_selector(".qrs") is None
+        time.sleep(3.5)  # past the moment the buttons fade on a computer
+        assert page.evaluate("getComputedStyle(document.getElementById('controls')).opacity") == "1"
+
+        def inside(selector):
+            box = page.locator(selector).bounding_box()
+            return (
+                box["x"] >= 0 and box["y"] >= 0 and box["x"] + box["width"] <= 390 and box["y"] + box["height"] <= 844
+            )
+
+        assert all(inside(s) for s in ("#prev", "#next", "#view", "#qr", "#stage"))
+        controls = page.locator("#controls").bounding_box()
+        stage = page.locator("#stage").bounding_box()
+        assert stage["y"] + stage["height"] <= controls["y"]  # the buttons cover nothing
+
+        page.tap("#next")
+        page.wait_for_selector("text=после 1-го тура из 2")
+        assert page.inner_text("thead").count("Тур") == 1
+        assert inside("#stage")  # the table is scaled to the screen, not cut off
+        page.tap("#next")
+        page.wait_for_selector("text=после 2 туров из 2")
+        assert page.inner_text("thead").count("Тур") == 1 and "Тур 2" in page.inner_text("thead")
+        page.tap("#qr")  # the QR button still brings them back
+        assert len(page.query_selector_all(".qrs figure")) == 2
         browser.close()
     assert not errors, errors
 

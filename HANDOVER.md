@@ -27,7 +27,7 @@ Full design: [SPEC.md](SPEC.md). Build order: [PLAN.md](PLAN.md).
 | 4 — Card photos | ✅ built, tested (phone queue, backend `upload_photo`, headless-Chrome check that each photo shows its card) and checked live (API upload to Drive); the iPhone check is in Phase 7 |
 | 5 — Projector board + stats | ✅ built, tested and checked live |
 | 6 — Logos | ✅ built and tested (SPEC §9.1); tried on the user's 22 teams, in a session and through the API (drafts kept, never accepted: Key decisions, Logos) |
-| 7 — Internal test at home (printouts) | not started: the manual checks (docs/manual-checks.md), a mock game, feedback, bug analysis and fixes, then a docs/comments check |
+| 7 — Internal test at home (printouts) | in progress: manual checks done on throwaway `tournaments/manual-checks/` (CHECK1, not committed; the user deletes its Drive folder), all fine except the feedback below, now fixed; the fixes' own new checks need an iPhone. Next: the mock game, then a docs/comments check |
 | 8 — External test at a tournament | not started: the same loop with real teams |
 | 9 — Next version | the deferred list in PLAN.md |
 
@@ -37,6 +37,11 @@ Full design: [SPEC.md](SPEC.md). Build order: [PLAN.md](PLAN.md).
 - **Phase 7 tournament:** `tournaments/osenniy-salat/` «Осенний салат», 2026-11-20, TID **18376**,
   the user's four teams, 3 rounds of 12; the same card look as the examples. Created on the backend
   (profile `personal`); `out/osenniy-salat/` has its cards (team-pages, 3×4, 24 pages) and jury.pdf.
+- **Phase 7 feedback (2026-10-30), fixed:** a card already entered offers «Отмена (останется: …)»;
+  board: wrong is a red «×», no card yet a small grey «•»; board on a phone: the buttons stay, it says
+  what to tap, no QR codes and the last round's grid by default; the QR sits 20% farther from the
+  card's top and right edges (the printed cards changed by ~0.4 mm, no reprint needed to test).
+  Screen rotation can't be locked from a web page on an iPhone: use its Portrait Orientation Lock.
 - **Current machine (since 2026-10-30):** no `state.json` for the examples, so a `chgk cards` there
   would give them new IDs that don't match their Sheets. The user's logos are here;
   `ANTHROPIC_API_KEY` is not set, and for now isn't needed (user).
@@ -120,8 +125,8 @@ README.md             organiser guide (end to end) and contributor commands
 ```
 
 ### How to run
-- Tests: `uv run pytest` (534, incl. 3 browser tests that need Google Chrome + Node) and
-  `npm test` (230, then 78 backend and calculation tests again with the Sheets API off).
+- Tests: `uv run pytest` (535, incl. 4 browser tests that need Google Chrome + Node) and
+  `npm test` (231, then 78 backend and calculation tests again with the Sheets API off).
 - Lint and format: `uv run ruff format . && uv run ruff check .`, `npm run format && npm run lint`.
 - Backend: `uv run chgk backend add|use|list|check|remove|bundle` (docs/google-account.md).
 - A tournament: `uv run chgk new <folder>` (Sheet + Drive folder), `uv run chgk teams <folder>`
@@ -240,6 +245,9 @@ Kept in one place: [SPEC.md §14](SPEC.md) (defaults used unless the user says o
   and the steps (paste, save, Deploy → Manage deployments → edit → New version). A stale
   `Code.gs` was pasted once and the backend stayed old (`chgk backend check` now says so).
   After "deployed": `chgk backend check`, a live check, this file's version line.
+- **A phone widens the page to fit overflowing content:** `overflow: hidden` on html and body wasn't
+  enough; the board's table stayed cut off because `innerWidth` grew before `fit()` ran. `body` is
+  now `position: fixed` (found by a mobile-emulation screenshot; the desktop view hid it).
 - **Temp paths differ by OS:** a test asserting "no `/tmp` in the output" passed on macOS
   (`/private/var/folders/…`) and failed on Linux CI, where pytest's tmp_path is under `/tmp`.
 - **Tests of a rule must state the rule themselves.** The first access tests read the allowed
@@ -315,7 +323,7 @@ Kept in one place: [SPEC.md §14](SPEC.md) (defaults used unless the user says o
 
 A clone has the code, docs and history; the deployed backend and GitHub Pages don't depend
 on any laptop. Not in the repo (git-ignored, private or generated), so set up by hand:
-- **Tools:** `uv` then `uv sync`; Node 22 then `npm ci`; Google Chrome for the 3 browser tests
+- **Tools:** `uv` then `uv sync`; Node 22 then `npm ci`; Google Chrome for the 4 browser tests
   (skipped without it). `gh auth login` as AntonMenshov to push; git `user.name` Anton Menshov,
   `user.email` anton.menshov@gmail.com (commits are authored only as the user).
 - **Backend profile:** copy `~/.config/chgk/backends.json`, or `uv run chgk backend add personal

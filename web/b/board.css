@@ -4,7 +4,8 @@
   --muted: #93a0bb;
   --line: #2a3756;
   --plus: #2fbf5b;
-  --minus: #3a4664;
+  --wrong: #ff5a5a;
+  --no-card: #7f8796;
   --maybe: #f2b600;
   --round-a: #17243f;
   --round-b: #1d2b4a;
@@ -20,6 +21,12 @@ body {
   color: var(--ink);
   overflow: hidden;
   font-family: -apple-system, system-ui, 'Segoe UI', Roboto, sans-serif;
+}
+/* The stage's natural size may be wider than a phone: without this, a phone widens the page to
+   fit it before board.js can scale it, and the board stays cut off at both sides. */
+body {
+  position: fixed;
+  inset: 0;
 }
 [hidden] {
   display: none !important;
@@ -126,8 +133,11 @@ td.q.plus {
   color: #fff;
   background: var(--plus);
 }
-td.q.minus {
-  color: var(--minus);
+td.q.wrong {
+  color: var(--wrong);
+}
+td.q.no-card {
+  color: var(--no-card);
 }
 td.q.maybe {
   color: #111;
@@ -256,4 +266,47 @@ table.dense td.total {
 }
 .title .wait {
   white-space: nowrap;
+}
+
+/* A phone (no mouse): the buttons stay on screen, the only way to reveal a round there. */
+@media (hover: none) {
+  .controls {
+    left: 8px;
+    right: 8px;
+    bottom: 8px;
+  }
+  .controls.idle {
+    opacity: 1;
+  }
+  .controls button {
+    font-size: 15px;
+    padding: 12px 10px;
+    white-space: nowrap;
+  }
+  .controls #next {
+    flex: 1;
+  }
+  .title {
+    width: 340px;
+    padding: 16px;
+  }
+  .title h1 {
+    font-size: 44px;
+  }
+  .title .date {
+    font-size: 22px;
+    margin-bottom: 24px;
+  }
+  .title .wait {
+    font-size: 24px;
+    white-space: normal;
+  }
+  .title .hint {
+    font-size: 18px;
+  }
+  .qrs.big {
+    flex-direction: column;
+    align-items: center;
+    gap: 24px;
+  }
 }

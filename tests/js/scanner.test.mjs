@@ -3,7 +3,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {decodeCard, decodeSetup, sameAccess} from '../../web/s/lib/payload.js';
-import {overlay, statusOf} from '../../web/s/lib/marks.js';
+import {noVerdictLabel, overlay, statusOf} from '../../web/s/lib/marks.js';
 import {Session, WARN} from '../../web/s/lib/session.js';
 import {identify} from '../../web/s/lib/lookup.js';
 import {Queue} from '../../web/s/lib/queue.js';
@@ -39,6 +39,14 @@ test('a card is not a jury link and a jury link is not a card', () => {
 });
 
 // ---------- marks ----------
+
+test('the card sheet offers «Отмена» for a card already entered, «Решить позже» for a new one', () => {
+  assert.equal(noVerdictLabel(null), 'Решить позже (карточка получена)');
+  assert.equal(noVerdictLabel('correct'), 'Отмена (останется: верно)');
+  assert.equal(noVerdictLabel('incorrect'), 'Отмена (останется: неверно)');
+  assert.equal(noVerdictLabel('disputed'), 'Отмена (останется: спорно)');
+  assert.equal(noVerdictLabel('received'), 'Отмена (останется: получена)');
+});
 
 test('overlay: local events over the snapshot, in time order', () => {
   const marks = overlay(

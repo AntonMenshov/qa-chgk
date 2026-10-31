@@ -5,7 +5,7 @@
 
 import {compareStandings, placeLabels} from '../../shared/logic.js';
 
-/** "+" taken, "−" not (a missing card counts as wrong), "?" not decided yet («?» or only received). */
+/** "+" taken, "×" wrong, "•" no card yet (counts as not taken), "?" not decided yet («?» or only received). */
 export function cellMark(value) {
   if (value === 1) {
     return '+';
@@ -13,7 +13,7 @@ export function cellMark(value) {
   if (value === '?' || value === 'R') {
     return '?';
   }
-  return '−';
+  return value === 0 ? '×' : '•';
 }
 
 /**
@@ -25,7 +25,7 @@ export function cellMark(value) {
  * @param {"grid"|"compact"|null} [o.view]  forced view (the G key), else by team count
  * @returns {{name, date, rounds, revealed, view, groups, rows, took, teams}}
  *   groups: the question columns shown, [{round, questions: [q, …]}]
- *   rows:   [{team_id, name, place, total, sums: [per revealed round], marks: {q: "+"|"−"|"?"}}]
+ *   rows:   [{team_id, name, place, total, sums: [per revealed round], marks: {q: "+"|"×"|"•"|"?"}}]
  *   took:   {q: number of teams that took it}
  */
 export function boardModel(data, revealed, {gridMax, view = null}) {

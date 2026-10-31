@@ -14,6 +14,9 @@ TEAM_SIZE = 8  # pt, footer line 1
 INFO_SIZE = 6.5  # pt, footer line 2
 FOOTER_H = TEAM_SIZE + INFO_SIZE + 4
 MIN_WRITING_H = 0.35 * INCH
+# The QR's black modules stand 20% farther from the top and right edges than its quiet zone
+# alone would put them (user: safer when cutting). A version 4 code: 4 of its 41 modules.
+QR_INSET_SHARE = 0.2 * 4 / 41
 
 
 class GeometryError(ValueError):
@@ -88,13 +91,14 @@ def card_rects(layout: Layout) -> list[Rect]:
 def card_parts(card: Rect, qr_size: float, logo_size: float | None = None) -> CardParts:
     """Split one card into its parts. `qr_size` in points, including the quiet zone.
 
-    The QR's own quiet zone provides its margin, so it sits in the corner without padding.
+    The QR's quiet zone provides most of its margin; QR_INSET_SHARE of its side moves it in further.
     `logo_size` (points): None fits the logo into the writing area; a number makes it a
     square of that side centred on the card (user request: not shifted left by the QR
     column), shrunk to fit. It may sit behind the number and footer text, and its corner
     may reach under the QR, which is drawn on top with its white quiet zone.
     """
-    qr = Rect(card.right - qr_size, card.top - qr_size, qr_size, qr_size)
+    inset = qr_size * QR_INSET_SHARE
+    qr = Rect(card.right - inset - qr_size, card.top - inset - qr_size, qr_size, qr_size)
     number_h = NUMBER_SIZE + ROUND_SIZE + 5
     number = Rect(card.x + PAD, card.top - PAD - number_h, qr.x - card.x - 2 * PAD, number_h)
     footer = Rect(card.x + PAD, card.y + PAD, card.w - 2 * PAD, FOOTER_H)

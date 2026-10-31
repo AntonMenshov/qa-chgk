@@ -12,6 +12,11 @@ export function statusOf(value) {
   return value === '' || value == null ? null : (VALUE_STATUS[value] ?? null);
 }
 
+/** The card sheet's button that gives no verdict: a card already entered keeps its mark. */
+export function noVerdictLabel(previous) {
+  return previous ? `Отмена (останется: ${STATUS_LABEL[previous]})` : 'Решить позже (карточка получена)';
+}
+
 /**
  * {team_id: [value per question]} from a server snapshot plus local events (applied in
  * client_ts order). Snapshot cells count as older than any local event: events the

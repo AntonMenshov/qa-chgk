@@ -2,6 +2,7 @@
 
 import {$, beep, sheet, toast} from './dom.js';
 import {sameAccess} from '../lib/payload.js';
+import {noVerdictLabel} from '../lib/marks.js';
 import {firstPhoto} from '../lib/photos.js';
 import {adoptSetup} from './setup.js';
 import {app, K, store} from './state.js';
@@ -92,6 +93,7 @@ export function openCard(r) {
   const warn = $('c-warn');
   warn.replaceChildren(...r.warnings.map((w) => Object.assign(document.createElement('li'), {textContent: w.text})));
   $('card').classList.toggle('warn', r.warnings.length > 0);
+  $('v-later').textContent = noVerdictLabel(r.previous);
   beep(r.warnings.length ? 'warn' : 'ok');
   sheet('card');
   render();

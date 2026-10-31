@@ -229,7 +229,9 @@ A missing card scores as incorrect, but the sheet always shows whether a card wa
     `TEAM`: `team_id`; `Q`: question number, or `S1…Sn` for spare cards.
   - Example: `…/s/#K7M2Q.A07.27`. This is short enough for a small, robust QR
     (error correction M, quiet zone 4 modules). Printed at **0.85″** including the
-    quiet zone (configurable; the test print chose 0.65″, later raised by ~30% on request).
+    quiet zone (configurable; the test print chose 0.65″, later raised by ~30% on request),
+    its black modules 20% farther from the card's top and right edges than the quiet zone alone
+    would put them (user: safer when cutting).
   - The checked size is QR version 4 (33 modules). Only the longest mix (an 8-character
     tid, an 8-character team ID and a 3-digit question) can need version 5; `chgk cards`
     then warns to check scanning on the test page.
@@ -266,7 +268,8 @@ instead of the card.
      current one («Карточка вопроса 5 (идёт 7) — отмечено для 5»; the mark still goes
      to 5), or if this team already has a mark for this question.
 3. The juror taps **✓ / ✗ / ?**. The status event is recorded and the app returns to
-   scanning.
+   scanning. Without a verdict: «Решить позже» for a new card, and «Отмена (останется: …)»
+   for a card already entered (user), which keeps its mark.
 4. **"Missing: n teams ▸"** lists teams with no card for the current question
    (local state merged with server state).
 5. **«Чья карточка?»** (user request): a read-only mode. The camera keeps scanning and
@@ -536,7 +539,7 @@ The Claude API does not output raster images, but it can write SVG.
   already coming in for the next round never leak. The page refreshes every 15 s, so
   appeal corrections in revealed rounds appear on their own. So no board freeze is needed.
 - **Up to `board_grid_max_teams` teams (default 5):** the full grid of every revealed
-  round (+ / − per question, «Σ» per round), then Итого and Место. **More teams:** Место,
+  round (a mark per question, «Σ» per round), then Итого and Место. **More teams:** Место,
   Команда, Итого and the grid of the last revealed round. G switches views; F fullscreen.
 - A «Взяли» row under the grid: how many teams took each question.
 - **QR codes for the audience** (user request): the view-only table and the board itself,
@@ -547,8 +550,11 @@ The Claude API does not output raster images, but it can write SVG.
   table (marks appear as entered) and open the board on a phone (read-only; revealing a
   round there shows it only on that phone).
 - Order and places as in «Итоги»: Итого, then the last revealed round, the round before,
-  …, then team ID; shared places «2-3». `?` and `R` show as «?» and count as 0; a
-  missing card is «−».
+  …, then team ID; shared places «2-3». Marks (user): `1` is a green «+», `0` a red «×», no
+  card yet a small grey «•»; `?` and `R` show as «?». Only `1` counts.
+- **On a phone** (no mouse, `hover: none`; user): the reveal buttons stay on screen and the title
+  screen says to tap «Показать тур 1»; by default no QR codes and only the last revealed round's
+  grid (the QR and G buttons change that, and the choice is kept).
 
 ## 11. Testing (required for every phase)
 

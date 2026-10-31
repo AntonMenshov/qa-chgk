@@ -24,8 +24,8 @@ test('a board link is not a jury link', () => {
   assert.equal(decodeSetup(vectors.cases[0].link), null);
 });
 
-test('cellMark: + taken; − wrong or no card; ? not decided', () => {
-  assert.deepEqual([1, 0, '', '?', 'R', undefined].map(cellMark), ['+', '−', '−', '?', '?', '−']);
+test('cellMark: + taken; × wrong; • no card yet; ? not decided', () => {
+  assert.deepEqual([1, 0, '', '?', 'R', undefined].map(cellMark), ['+', '×', '•', '?', '?', '•']);
 });
 
 const data = (sizes, marks, names = {}) => ({
@@ -92,10 +92,11 @@ test('after round 2: totals and places from rounds 1-2; a tie goes to the better
   );
 });
 
-test('after the last round: «?» and «R» show as ?, an empty cell as −, and none of them count', () => {
+test('after the last round: «?» and «R» show as ?, a wrong answer as ×, and none of them count', () => {
   const m = boardModel(FOUR, 3, {gridMax: 5});
   const a03 = m.rows.find((r) => r.team_id === 'A03');
-  assert.deepEqual([a03.marks[7], a03.marks[8], a03.marks[9]], ['?', '?', '−']);
+  assert.deepEqual([a03.marks[7], a03.marks[8], a03.marks[9]], ['?', '?', '×']);
+  assert.equal(m.rows.find((r) => r.team_id === 'A04').marks[9], '•'); // no card
   assert.deepEqual(a03.sums, [1, 3, 0]);
   assert.equal(m.took[7], 1);
   assert.equal(boardModel(FOUR, 99, {gridMax: 5}).revealed, 3); // can't reveal more than exist

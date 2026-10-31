@@ -34,6 +34,8 @@ afterwards (`docs/google-account.md` §5).
 - [ ] A spare card asks for the question (keypad); a reserve deck card (R1) puts the
       team on the tabs. The spare card's photo is filed under that question (`…_q<NNN>_S1_…`).
 - [ ] Airplane mode for a few scans, then back online: the marks arrive by themselves.
+- [ ] Scan a card already judged: it says «Уже отмечено», and «Отмена (останется: …)» closes
+      it with the mark unchanged.
 - [ ] «Чья карточка?» shows team, question and mark without recording anything.
 - [ ] Photos: after a few cards, the pill's «фото N» counts down to nothing; the
       tournament's `Photos` folder in Drive has one readable photo per card; a «?» card's
@@ -52,6 +54,9 @@ afterwards (`docs/google-account.md` §5).
 
 - [ ] Open the board QR (page 2) on the projector laptop: the title screen, then → shows
       round 1; ← takes it back; F is full screen; G switches grid/compact.
+- [ ] Open the board QR on an iPhone: the title screen has no QR codes and says to tap
+      «Показать тур 1»; the buttons stay on screen; tapping shows round 1, readable.
+- [ ] Wrong answers are red crosses, cards not received are small grey dots.
 - [ ] From the back of the hall, a phone reads both QR codes on the projector (the table
       and the board); Q hides and shows them.
 
