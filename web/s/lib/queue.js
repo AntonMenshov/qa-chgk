@@ -8,7 +8,7 @@ export const BACKOFF_MS = [2000, 4000, 8000, 15000, 30000];
 export class Queue {
   /**
    * @param {object} o
-   * @param {{get(key): any, set(key, value): void}} o.storage  JSON storage (localStorage wrapper)
+   * @param {{get(key): any, set(key, value): boolean|void}} o.storage  JSON storage (localStorage wrapper)
    * @param {string} o.key                 storage key, one per tournament
    * @param {(events) => Promise<{results: Array}>} o.send  record_events call
    * @param {() => number} [o.now]
@@ -26,13 +26,14 @@ export class Queue {
     this.failures = 0;
     this.nextAttemptAt = 0;
     this.lastError = null;
+    this.unsaved = false; // the phone couldn't save the queue: marks are in memory only
     this.stuck = false; // the server refuses the batch itself: a person has to look
     this.lastRefused = false; // the token was refused: a new QR helps
     this.inFlight = false;
   }
 
   save() {
-    this.storage.set(this.key, {pending: this.pending, rejected: this.rejected});
+    this.unsaved = this.storage.set(this.key, {pending: this.pending, rejected: this.rejected}) === false;
   }
 
   add(event) {
@@ -118,6 +119,7 @@ export class Queue {
       rejected: this.rejected.length,
       failing: this.failures > 0,
       stuck: this.stuck,
+      unsaved: this.unsaved,
       lastError: this.lastError,
     };
   }

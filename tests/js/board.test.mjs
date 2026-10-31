@@ -178,3 +178,21 @@ test("qrSvg draws the vendored generator's matrix with a 4-module white quiet zo
 test('a cell that is not a mark shows as undecided, not as «no card»', () => {
   assert.equal(cellMark('!'), '?');
 });
+
+test('qrSvg: dark modules sit where the matrix says; text goes in as UTF-8; a repeat comes from the cache', () => {
+  const added = [];
+  let makes = 0;
+  const fake = () => ({
+    addData: (text) => added.push(text),
+    make: () => {
+      makes += 1;
+    },
+    getModuleCount: () => 2,
+    isDark: (r, c) => r === 0 && c === 1,
+  });
+  const svg = qrSvg('qr-position-test-é', fake);
+  assert.match(svg, /d="M5 4h1v1h-1z"/); // column 1, row 0, past the 4-module quiet zone
+  assert.equal(added[0], 'qr-position-test-Ã©');
+  qrSvg('qr-position-test-é', fake);
+  assert.equal(makes, 1);
+});

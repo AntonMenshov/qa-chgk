@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import Any, cast
 
 import anthropic
+import httpx
 from PIL import Image
 
 from chgk import logos
@@ -356,10 +357,10 @@ def draw_logo(
                 raise
             log(f"{label}: {err}; keeping the previous drawing")
             break
-        except ValueError as err:
+        except (ValueError, anthropic.APIError, httpx.HTTPError) as err:
             if svg is None:
                 raise
-            log(f"{label}: {err}; keeping the previous drawing")
+            log(f"{label}: {err}; keeping the previous drawing")  # it is paid for
             break
         messages.append({"role": "assistant", "content": message.content})
         text = "".join(block.text for block in message.content if block.type == "text")
@@ -446,24 +447,29 @@ def draw_drafts(
     outcomes: dict[str, DraftOutcome] = {}
     with ThreadPoolExecutor(max_workers=PARALLEL) as pool:
         futures = {pool.submit(draw_one, t): t for t in teams}
-        for future in as_completed(futures):
-            team = futures[future]
-            try:
-                path = future.result()
-            except anthropic.AuthenticationError:
-                pool.shutdown(cancel_futures=True)
-                raise
-            except anthropic.APIError as err:
-                outcome = DraftOutcome(team, error=f"API error ({type(err).__name__}); try again later")
-            except ValueError as err:
-                outcome = DraftOutcome(team, error=f"no usable drawing ({err}); try again")
-            else:
-                outcome = DraftOutcome(team, path=path, skipped=path is None)
-            if outcome.error:
-                log(team, outcome.error, True)
-            elif outcome.path:
-                log(team, f"saved {outcome.path}", False)
-            outcomes[team.team_id] = outcome
+        try:
+            for future in as_completed(futures):
+                team = futures[future]
+                try:
+                    path = future.result()
+                except anthropic.AuthenticationError:
+                    raise
+                except (anthropic.APIError, httpx.HTTPError) as err:
+                    outcome = DraftOutcome(team, error=f"API error ({type(err).__name__}); try again later")
+                except OSError as err:
+                    outcome = DraftOutcome(team, error=f"could not save the draft ({err})")
+                except ValueError as err:
+                    outcome = DraftOutcome(team, error=f"no usable drawing ({err}); try again")
+                else:
+                    outcome = DraftOutcome(team, path=path, skipped=path is None)
+                if outcome.error:
+                    log(team, outcome.error, True)
+                elif outcome.path:
+                    log(team, f"saved {outcome.path}", False)
+                outcomes[team.team_id] = outcome
+        except BaseException:
+            pool.shutdown(cancel_futures=True)  # Ctrl-C must not leave queued teams drawing, and billing
+            raise
     return [outcomes[t.team_id] for t in teams]
 
 
@@ -552,6 +558,15 @@ def file_stem(name: str) -> str:
     return stem or "team"
 
 
+def _free_name(stem: str, folders: tuple[Path, ...], taken: set[str]) -> str:
+    """`<stem>.svg`, or with -2, -3, …: another tournament's logo in the shared library is never overwritten."""
+    name, n = f"{stem}.svg", 1
+    while name in taken or any((base / name).exists() for base in folders):
+        n += 1
+        name = f"{stem}-{n}.svg"
+    return name
+
+
 def accept_drafts(teams_path: Path, slug: str, teams: list[Team], team_ids: list[str] | None) -> list[Team]:
     """Move drafts into logos/ and record them in teams.py; `team_ids` None means every draft.
 
@@ -579,9 +594,12 @@ def accept_drafts(teams_path: Path, slug: str, teams: list[Team], team_ids: list
     for tid in team_ids:
         team = by_id[tid]
         name = f"{file_stem(team.name)}.svg"
-        clash = (logos.LOGO_LIBRARY / name).exists() and team.logo_file != name
-        if clash or name in taken:
-            name = f"{file_stem(team.name)}-{tid.lower()}.svg"
+        # In the tournament's folder too: resolve_logo looks there first, and would hide the new logo.
+        clash = any((base / name).exists() for base in (logos.LOGO_LIBRARY, teams_path.parent))
+        if (clash and team.logo_file != name) or name in taken:
+            own = f"{file_stem(team.name)}-{tid.lower()}"
+            folders = (logos.LOGO_LIBRARY, teams_path.parent)
+            name = f"{own}.svg" if team.logo_file == f"{own}.svg" else _free_name(own, folders, taken)
         taken.add(name)
         shutil.move(drafts[tid], logos.LOGO_LIBRARY / name)
         by_id[tid] = replace(team, logo_file=name)

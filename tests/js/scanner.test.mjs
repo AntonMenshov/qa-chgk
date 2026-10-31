@@ -320,7 +320,7 @@ test('queue: everything pending goes in one request; acked and refused events le
   const res = await q.flush();
   assert.deepEqual(sent, [['a', 'b', 'c']]);
   assert.deepEqual(res, {acked: ['a', 'c'], rejected: ['b']});
-  assert.deepEqual(q.status, {pending: 0, rejected: 1, failing: false, stuck: false, lastError: null});
+  assert.deepEqual(q.status, {pending: 0, rejected: 1, failing: false, stuck: false, unsaved: false, lastError: null});
   assert.equal(q.rejected[0].error, 'invalid question');
   assert.equal(await q.flush(), null); // nothing left to send
 });
@@ -376,7 +376,7 @@ test('queue: failures retry with growing pauses; success resets them', async () 
   online = true;
   t = q.nextAttemptAt;
   assert.deepEqual(await q.flush(), {acked: ['a'], rejected: []});
-  assert.deepEqual(q.status, {pending: 0, rejected: 0, failing: false, stuck: false, lastError: null});
+  assert.deepEqual(q.status, {pending: 0, rejected: 0, failing: false, stuck: false, unsaved: false, lastError: null});
 });
 
 test('queue: events added while a request is in flight wait for the next one', async () => {
@@ -522,7 +522,7 @@ test('phone flow against the backend: scan, judge, send, refresh; reserve team; 
   assert.equal(q.status.pending, 10);
 
   await sync();
-  assert.deepEqual(q.status, {pending: 0, rejected: 0, failing: false, stuck: false, lastError: null});
+  assert.deepEqual(q.status, {pending: 0, rejected: 0, failing: false, stuck: false, unsaved: false, lastError: null});
   assert.deepEqual(s.marks['645'].slice(0, 2), [1, '?']);
   assert.deepEqual(s.marks['58746'][0], 1);
   assert.deepEqual(s.marks.R1[0], 1);
@@ -753,7 +753,7 @@ test('storage: a browser that blocks localStorage only loses persistence', async
   try {
     const s = storage();
     s.set('k', 1);
-    assert.equal(s.get('k'), null);
+    assert.equal(s.get('k'), 1); // in memory, until a reload
     s.remove('k');
   } finally {
     if (descriptor) {
@@ -1009,4 +1009,107 @@ test('render: an unchanged screen is left alone; a change is drawn', async () =>
   } finally {
     globalThis.document = realDocument;
   }
+});
+
+test('storage: full: cached tournaments go first; still full: set says so; blocked: values last in memory', async () => {
+  const {storage} = await import('../../web/s/lib/storage.js');
+  const values = new Map([
+    ['chgk.state.A', '{}'],
+    ['chgk.queue.A', '{}'],
+  ]);
+  let room = 2;
+  const backing = {
+    getItem: (k) => values.get(k) ?? null,
+    setItem: (k, v) => {
+      if (!values.has(k) && values.size >= room) {
+        throw new Error('QuotaExceededError');
+      }
+      values.set(k, v);
+    },
+    removeItem: (k) => values.delete(k),
+    key: (i) => [...values.keys()][i],
+    get length() {
+      return values.size;
+    },
+  };
+  const s = storage(backing);
+  assert.equal(s.set('chgk.queue.B', [1]), true);
+  assert.equal(values.has('chgk.state.A'), false);
+  assert.equal(values.has('chgk.queue.A'), true);
+  room = 0;
+  assert.equal(s.set('chgk.queue.C', [1]), false);
+  s.set('chgk.queue.B', undefined);
+  assert.equal(values.has('chgk.queue.B'), false);
+
+  const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    get() {
+      throw new Error('SecurityError');
+    },
+  });
+  try {
+    const blocked = storage();
+    blocked.set('k', 1);
+    assert.equal(blocked.get('k'), 1);
+  } finally {
+    if (descriptor) {
+      Object.defineProperty(globalThis, 'localStorage', descriptor);
+    } else {
+      delete globalThis.localStorage;
+    }
+  }
+});
+
+test('queue: a mark the phone could not save is reported, and clears once saving works', () => {
+  let ok = false;
+  const q = new Queue({storage: {get: () => null, set: () => ok}, key: 'q', send: async () => ({results: []})});
+  q.add({scan_id: 'a'});
+  assert.equal(q.status.unsaved, true);
+  ok = true;
+  q.add({scan_id: 'b'});
+  assert.equal(q.status.unsaved, false);
+});
+
+test('camera: «Чья карточка?» closed with nothing read: the card in view is no new scan', () => {
+  const reported = [];
+  const cam = new Camera({}, (text) => reported.push(text));
+  cam.seen('A', performance.now());
+  cam.forgetLast();
+  cam.restoreLast();
+  cam.seen('A', performance.now());
+  assert.deepEqual(reported, ['A']);
+  cam.forgetLast();
+  cam.seen('B', performance.now()); // read during the lookup: it stays the last
+  cam.restoreLast();
+  assert.equal(cam.last.text, 'B');
+});
+
+test('lookup: an unreadable cell or an unnamed reserve deck is a warning, not «ok»', () => {
+  const teams = [
+    {team_id: 'A01', name: 'А'},
+    {team_id: 'R1', name: 'R1', reserve: true, on_tabs: false},
+  ];
+  const s = new Session({
+    tid: 'T',
+    state: {tournament: {name: 'T', round_sizes: [3]}, teams, marks: {A01: ['!', '', '']}},
+  });
+  assert.equal(identify('x#T.A01.1', s).tone, 'warn');
+  assert.equal(identify('x#T.A01.2', s).tone, 'ok');
+  assert.equal(identify('x#T.R1.1', s).tone, 'warn');
+});
+
+test('forgetLocalData: cached data goes, unsent marks stay', async () => {
+  const {forgetLocalData, K, store} = await import('../../web/s/ui/state.js');
+  store.set(K.state('Z'), {});
+  store.set(K.current('Z'), 3);
+  store.set(K.photographed('Z'), ['a']);
+  store.set(K.queue('Z'), {pending: [{scan_id: 'a'}], rejected: []});
+  forgetLocalData('Z');
+  assert.equal(store.get(K.state('Z')), null);
+  assert.equal(store.get(K.photographed('Z')), null);
+  assert.equal(store.get(K.queue('Z')).pending.length, 1);
+  store.set(K.queue('Z'), {pending: [], rejected: []});
+  forgetLocalData('Z');
+  assert.equal(store.get(K.queue('Z')), null);
 });

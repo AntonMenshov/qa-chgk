@@ -33,7 +33,7 @@
     </section>
 
     <!-- Loading or error before the first data arrives. -->
-    <section id="loading" class="screen" hidden>
+    <section id="loading" class="screen">
       <h1 id="loading-title">Загрузка…</h1>
       <p id="loading-msg" class="msg"></p>
       <button id="loading-retry" class="big" hidden>Повторить</button>
@@ -42,7 +42,7 @@
 
     <!-- Scanning. -->
     <section id="main" class="screen" hidden>
-      <div id="banner" class="banner" hidden></div>
+      <div id="banner" class="banner" role="alert" hidden></div>
       <header>
         <div id="t-name" class="t-name"></div>
         <button id="sync" class="pill"></button>
@@ -65,7 +65,6 @@
         <div class="frame"></div>
         <button id="start" class="big start">Начать проверку</button>
       </div>
-      <div id="toast" class="toast" hidden></div>
     </section>
 
     <!-- A scanned card: verdict. -->
@@ -76,7 +75,7 @@
       <div class="verdicts">
         <button id="v-correct" class="v correct">Верно</button>
         <button id="v-incorrect" class="v incorrect">Неверно</button>
-        <button id="v-disputed" class="v disputed">?</button>
+        <button id="v-disputed" class="v disputed" aria-label="Спорно">?</button>
       </div>
       <button id="v-later" class="link">Решить позже (карточка получена)</button>
     </section>
@@ -99,7 +98,8 @@
         <button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button>
         <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button>
         <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button>
-        <button data-k="back">⌫</button><button data-k="0">0</button><button data-k="ok" class="ok">OK</button>
+        <button data-k="back" aria-label="Стереть">⌫</button><button data-k="0">0</button
+        ><button data-k="ok" class="ok">OK</button>
       </div>
       <button id="sp-cancel" class="link">Отмена</button>
     </section>
@@ -132,5 +132,6 @@
       <button id="forget" class="link danger">Отключить этот турнир на телефоне</button>
       <button id="settings-close" class="link">Закрыть</button>
     </section>
+    <div id="toast" class="toast" role="alert" hidden></div>
   </body>
 </html>

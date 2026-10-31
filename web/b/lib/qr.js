@@ -1,10 +1,17 @@
 // QR codes drawn on the projector board, with the vendored generator
 // (vendor/qrcode-generator-1.4.4, a classic script that defines `qrcode`).
 
+const codes = new Map(); // the board redraws often, and its links don't change
+
 /** SVG markup of a QR code for `text`: error correction M, a 4-module white quiet zone. */
 export function qrSvg(text, qrcode = globalThis.qrcode) {
+  const cached = codes.get(text);
+  if (cached) {
+    return cached;
+  }
   const qr = qrcode(0, 'M');
-  qr.addData(text, 'Byte');
+  // As UTF-8 bytes: the generator keeps only the low byte of each character.
+  qr.addData(String.fromCharCode(...new TextEncoder().encode(text)), 'Byte');
   qr.make();
   const n = qr.getModuleCount();
   const size = n + 8;
@@ -16,8 +23,9 @@ export function qrSvg(text, qrcode = globalThis.qrcode) {
       }
     }
   }
-  return (
+  const svg =
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" shape-rendering="crispEdges">` +
-    `<rect width="${size}" height="${size}" fill="#fff"/><path d="${path}" fill="#000"/></svg>`
-  );
+    `<rect width="${size}" height="${size}" fill="#fff"/><path d="${path}" fill="#000"/></svg>`;
+  codes.set(text, svg);
+  return svg;
 }

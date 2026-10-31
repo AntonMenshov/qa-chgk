@@ -12,7 +12,7 @@ from reportlab.pdfgen.canvas import Canvas
 
 from chgk.cards.geometry import INCH, PAGE_H, PAGE_W, Rect, card_parts, card_rects
 from chgk.cards.model import team_deck
-from chgk.cards.render import FONT, FONT_BOLD, draw_card, draw_qr, register_fonts
+from chgk.cards.render import FONT, FONT_BOLD, GUIDE_GREY, draw_card, draw_qr, printable, register_fonts
 from chgk.config import Tournament
 from chgk.ids import CardId, encode_payload
 from chgk.logos import first_logo, pale
@@ -46,6 +46,7 @@ def render_test_page(
     `source_logo` (unprocessed) is shown at every shade in GREYS; the sample cards use the
     tournament's configured logos and shade.
     """
+    warnings: list[str] = []
     register_fonts()
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -53,7 +54,7 @@ def render_test_page(
     c.setTitle(f"{tournament.name} — тестовая страница")
 
     c.setFont(FONT_BOLD, 13)
-    c.drawString(0.5 * INCH, 10.35 * INCH, f"{tournament.name}: тестовая страница")
+    c.drawString(0.5 * INCH, 10.35 * INCH, f"{printable(tournament.name, warnings)}: тестовая страница")
     c.setFont(FONT, 9)
     c.drawString(
         0.5 * INCH, 10.15 * INCH, "Print on Letter at 100% / Actual size. Both rulers must measure exactly 2 in."
@@ -66,7 +67,9 @@ def render_test_page(
     x = 0.5 * INCH
     chosen = tournament.layout.qr_size
     for i, size in enumerate(QR_SIZES, start=1):
-        payload = encode_payload(tournament.scanner_url, CardId(tid, team.team_id, question=i))
+        # A real card, even in a tournament shorter than the samples.
+        question = (i - 1) % tournament.total_questions + 1
+        payload = encode_payload(tournament.scanner_url, CardId(tid, team.team_id, question=question))
         draw_qr(c, payload, Rect(x, 8.3 * INCH, size * INCH, size * INCH))
         c.setFillGray(0)
         c.drawString(x, 8.15 * INCH, f"{size} in{' (chosen)' if size == chosen else ''}")
@@ -96,13 +99,19 @@ def render_test_page(
     rects = card_rects(tournament.layout)
     bottom_row = rects[-tournament.layout.cols :]
     qr_pt = tournament.layout.qr_size * INCH
-    warnings: list[str] = []
-    c.setStrokeGray(0.65)
+    c.setStrokeGray(GUIDE_GREY)
     c.setLineWidth(0.3)
     for card, rect in zip(samples, bottom_row, strict=False):  # fewer samples than slots is fine
         key = first_logo(tournament.card, card.team.team_id, logos)
         logo_pt = tournament.card.logo_size * INCH if tournament.card.logo_size else None
-        draw_card(c, card, card_parts(rect, qr_pt, logo_pt), tournament, readers.get(key) if key else None, warnings)
+        draw_card(
+            c,
+            card,
+            card_parts(rect, qr_pt, logo_pt, tournament.card.no_qr),
+            tournament,
+            readers.get(key) if key else None,
+            warnings,
+        )
         c.rect(rect.x, rect.y, rect.w, rect.h, stroke=1, fill=0)
     c.showPage()
     c.save()

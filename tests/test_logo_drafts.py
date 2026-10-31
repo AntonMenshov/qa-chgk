@@ -560,3 +560,12 @@ def test_unknown_team_for_draw(folder, monkeypatch):
     monkeypatch.setenv(drafts.API_KEY_ENV, SECRET)
     result = runner.invoke(app, ["logos", str(folder), "--draw", "--team", "Z99"])
     assert result.exit_code == 1 and "Z99" in result.output
+
+
+def test_accept_never_overwrites_a_second_fallback_name_or_hides_behind_the_tournament_folder(
+    folder, library, tmp_path
+):
+    (library / "taken.svg").write_text("x", encoding="utf-8")
+    (library / "taken-a01.svg").write_text("other tournament", encoding="utf-8")
+    assert drafts._free_name("taken-a01", (library,), set()) == "taken-a01-2.svg"
+    assert (library / "taken-a01.svg").read_text(encoding="utf-8") == "other tournament"

@@ -28,6 +28,10 @@ function createTournament_(props, req) {
       folder_id: reg.folder_id,
     };
   }
+  // Phones keep unsent marks and photos by this ID, so a new tournament under it would inherit them.
+  if (props.getProperty(`used:${req.tid}`)) {
+    fail(`tournament ID ${req.tid} belonged to a deleted tournament: give config.py another tid, or none`);
+  }
   // Latin names in Drive (user rule); the tabs inside the Sheet stay Russian.
   const names = driveNames(req.tid, req.name, req.date);
   const folder = rootFolder_().createFolder(names.folder);
@@ -69,6 +73,7 @@ function deleteTournament_(props, reg) {
     // deleted by hand already
   }
   ['t:', 'pub:', 'dirty:'].forEach((prefix) => props.deleteProperty(prefix + reg.tid));
+  props.setProperty(`used:${reg.tid}`, '1'); // phones and cards remember this ID: createTournament_
   return {ok: true};
 }
 

@@ -118,6 +118,20 @@ export class Camera {
     this.stream = null;
   }
 
+  /** «Чья карточка?» opens: the card in front of the camera counts too. */
+  forgetLast() {
+    this.beforeLookup = this.last;
+    this.last = {text: null, seenAt: 0};
+  }
+
+  /** …and closes with nothing read: that card is still the last one, not a new scan. */
+  restoreLast() {
+    if (this.last.text === null && this.beforeLookup) {
+      this.last = {text: this.beforeLookup.text, seenAt: performance.now()};
+    }
+    this.beforeLookup = null;
+  }
+
   pause() {
     this.paused = true;
   }

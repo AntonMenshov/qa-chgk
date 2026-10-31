@@ -28,6 +28,7 @@ body {
     sans-serif;
 }
 button {
+  touch-action: manipulation; /* quick taps stay taps, not a double-tap zoom */
   font: inherit;
   border: 0;
   border-radius: 12px;
@@ -209,6 +210,8 @@ video {
 }
 
 .toast {
+  z-index: 2; /* over the sheets */
+  pointer-events: none; /* or it takes the taps meant for what it covers */
   position: fixed;
   left: 12px;
   right: 12px;
@@ -225,6 +228,12 @@ video {
 }
 
 /* Bottom sheets */
+.sheet .msg {
+  color: #8a5a00; /* .msg and .muted are for the dark screens */
+}
+.sheet .muted {
+  color: var(--muted);
+}
 .sheet {
   position: fixed;
   left: 0;

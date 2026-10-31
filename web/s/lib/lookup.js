@@ -45,8 +45,9 @@ export function identify(text, session = null) {
   const id =
     `ID ${team.team_id}` +
     (team.reserve && !session.isPlaying(team) ? ' · запасной комплект, команда ещё не названа' : '');
+  const unnamed = team.reserve && !session.isPlaying(team);
   if (c.spare !== null) {
-    return {tone: 'ok', title: team.name, details: [which, id]};
+    return {tone: unnamed ? 'warn' : 'ok', title: team.name, details: [which, id]};
   }
   if (c.question > session.total) {
     return {tone: 'bad', title: team.name, details: [`Вопрос ${c.question}, а в турнире всего ${session.total}`, id]};
@@ -54,7 +55,7 @@ export function identify(text, session = null) {
   const value = session.valueOf(team.team_id, c.question);
   const status = statusOf(value);
   return {
-    tone: 'ok',
+    tone: unnamed || value === NOT_A_MARK ? 'warn' : 'ok',
     title: team.name,
     details: [
       `Вопрос ${c.question} · тур ${session.roundOf(c.question)}`,

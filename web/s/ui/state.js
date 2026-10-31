@@ -1,3 +1,7 @@
+// The jury token is stored for the whole origin (<user>.github.io), so any other page published
+// there could read it. Accepted (user decision, code review 2026-10-31): the owner publishes those
+// pages too, and a leaked link can be replaced (`chgk replace-token`).
+//
 // The scanner's shared state: the tournament this phone works on, its queues and camera,
 // what is on screen. The ui/ modules read and change it through `app`.
 
@@ -35,6 +39,18 @@ export const app = {
   rendered: null, // what the main screen shows now (render() skips an unchanged one)
   refreshing: null, // the get_state under way: one at a time, so an older reply can't replace a newer one
 };
+
+/** «Отключить турнир»: what is kept for it can be fetched again; unsent or refused marks stay. */
+export function forgetLocalData(tid) {
+  if (!tid) {
+    return;
+  }
+  [K.state(tid), K.current(tid), K.photographed(tid)].forEach((key) => store.remove(key));
+  const queue = store.get(K.queue(tid));
+  if (!queue?.pending?.length && !queue?.rejected?.length) {
+    store.remove(K.queue(tid));
+  }
+}
 
 export function deviceId() {
   let id = store.get(K.device);

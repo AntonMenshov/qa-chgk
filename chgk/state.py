@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from chgk import write_file
-from chgk.ids import BoardAccess, JuryAccess, generate_tid
+from chgk.ids import TID_RE, BoardAccess, JuryAccess, generate_tid
 
 STATE_FILE = "state.json"
 
@@ -65,7 +65,10 @@ def load_state(folder: Path) -> State | None:
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
         known = {f.name for f in fields(State)}
-        return State(**{k: v for k, v in data.items() if k in known})
+        state = State(**{k: v for k, v in data.items() if k in known})
+        if not TID_RE.fullmatch(state.tid):  # it goes into every card's QR code
+            raise ValueError(f"tid {state.tid!r} is not 1-8 digits or capital Latin letters")
+        return state
     except (ValueError, TypeError, AttributeError) as err:
         raise ValueError(f"{path} is broken ({err}): restore it from your copy") from err
 

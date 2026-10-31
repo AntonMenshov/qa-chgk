@@ -55,7 +55,7 @@ the tabs inside the Sheet stay Russian.
 steps: [README.md](../README.md) «For the organiser»; every command: `uv run chgk --help`. The Teams tab is
 hidden: «Все листы» at the bottom left. Card photos are in the owner's Drive only: to let a jury member
 open the links on «Спорные», share the tournament's Drive folder with them. The public results are a separate copy
-in the same folder; the real Sheet is private. `chgk delete <folder>` removes a tournament with its edit trigger; a folder
+in the same folder; the real Sheet is private. `chgk delete <folder>` removes a tournament with its edit trigger, and the backend then refuses its ID for a new one (phones keep unsent marks and photos by ID); a folder
 deleted by hand leaves its trigger behind (Google allows 20: script editor → Triggers).
 
 ## 3. Switch to another account

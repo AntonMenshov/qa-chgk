@@ -19,6 +19,11 @@ export function cameraTrouble(message) {
 
 /** Back in the app after a phone lock, a call or another app: iOS may have stopped the camera. */
 export async function resumeCamera() {
+  if (app.setupCamera?.wanted) {
+    app.setupCamera.start().catch(() => {
+      $('setup-start').hidden = false;
+    });
+  }
   if (!app.camera?.wanted) {
     return;
   }

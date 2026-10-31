@@ -1,7 +1,7 @@
 // «Чья карточка?»: cards are only described, nothing is recorded.
 
 import {identify} from '../lib/lookup.js';
-import {$, beep, sheet, unlockAudio} from './dom.js';
+import {$, beep, sheet, toast, unlockAudio} from './dom.js';
 import {app} from './state.js';
 
 export async function openLookup() {
@@ -10,12 +10,16 @@ export async function openLookup() {
   $('lk-title').textContent = 'Наведите камеру на карточку';
   $('lk-details').replaceChildren();
   sheet('lookup');
-  app.camera.last = {text: null, seenAt: 0}; // the card already in front of the camera counts too
+  app.camera.forgetLast(); // the card already in front of the camera counts too
   try {
     await app.camera.start();
     $('start').hidden = true;
   } catch (err) {
-    $('lk-title').textContent = `Камера недоступна: ${err.message}`;
+    if (app.lookingUp) {
+      $('lk-title').textContent = `Камера недоступна: ${err.message}`;
+    } else {
+      toast(`Камера недоступна: ${err.message}`, true);
+    }
   }
 }
 
@@ -26,5 +30,5 @@ export function showLookup(text) {
   $('lk-details').replaceChildren(
     ...r.details.map((d) => Object.assign(document.createElement('li'), {textContent: d})),
   );
-  beep(r.tone === 'ok' ? 'ok' : 'bad');
+  beep(r.tone);
 }

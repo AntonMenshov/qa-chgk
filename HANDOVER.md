@@ -191,7 +191,7 @@ One line each; SPEC has the details. Decisions recorded only here are written ou
 ## Next steps
 
 0. **Code review, 2026-10-31:** all findings triaged with the user and the decisions implemented and deployed
-   (`out/code-review/TRIAGE.md`, `DECISIONS.md`; local only: the repo is public). Not yet tried for real: the iPhone
+   (`out/code-review/TRIAGE.md`, `DECISIONS.md`, `second-pass/` for the review of those changes; local only: the repo is public). Not yet tried for real: the iPhone
    side and edits typed in the Sheet ([docs/manual-checks.md](docs/manual-checks.md)).
 1. **Phase 7**, the rest: reprint `out/osenniy-salat/`, the fixes' own checks on an iPhone
    ([docs/manual-checks.md](docs/manual-checks.md)), the mock game, fixes, a docs/comments check.

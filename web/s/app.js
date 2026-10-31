@@ -2,10 +2,10 @@
 // The logic lives in lib/ (tested in Node); ui/ shows it on the page.
 
 import {sameAccess} from './lib/payload.js';
-import {$, sheet, toast, unlockAudio} from './ui/dom.js';
+import {$, sheet, show, toast, unlockAudio} from './ui/dom.js';
 import {answerSpare, handleCode, verdict} from './ui/scan.js';
 import {adoptSetup, readHash, startSetupScreen, useSetup} from './ui/setup.js';
-import {app, K, store} from './ui/state.js';
+import {app, forgetLocalData, K, store} from './ui/state.js';
 import {flush, refresh, render, renderMissing, renderSync, retryAll} from './ui/sync.js';
 import {resumeCamera, startTournament} from './ui/tournament.js';
 import {openLookup} from './ui/whose.js';
@@ -56,7 +56,10 @@ function wire() {
     sheet('missing');
   };
   $('lookup-open').onclick = openLookup;
-  $('lk-close').onclick = () => sheet(null); // a card still in view counts only after it leaves the frame and returns
+  $('lk-close').onclick = () => {
+    app.camera.restoreLast(); // a card still in view counts only after it leaves the frame and returns
+    sheet(null);
+  };
   $('m-close').onclick = () => sheet(null);
   $('sync').onclick = () => {
     renderSync();
@@ -91,6 +94,7 @@ function wire() {
   };
   $('settings-close').onclick = () => sheet(null);
   const forgetTournament = () => {
+    forgetLocalData(app.setup?.tid);
     store.remove(K.setup);
     location.replace(location.pathname);
   };
@@ -113,17 +117,9 @@ function wire() {
   };
   $('loading-reset').onclick = forgetTournament;
   setInterval(flush, FLUSH_EVERY_MS);
-  let photos = '';
   setInterval(() => {
-    if (!app.photos) {
-      return;
-    }
-    app.photos.pump();
-    const now = JSON.stringify(app.photos.status);
-    if (now !== photos) {
-      photos = now;
-      render();
-    }
+    app.photos?.pump();
+    render();
   }, FLUSH_EVERY_MS);
   setInterval(refresh, REFRESH_EVERY_MS);
   addEventListener('online', () => {
@@ -137,6 +133,7 @@ function wire() {
     }
   });
   addEventListener('pageshow', resumeCamera);
+  document.addEventListener('pointerdown', unlockAudio); // iOS stops the sound on a phone lock; any tap restarts it
 }
 
 /** A second tab keeps its own copy of the unsent marks, and saving overwrites the other's: say so. */
@@ -149,10 +146,11 @@ function watchForSecondTab() {
     if (e.data === 'hello') {
       tabs.postMessage('here');
     }
-    app.secondTab = true;
+    app.secondTab = e.data !== 'bye';
     render();
   };
   tabs.postMessage('hello');
+  addEventListener('pagehide', () => tabs.postMessage('bye'));
 }
 
 async function boot() {
@@ -178,6 +176,7 @@ async function boot() {
   });
   const from = readHash();
   if (from.setup) {
+    show('loading');
     await adoptSetup(from.setup);
   }
   if (!app.setup) {

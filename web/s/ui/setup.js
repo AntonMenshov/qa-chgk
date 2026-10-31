@@ -3,7 +3,7 @@
 import {backend} from '../lib/api.js';
 import {Camera} from '../lib/camera.js';
 import {identify} from '../lib/lookup.js';
-import {decodeCard, decodeSetup} from '../lib/payload.js';
+import {decodeCard, decodeSetup, sameAccess} from '../lib/payload.js';
 import {photoStore} from '../lib/photostore.js';
 import {$, show, toast, unlockAudio} from './dom.js';
 import {app, K, store} from './state.js';
@@ -23,7 +23,7 @@ async function unsent(tid) {
  */
 export async function adoptSetup(s) {
   const old = app.setup;
-  if (old) {
+  if (old && !sameAccess(old, s)) {
     const waiting = old.tid === s.tid ? 0 : await unsent(old.tid);
     if (
       waiting > 0 &&
@@ -65,12 +65,17 @@ export async function useSetup(s) {
     return;
   }
   app.switching = true;
-  const taken = await adoptSetup(s);
-  app.switching = false;
+  const running = Boolean(app.setup); // also still loading: a second load must not race the first
+  let taken;
+  try {
+    taken = await adoptSetup(s);
+  } finally {
+    app.switching = false;
+  }
   if (!taken) {
     return;
   }
-  if (app.session) {
+  if (running) {
     store.set(K.notice, 'Новый QR принят');
     location.reload();
   } else {
@@ -78,22 +83,31 @@ export async function useSetup(s) {
   }
 }
 
+function setupCameraTrouble(message) {
+  $('setup-start').hidden = false;
+  $('setup-msg').textContent = `${message}: нажмите кнопку ещё раз.`;
+}
+
 export function startSetupScreen(message = '') {
   show('setup');
   $('setup-msg').textContent = message;
   const video = $('setup-video');
-  const cam = (app.setupCamera = new Camera(video, (text) => {
-    const s = decodeSetup(text);
-    if (!s) {
-      const card = decodeCard(text) && identify(text);
-      $('setup-msg').textContent = card
-        ? `Это карточка: ${[card.title, ...card.details].join(' · ')}. Чтобы отмечать, нужен QR «Доступ жюри» с листа жюри.`
-        : 'Это не QR-код доступа жюри.';
-      return;
-    }
-    cam.stop();
-    useSetup(s);
-  }));
+  const cam = (app.setupCamera = new Camera(
+    video,
+    (text) => {
+      const s = decodeSetup(text);
+      if (!s) {
+        const card = decodeCard(text) && identify(text);
+        $('setup-msg').textContent = card
+          ? `Это карточка: ${[card.title, ...card.details].join(' · ')}. Чтобы отмечать, нужен QR «Доступ жюри» с листа жюри.`
+          : 'Это не QR-код доступа жюри.';
+        return;
+      }
+      cam.stop();
+      useSetup(s);
+    },
+    setupCameraTrouble,
+  ));
   $('setup-start').onclick = async () => {
     unlockAudio();
     try {

@@ -2,7 +2,7 @@
 // 3 s (so updates arrive at once) and from this cache when not (a venue's slow Wi-Fi). Requests to other sites (the
 // Apps Script backend) are never touched.
 
-const CACHE = 'chgk-scanner-v8';
+const CACHE = 'chgk-scanner-v9';
 const NETWORK_LIMIT_MS = 3000;
 const FILES = [
   './',
@@ -63,9 +63,13 @@ self.addEventListener('fetch', (event) => {
   const network = fetch(event.request);
   event.waitUntil(
     network
-      .then((response) =>
-        response.ok ? caches.open(CACHE).then((cache) => cache.put(event.request, response.clone())) : undefined,
-      )
+      .then((response) => {
+        if (!response.ok) {
+          return undefined;
+        }
+        const copy = response.clone(); // now: the page reads the original as soon as it gets it
+        return caches.open(CACHE).then((cache) => cache.put(event.request, copy));
+      })
       .catch(() => {}),
   );
   event.respondWith(respond(event.request, network));

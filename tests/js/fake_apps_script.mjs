@@ -606,6 +606,7 @@ export function loadBackend({
         getProperty: (k) => (props.has(k) ? props.get(k) : null),
         setProperty: (k, v) => props.set(k, String(v)),
         deleteProperty: (k) => props.delete(k),
+        getKeys: () => [...props.keys()],
       }),
     },
     ContentService: {
@@ -669,15 +670,23 @@ export function loadBackend({
             return builder;
           },
           onEdit: () => builder,
+          timeBased: () => builder,
+          after: () => builder,
           create: () => ({}),
         };
         return builder;
       },
       getProjectTriggers: () =>
-        triggers.map((fn, index) => ({fn, index, getTriggerSourceId: () => triggerSources[index]})),
+        triggers.map((fn, index) => ({
+          fn,
+          index,
+          getHandlerFunction: () => fn,
+          getTriggerSourceId: () => triggerSources[index],
+        })),
       deleteTrigger: (t) => {
-        triggers.splice(t.index, 1);
-        triggerSources.splice(t.index, 1);
+        const index = triggers.indexOf(t.fn);
+        triggers.splice(index, 1);
+        triggerSources.splice(index, 1);
       },
       getService: () => ({getUrl: () => serviceUrl}),
       AuthMode: {FULL: 'FULL'},

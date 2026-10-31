@@ -16,8 +16,8 @@ export function sheet(id) {
     s.hidden = s.id !== id;
   }
   app.lookingUp = id === 'lookup'; // any other sheet ends «Чья карточка?»
-  // A card waits for its verdict: nothing behind it can open another sheet over it.
-  $('main').inert = id === 'card' || id === 'spare';
+  // Nothing behind a sheet can act: a card waits for its verdict, a list shows its question.
+  $('main').inert = id !== null;
   if (app.camera) {
     id && id !== 'lookup' ? app.camera.pause() : app.camera.resume();
   }
@@ -28,8 +28,8 @@ let audio = null;
 export function unlockAudio() {
   try {
     audio ??= new (window.AudioContext || /** @type {any} */ (window).webkitAudioContext)();
-    if (audio.state === 'suspended') {
-      audio.resume();
+    if (audio.state !== 'running') {
+      audio.resume().catch(() => {});
     }
   } catch {
     audio = null;
@@ -37,9 +37,18 @@ export function unlockAudio() {
 }
 
 export function beep(kind) {
-  if (!audio) {
+  // Stopped (a phone lock, a call): tones queued now would all play at once on resume.
+  if (audio?.state !== 'running') {
     return;
   }
+  try {
+    playTones(kind);
+  } catch {
+    // a sound must never get in the way of a card
+  }
+}
+
+function playTones(kind) {
   const tones =
     kind === 'warn'
       ? [

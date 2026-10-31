@@ -171,6 +171,7 @@ tfoot td.label {
 
 .status {
   position: fixed;
+  max-width: 45%; /* clear of the buttons on the right */
   left: 14px;
   bottom: 12px;
   font-size: 14px;
@@ -184,10 +185,12 @@ tfoot td.label {
   gap: 8px;
   transition: opacity 0.4s;
 }
-.controls.idle {
+.controls.idle:not(:focus-within) {
+  pointer-events: none; /* unseen buttons must not take a stray click */
   opacity: 0;
 }
 .controls button {
+  touch-action: manipulation; /* quick taps stay taps, not a double-tap zoom */
   font:
     600 16px system-ui,
     sans-serif;
@@ -271,6 +274,7 @@ table.dense td.total {
 /* A phone (no mouse): the buttons stay on screen, the only way to reveal a round there. */
 @media (hover: none) {
   .status {
+    max-width: none;
     left: 8px;
     right: 8px;
     bottom: 64px; /* above the buttons */
@@ -280,7 +284,8 @@ table.dense td.total {
     right: 8px;
     bottom: 8px;
   }
-  .controls.idle {
+  .controls.idle:not(:focus-within) {
+    pointer-events: auto;
     opacity: 1;
   }
   .controls button {

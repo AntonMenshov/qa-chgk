@@ -316,3 +316,52 @@ test('onSheetEdit: a changed name reaches the public copy', () => {
   const pub = copy.getSheetByName('Тур 2');
   assert.equal(pub.getRange(pub.rowOf('A01'), 2).getValues()[0][0], 'Новое имя');
 });
+
+test('a change arms one timer; it publishes without any read, and removes itself', () => {
+  const {b, ss} = world();
+  const {copy} = publicCopy(b, ss);
+  post(b, 'record_events', {events: [ev({team_id: 'A02', question: 1})]});
+  post(b, 'record_events', {events: [ev({team_id: 'A02', question: 2})]});
+  assert.equal(b.$.triggers.filter((t) => t === 'publishWaiting').length, 1);
+  b.publishWaiting();
+  assert.equal(b.$.triggers.includes('publishWaiting'), false);
+  assert.equal(b.$.props.has(`dirty:${TID}`), false);
+  const tab = copy.getSheetByName('Тур 1');
+  assert.equal(tab.getRange(tab.rowOf('A02'), L.questionCell([3, 3], 1).col).getValues()[0][0], 1);
+});
+
+test('a failed publication stays marked, with a pause before the next try', () => {
+  const {b, ss} = world();
+  const {reg} = publicCopy(b, ss);
+  b.$.spreadsheets.delete(reg.public_id);
+  b.$.props.set(`pub:${TID}`, '0');
+  post(b, 'record_events', {events: [ev()]});
+  post(b, 'get_state');
+  assert.equal(b.$.props.has(`dirty:${TID}`), true);
+  assert.ok(Number(b.$.props.get(`pub:${TID}`)) > 0);
+});
+
+test('make_public_copy on one that has a copy still makes the real Sheet private', () => {
+  const {b, admin, ss} = world();
+  b.$.sharing.set(ss.getId(), 'ANYONE_WITH_LINK:VIEW');
+  assert.equal(b.post({action: 'make_public_copy', tid: TID, token: admin}).existed, true);
+  assert.equal(b.$.sharing.get(ss.getId()), 'PRIVATE:EDIT');
+});
+
+test("a deleted tournament's ID is refused for a new one", () => {
+  const {b, admin} = world();
+  b.post({action: 'delete_tournament', tid: TID, token: admin});
+  const again = b.post({
+    action: 'create_tournament',
+    token: admin,
+    tid: TID,
+    name: 'Кубок',
+    date: '2026-11-15',
+    round_sizes: [3],
+    jury_token: JURY,
+    board_token: 'another-board-token-0123',
+    teams: [],
+  });
+  assert.equal(again.ok, false);
+  assert.match(again.error, /deleted tournament/);
+});

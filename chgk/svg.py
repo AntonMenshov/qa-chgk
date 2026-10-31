@@ -67,13 +67,20 @@ def check_svg(text: str) -> None:
 
 
 def _size(text: str) -> tuple[float, float]:
-    """The SVG's width and height: its viewBox, else its width and height; square if it has neither."""
+    """The SVG's proportions: its plain-number width and height (they decide the render), else viewBox, else square."""
     root = ET.fromstring(text)
     numbers = re.split(r"[\s,]+", (root.get("viewBox") or "").strip())
+    plain = re.compile(r"[\d.]+(px)?")
+    w_attr, h_attr = root.get("width") or "", root.get("height") or ""
+    if plain.fullmatch(w_attr) and plain.fullmatch(h_attr):
+        sides = (w_attr.removesuffix("px"), h_attr.removesuffix("px"))
+    elif len(numbers) == 4:
+        sides = (numbers[2], numbers[3])
+    else:
+        return 1.0, 1.0
     try:
-        sides = (numbers[2], numbers[3]) if len(numbers) == 4 else (root.get("width") or "", root.get("height") or "")
-        w, h = float(re.sub(r"[a-z%]+$", "", sides[0])), float(re.sub(r"[a-z%]+$", "", sides[1]))
-    except (TypeError, ValueError):
+        w, h = float(sides[0]), float(sides[1])
+    except ValueError:
         return 1.0, 1.0
     return (w, h) if w > 0 and h > 0 else (1.0, 1.0)
 
@@ -96,6 +103,9 @@ def render_svg(text: str, max_side: int) -> Image.Image:
     )  # chosen first: a tall one can't fill the memory
     try:
         image = Image.open(io.BytesIO(bytes(resvg_py.svg_to_bytes(**options, **side))))
+        if max(image.size) > max_side:  # units _size can't compare: fit the other side instead
+            other: dict[str, Any] = {"width": max_side} if "height" in side else {"height": max_side}
+            image = Image.open(io.BytesIO(bytes(resvg_py.svg_to_bytes(**options, **other))))
         image.load()
     except (ValueError, OSError, Image.DecompressionBombError) as err:
         raise ValueError(f"SVG could not be drawn ({err})") from err

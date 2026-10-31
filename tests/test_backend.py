@@ -1,5 +1,6 @@
 import json
 import re
+from dataclasses import replace
 
 import httpx
 import pytest
@@ -21,7 +22,7 @@ from chgk.backend import (
 from chgk.cli import app
 from chgk.ids import decode_jury_link, encode_jury_link
 from chgk.remote import new_tournament, replace_token, sync_teams
-from chgk.state import load_or_create_state, load_state
+from chgk.state import load_or_create_state, load_state, save_state
 from chgk.teams import Team, read_teams
 
 URL_A = "https://script.google.com/macros/s/AKfycbAccountA_000000000/exec"
@@ -640,3 +641,25 @@ def test_results_copy_and_delete_commands(folder, backends):
     assert result.exit_code == 0, result.output
     assert not (folder / "state.json").exists()
     assert sent(a, "delete_tournament")
+
+
+def test_replace_token_refuses_while_the_other_kinds_replacement_is_unfinished(folder, backends):
+    profiles = Profiles()
+    profiles.add(Profile("personal", URL_A, "tokA"))
+    profiles.save()
+    new_tournament(folder, profiles.active())
+    save_state(folder, replace(load_state(folder), pending_token={"which": "jury", "token": "t" * 32}))
+    with pytest.raises(ValueError, match="didn't finish"):
+        replace_token(folder, "board", Profiles())
+    assert load_state(folder).pending_token["token"] == "t" * 32
+
+
+def test_delete_finishes_after_a_lost_reply(folder, backends):
+    profiles = Profiles()
+    profiles.add(Profile("personal", URL_A, "tokA"))
+    profiles.save()
+    state = new_tournament(folder, profiles.active()).state
+    BackendClient(URL_A, "tokA").delete_tournament(state.tid)  # as if the first reply was lost
+    result = runner.invoke(app, ["delete", str(folder), "--yes"])
+    assert result.exit_code == 0, result.output
+    assert not (folder / "state.json").exists()

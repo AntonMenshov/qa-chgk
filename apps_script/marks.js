@@ -367,8 +367,8 @@ function recordEvents_(ss, reg, req) {
   updateDisputed_(m, disputedBefore);
   m.w.flush(); // before sorting: the rows above are where the read found them
   if (rounds.size || !m.sortKeysOk) {
+    markUnpublished_(PropertiesService.getScriptProperties(), reg); // first: the marks are written, even if sorting fails
     sortTabs_(ss, reg.round_sizes, [...rounds], m, reg);
-    markUnpublished_(PropertiesService.getScriptProperties(), reg);
   }
   return {ok: true, results: outcomes};
 }

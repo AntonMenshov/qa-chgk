@@ -99,3 +99,10 @@ def test_a_tall_svg_fits_its_height():
         '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 400"><rect width="9" height="9"/></svg>', 600
     )
     assert image.size == (150, 600)
+
+
+def test_width_and_height_decide_the_size_not_the_viewbox():
+    with pytest.raises(ValueError, match="long and narrow"):
+        render_svg('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="10" height="2000"/>', 300)
+    image = render_svg('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10" width="20" height="100"/>', 300)
+    assert max(image.size) == 300

@@ -15,7 +15,9 @@ from chgk.teams import TEAMS_FILE, Team, read_teams
 
 
 def _draw(folder: Path, slug: str, look: drafts.LogoLook, teams: list[Team], only: list[str] | None) -> None:
-    if only:
+    if only is not None:
+        if not only:
+            raise ValueError("--team gives no team IDs")
         unknown = sorted(set(only) - {t.team_id for t in teams})
         if unknown:
             raise fail(ValueError(f"unknown team_id(s): {', '.join(unknown)}"))
@@ -88,12 +90,18 @@ def logos_cmd(
         teams = read_teams(teams_path)
         if accept:
             which = None if accept.strip().lower() == "all" else team_ids(accept)
+            if which == []:
+                raise ValueError("--accept gives no team IDs")
             for t in drafts.accept_drafts(teams_path, tournament.slug, teams, which):
                 typer.echo(f"  {t.team_id} «{t.name}»: logo={t.logo_file!r} (in {LOGO_LIBRARY})")
             teams = read_teams(teams_path)
         if draw:
+            if tournament.card.logo in (LogoMode.NONE, LogoMode.TOURNAMENT):
+                raise ValueError(
+                    "this tournament's cards don't show team logos: drawing them would be paid for nothing"
+                )
             look = drafts.logo_look(tournament.card, tournament.layout)
-            _draw(Path(folder), tournament.slug, look, teams, team_ids(team) if team else None)
+            _draw(Path(folder), tournament.slug, look, teams, team_ids(team) if team is not None else None)
         _report(Path(folder), tournament, teams)
     except ValueError as err:
         raise fail(err) from err

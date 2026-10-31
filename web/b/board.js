@@ -14,7 +14,8 @@ const $ = (id) => document.getElementById(id);
 const store = storage();
 const access = decodeBoard(location.hash);
 // Links made by the CLI always carry ?grid=; 5 is board_grid_max_teams's default.
-const gridMax = Number(new URLSearchParams(location.search).get('grid') ?? 5);
+const gridParam = new URLSearchParams(location.search).get('grid');
+const gridMax = /^\d+$/.test(gridParam ?? '') ? Number(gridParam) : 5;
 const key = (name) => `chgk.board.${name}.${access ? access.tid : ''}`;
 // A phone in the hall (no mouse, no arrow keys): the same page, with what fits a small screen.
 const touch = matchMedia('(hover: none)').matches;
@@ -51,7 +52,11 @@ function qrCodes(big) {
     {className: `qrs${big ? ' big' : ''}`},
     ...codes.map(([caption, link]) => {
       const box = el('div', {className: 'code'});
-      box.innerHTML = qrSvg(link);
+      try {
+        box.innerHTML = qrSvg(link);
+      } catch (err) {
+        console.error(err); // the codes are extras: the results still go up
+      }
       box.dataset.link = link;
       return el('figure', {}, box, el('figcaption', {textContent: caption}));
     }),
@@ -240,7 +245,6 @@ async function load() {
     data = await backend(access.backendUrl, access.boardToken)('get_board', {tid: access.tid});
     lastOk = new Date();
     $('status').hidden = true;
-    render();
   } catch (err) {
     $('status').hidden = false;
     $('status').textContent = err.refused
@@ -248,9 +252,11 @@ async function load() {
       : lastOk
         ? `Нет связи — данные на ${lastOk.toLocaleTimeString('ru-RU', {hour: '2-digit', minute: '2-digit'})}`
         : `Не удалось загрузить: ${err.message}`;
+    return;
   } finally {
     loading = false;
   }
+  render(); // outside the try: a drawing error is not a connection problem
 }
 
 function toggleQr() {
@@ -294,6 +300,9 @@ addEventListener('keydown', (e) => {
   if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) {
     return;
   }
+  if (e.target.closest?.('button') && [' ', 'Enter'].includes(e.key)) {
+    return; // a focused button does its own job
+  }
   if (['ArrowRight', ' ', 'PageDown', 'Enter'].includes(e.key)) {
     setRevealed(revealed + 1);
   } else if (['ArrowLeft', 'PageUp', 'Backspace'].includes(e.key)) {
@@ -311,6 +320,7 @@ addEventListener('keydown', (e) => {
 });
 addEventListener('resize', fit);
 addEventListener('mousemove', wake);
+addEventListener('keydown', wake);
 wake();
 render();
 load();

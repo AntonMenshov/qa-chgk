@@ -3,6 +3,9 @@
 // hidden tabs too (disputes, jurors, devices, photo links), so hiding them protects nothing.
 
 const PUBLISH_EVERY_MS = 30000; // each publication is two Sheets API calls (quota: 60 per minute)
+const TIMER_PROPERTY = 'pub_timer';
+const TIMER_AFTER_MS = 60000;
+const TIMER_MAX_AGE_MS = 300000; // armed longer ago than this: it was lost, arm another
 const SPARE_ROWS = 10; // written blank below the teams: a row deleted from the real Sheet goes here too
 
 /** The tabs the public copy has: [{name, cols}]. */
@@ -51,14 +54,53 @@ function publish_(ss, reg, props) {
     props.deleteProperty(`dirty:${reg.tid}`);
   } catch (err) {
     Logger.log(`publish ${reg.tid}: ${err}`);
+    props.setProperty(`pub:${reg.tid}`, String(Date.now())); // a pause before the next try, too
+    markUnpublished_(props, reg);
   }
 }
 
-/** The marks changed: the next request after the pause publishes them. */
+/**
+ * The marks changed: the next read after the pause publishes them. If none comes (the last marks,
+ * everyone gone home), a one-off timer does: at most one at a time, and it removes itself.
+ */
 function markUnpublished_(props, reg) {
-  if (reg.public_id) {
-    props.setProperty(`dirty:${reg.tid}`, '1');
+  if (!reg.public_id) {
+    return;
   }
+  props.setProperty(`dirty:${reg.tid}`, '1');
+  const armed = Number(props.getProperty(TIMER_PROPERTY) || 0);
+  if (Date.now() - armed > TIMER_MAX_AGE_MS) {
+    try {
+      ScriptApp.newTrigger('publishWaiting').timeBased().after(TIMER_AFTER_MS).create();
+      props.setProperty(TIMER_PROPERTY, String(Date.now()));
+    } catch (err) {
+      Logger.log(`publish timer: ${err}`); // the next read still publishes
+    }
+  }
+}
+
+/** The one-off timer: publish whatever still waits, on every tournament, then remove itself. */
+function publishWaiting() {
+  const props = PropertiesService.getScriptProperties();
+  ScriptApp.getProjectTriggers()
+    .filter((t) => t.getHandlerFunction() === 'publishWaiting')
+    .forEach((t) => ScriptApp.deleteTrigger(t));
+  props.deleteProperty(TIMER_PROPERTY);
+  withLock_(() => {
+    props
+      .getKeys()
+      .filter((key) => key.startsWith('dirty:'))
+      .forEach((key) => {
+        const tid = key.slice('dirty:'.length);
+        const raw = props.getProperty(`t:${tid}`);
+        if (!raw) {
+          props.deleteProperty(key);
+          return;
+        }
+        const reg = registry_(props, tid);
+        publish_(open_(reg), reg, props);
+      });
+  });
 }
 
 /** After a request: publish if something changed and the pause is over; never waits for the lock. */
@@ -81,7 +123,10 @@ function publishIfDue_(ss, reg, props) {
 
 /** `chgk results-copy`: a tournament made before public copies gets one; its real Sheet turns private. */
 function makePublicCopy_(ss, reg, props) {
+  // On the existed path too: a first run may have stopped before the Sheet turned private.
   if (reg.public_id) {
+    DriveApp.getFileById(reg.spreadsheet_id).setSharing(DriveApp.Access.PRIVATE, DriveApp.Permission.EDIT);
+    publish_(ss, reg, props);
     return {ok: true, public_id: reg.public_id, existed: true};
   }
   const real = SpreadsheetApp.openById(reg.spreadsheet_id);

@@ -5,7 +5,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from chgk.backend import BackendClient, Profile, Profiles
+from chgk.backend import BackendClient, BackendError, Profile, Profiles
 from chgk.config import load_config
 from chgk.ids import generate_jury_token
 from chgk.state import STATE_FILE, State, check_tid, load_or_create_state, load_state, remember_team_ids, save_state
@@ -158,7 +158,11 @@ def delete_tournament(folder: Path, profiles: Profiles) -> State:
     """The Drive folder to the bin, the Sheet's trigger removed, the backend forgets it; then state.json goes."""
     folder = Path(folder)
     state, client = tournament_client(folder, profiles)
-    client.delete_tournament(state.tid)
+    try:
+        client.delete_tournament(state.tid)
+    except BackendError as err:
+        if "unknown tournament" not in str(err):  # else: an earlier try did it, only its reply was lost
+            raise
     (folder / STATE_FILE).unlink()
     return state
 
@@ -177,6 +181,11 @@ def replace_token(folder: Path, which: str, profiles: Profiles, client: BackendC
     folder = Path(folder)
     state, default_client = tournament_client(folder, profiles)
     pending = state.pending_token or {}
+    if pending and pending.get("which") != which:
+        raise ValueError(
+            f"replacing the {pending.get('which')} token didn't finish: run `chgk replace-token` for it first, "
+            "or its new token would be lost"
+        )
     token = pending["token"] if pending.get("which") == which else generate_jury_token()
     save_state(folder, replace(state, pending_token={"which": which, "token": token}))
     (client or default_client).replace_token(state.tid, which, token)

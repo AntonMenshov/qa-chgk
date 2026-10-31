@@ -74,6 +74,8 @@ export function render() {
   const view = JSON.stringify([
     app.session.name,
     app.session.current,
+    app.session.roundOf(app.session.current),
+    app.session.teams.map((t) => t.name),
     list.map((t) => [t.team_id, t.name]),
     app.queue.status,
     app.queue.rejected.length,
@@ -107,7 +109,9 @@ export function render() {
   }
   const banner = $('banner');
   banner.textContent =
-    app.refused ?? (app.secondTab ? 'Сканер открыт в другой вкладке: оставьте одну, чтобы отметки не потерялись.' : '');
+    app.refused ||
+    (st.unsaved ? 'Телефон не может сохранить отметки: не закрывайте страницу, пока они не уйдут.' : '') ||
+    (app.secondTab ? 'Сканер открыт в другой вкладке: оставьте одну, чтобы отметки не потерялись.' : '');
   banner.hidden = !banner.textContent;
   // A list on screen follows the marks.
   if (!$('missing').hidden) {
