@@ -51,14 +51,9 @@ the tabs inside the Sheet stay Russian.
 
 ## 2. Use it
 
-```
-uv run chgk new tournaments/<slug>         # Sheet + Drive folder on the active backend; writes state.json + jury sheet
-uv run chgk teams tournaments/<slug>       # after editing the Teams tab (hidden: «Все листы» at the bottom left)
-uv run chgk cards tournaments/<slug>       # cards + jury sheet with the secret access QR
-uv run chgk jury-sheet tournaments/<slug>  # the jury sheet alone
-uv run chgk board tournaments/<slug>       # projector board link
-uv run chgk view tournaments/<slug>        # view-only Sheet link
-```
+`uv run chgk new tournaments/<slug>` creates the Sheet and Drive folder on the active backend. The rest of the
+steps: [README.md](../README.md) «For the organiser»; every command: `uv run chgk --help`. The Teams tab is
+hidden: «Все листы» at the bottom left.
 
 ## 3. Switch to another account
 

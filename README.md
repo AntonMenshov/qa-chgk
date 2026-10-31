@@ -9,7 +9,7 @@ Tools for in-person sport ЧГК («Что? Где? Когда?»):
 - a **projector board** that shows the results after each round;
 - a **jury sheet** (PDF) with every access QR code, how-tos, team forms and a paper backup grid.
 
-Design: [SPEC.md](SPEC.md). Build order: [PLAN.md](PLAN.md). Status and decisions: [HANDOVER.md](HANDOVER.md).
+Design: [SPEC.md](SPEC.md). What's left: [PLAN.md](PLAN.md). Status and decisions: [HANDOVER.md](HANDOVER.md).
 
 ## For the organiser
 
@@ -62,10 +62,13 @@ More commands: `uv run chgk --help`. Before a real game: [docs/manual-checks.md]
 
 ## For contributors
 
-- Python 3.12+ with uv; Node 22 for the JS tests and linting (`npm ci` once).
+- Python 3.12+ with uv; Node 22 for the JS tests and linting (`npm ci` once). A new clone or laptop:
+  [docs/new-machine.md](docs/new-machine.md).
 - Tests: `uv run pytest` and `npm test`.
 - Lint and format before committing (Google style where it applies, 120 columns):
   `uv run ruff format . && uv run ruff check .`, `npm run format && npm run lint`.
 - The scanner (`web/s/`) and the board (`web/b/`) are plain HTML/JS with no build
   step, published by GitHub Pages; the backend is `apps_script/` (bundled by
   `uv run chgk backend bundle`).
+- Background: [docs/lessons.md](docs/lessons.md) (why the code is the way it is),
+  [docs/logo-drawing.md](docs/logo-drawing.md) (how `chgk logos --draw` works).

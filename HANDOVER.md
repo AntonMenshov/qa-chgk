@@ -2,7 +2,8 @@
 
 Read this first when picking the project up, whether that's a new Claude session or
 another person (CLAUDE.md points here). It is updated at the end of every work session and
-every phase. On another laptop, see «On a new machine» below.
+every phase. On another laptop: [docs/new-machine.md](docs/new-machine.md). Why the code is the
+way it is: [docs/lessons.md](docs/lessons.md).
 
 Last updated: 2026-10-30
 
@@ -13,20 +14,14 @@ Tools for in-person sport ЧГК:
 - the jury scans the returned cards on an iPhone and marks each ✓ / ✗ / ?;
 - results sync to a Google Sheet.
 
-Full design: [SPEC.md](SPEC.md). Build order: [PLAN.md](PLAN.md).
+Full design: [SPEC.md](SPEC.md). What's left: [PLAN.md](PLAN.md).
 
 ## Current state
 
 | Phase | Status |
 |---|---|
 | Spec and plan | ✅ done, agreed with the user |
-| 0 — Skeleton and spikes | ✅ spike 1 (laptop + iPhone Safari), spike 2 (all QR sizes scan well; zxing-wasm chosen), spike 3 (0.65 in QR, later 0.85; logo shade later changed to 14%) |
-| 1 — Config, identity, card PDF | ✅ done; cards + jury sheet work offline from `teams.py` |
-| 2 — Apps Script backend + Sheet | ✅ deployed under the user's Gmail and checked live (sums, places, order, reserve teams, IDs, view-only link); the Sheet-trigger checks passed in Phase 7 |
-| 3 — Scanner web app | ✅ built and tested (unit + integration + headless-Chrome end-to-end with a fake camera), checked live on Pages against the real backend; the iPhone checks passed in Phase 7 |
-| 4 — Card photos | ✅ built, tested (phone queue, backend `upload_photo`, headless-Chrome check that each photo shows its card) and checked live (API upload to Drive); the iPhone checks passed in Phase 7 |
-| 5 — Projector board + stats | ✅ built, tested and checked live |
-| 6 — Logos | ✅ built and tested (SPEC §9.1); tried on the user's 22 teams, in a session and through the API (drafts kept, never accepted: Key decisions, Logos) |
+| 0-6 — Skeleton, cards, backend, scanner, photos, board, logos | ✅ built and tested; backend and board checked live, iPhone and Sheet-trigger checks passed in Phase 7; logos tried on the user's 22 teams (drafts kept, never accepted: Key decisions, Logos) |
 | 7 — Internal test at home (printouts) | in progress: manual checks done on a throwaway tournament (CHECK1; since deleted, locally and in Drive), all fine except the feedback below, now fixed. Next: reprint, the fixes' own checks on an iPhone, the mock game, then a docs/comments check |
 | 8 — External test at a tournament | not started: the same loop with real teams |
 | 9 — Next version | the deferred list in PLAN.md |
@@ -46,8 +41,7 @@ Full design: [SPEC.md](SPEC.md). Build order: [PLAN.md](PLAN.md).
   checks are out of scope for Phases 7 and 8 (user).
 - **Example:** `tournaments/example/` is only a reference to copy (the user's four teams 645 «42»,
   58746 Фиаско, 40400 Совхоз Победа, A01 Звезды сошлись). It is never run and never has a `state.json`
-  (user, 2026-10-30); `load_config` refuses it. The second example, example-15, was removed. Sheets
-  made from them earlier (UYDJ7, U9FP4) are no longer used.
+  (user, 2026-10-30); `load_config` refuses it.
 
 ### Repository layout
 ```
@@ -85,24 +79,14 @@ apps_script/          backend, one global scope, joined in the order of bundle.j
 logos/                shared logo library (team logos git-ignored; nologo.png public); drafts/<slug>/<team_id>.svg
 tournaments/example/  reference to copy, never run: config.py, teams.py (the user's real teams)
 tournaments/osenniy-salat/  the Phase 7 test game
-tests/                pytest (tests/test_*.py) and node:test (tests/js/*.test.mjs), e.g.:
-  conftest.py         shared `folder` fixture: a small tournament on disk (TEST_GRID: 3×5, 0.65 in QR on purpose)
-  node_backend.py     the real backend (js/fake_backend_server.mjs in Node) answering the CLI tests through respx
-  test_scanner_e2e.py headless Chrome: the scanner (fake camera shows real cut-out cards), the board (also on a phone), the phone's decoder vs a phantom Micro QR; skipped without Chrome/Node
-  js/fake_apps_script.mjs  in-memory Sheets, Drive, properties and Sheets API to run Code.js in Node:
-                      computed values, "42" → 42 unless "@", a formula written in the same API call
-                      is not calculated yet for a sortRange (seen live)
-  js/sheet_formulas.mjs    evaluator for the Sheets formulas the backend writes
-  js/calculations.test.mjs sums, places («2-3»), «Статистика» vs the logic.js reference; random tournaments
-  js/sort_api.test.mjs     the one-call API sort against the slow sort and logic.js
-  js/backend*.test.mjs     the backend by topic (core, access, photos, «Спорные», Sheets API I/O) on
-                           the fake; shared helpers in js/backend_world.mjs
-  js/logic.test.mjs, scanner.test.mjs, photos.test.mjs, board.test.mjs, vectors.test.mjs
-  js/fake_backend_server.mjs  the fake backend over HTTP (for the browser and CLI tests)
-  vectors/            shared JSON test vectors (qr_payloads, jury_links, board_links, merge_cases)
+tests/                pytest (tests/test_*.py) and node:test (tests/js/*.test.mjs). node_backend.py and
+                      js/fake_apps_script.mjs run the real backend in Node on fake Google services;
+                      test_scanner_e2e.py is headless Chrome; vectors/ holds the shared JSON test vectors
 docs/google-account.md  deploying the backend under any Gmail account; switching; updating
 docs/manual-checks.md   what the tests can't cover: iPhone, printing, the Sheet's edit trigger
-docs/spikes.md        Phase 0 spike results (their code was removed; it is in the git history)
+docs/lessons.md         code-level lessons: what went wrong and why the code is the way it is
+docs/new-machine.md     what a clone doesn't have, and how to set it up
+docs/logo-drawing.md    how Claude draws logo drafts (`chgk logos --draw`)
 web/                  GitHub Pages site
 web/s/                scanner app (no build step): index.html, app.css, app.js (wiring + start), sw.js (offline),
                       ui/ = screens (state: the shared `app` object; dom, setup, tournament, scan,
@@ -124,21 +108,8 @@ README.md             organiser guide (end to end) and contributor commands
 - Tests: `uv run pytest` (541, incl. 4 browser tests that need Google Chrome + Node) and
   `npm test` (231, then 78 backend and calculation tests again with the Sheets API off).
 - Lint and format: `uv run ruff format . && uv run ruff check .`, `npm run format && npm run lint`.
-- Backend: `uv run chgk backend add|use|list|check|remove|bundle` (docs/google-account.md).
-- A tournament: `uv run chgk new <folder>` (Sheet + Drive folder), `uv run chgk teams <folder>`
-  (pull the Teams tab), `uv run chgk board <folder>` / `uv run chgk view <folder>` (board and
-  view-only links), `uv run chgk replace-token <folder> jury|board` (a leaked link).
-- Cards: `uv run chgk cards <folder> [--mode team-pages|cut-stack|scissors] [--teams A01,A02]`
-  → `out/<slug>/cards-<mode>.pdf` + `out/<slug>/jury.pdf`. Without `--mode` it asks.
-- Jury sheet alone: `uv run chgk jury-sheet <folder>`; calibration page: `uv run chgk test-page <folder>`.
-- Logos: `uv run chgk logos <folder> [--draw [--team A01]] [--accept all|A01,A02]` (report; drafts;
-  `out/<slug>/logo-preview.pdf`). The tests never call the API: the SDK runs on a mocked transport.
-  `ANTHROPIC_API_KEY` comes from the shell profile; a Claude Code session started before it was
-  set doesn't see it, so run `zsh -ic 'uv run chgk logos … --draw'`.
-
-The render tests decode every QR code back from the rendered PDF and check it sits in
-the slot the imposition assigned. The cut-stack test simulates the guillotine and
-checks that the decks come out in order.
+- Every `chgk` command: [SPEC.md §13](SPEC.md) or `uv run chgk --help`; the organiser's walkthrough:
+  [README.md](README.md).
 
 ## Working conventions (agreed with the user)
 
@@ -148,9 +119,18 @@ checks that the decks come out in order.
   `npm test` pass.
 - **Git:** commit directly on `main`, no feature branches.
 - **No Claude attribution:** commits are authored only as the user. No
-  `Co-Authored-By: Claude` or "Generated with Claude Code" lines (history rewritten on
-  2026-10-29 to remove them).
-- **Keep this file current:** update it in the same commit as the work it describes.
+  `Co-Authored-By: Claude` or "Generated with Claude Code" lines.
+- **Keep this file current:** update it in the same commit as the work it describes. A new
+  code-level lesson goes to [docs/lessons.md](docs/lessons.md).
+- **Tokens never go through the chat:** the user runs `chgk backend add … --token …` in a separate
+  terminal, not with Claude Code's `!` prefix, which puts the command into the conversation.
+- **Redeploying:** whenever a commit changes `apps_script/`, run `chgk backend bundle` and
+  `pbcopy < out/apps_script/Code.gs` *before* asking the user to redeploy, and give the version
+  and the steps (paste, save, Deploy → Manage deployments → edit → New version). A stale
+  `Code.gs` was pasted once and the backend stayed old (`chgk backend check` now says so).
+  After "deployed": `chgk backend check`, a live check, this file's version line.
+- After a change to how cards or the jury sheet are drawn, regenerate the current tournament's
+  output in the mode already used; don't ask (user feedback).
 - **Questions:** ask the user through the question interface (AskUserQuestion), a
   few questions at a time, with recommended defaults.
 - **Printed labels are in Russian.** Card labels may say «Тур», but never «Вопрос»
@@ -190,7 +170,7 @@ One line each; SPEC has the details. Decisions recorded only here are written ou
   game (default False; the QR corner stays empty), at least 2 spares and free slots
   as extra spares, reserve decks R1, R2… (§8.7), the jury printout (§8.6).
 - **Logos** — SPEC §9: private library `logos/`, fallback chain, 14% shade (user, after the Phase 7 prints; was 12%), a team's `logo_grey` in teams.py overrides it; SVG and Claude-drawn
-  drafts §9.1 (always Claude Opus 5.5 at max effort, a 100k task budget, a render-and-review loop;
+  drafts §9.1, [docs/logo-drawing.md](docs/logo-drawing.md) (always Claude Opus 5.5 at max effort, a 100k task budget, a render-and-review loop;
   the key only from `ANTHROPIC_API_KEY`). Drafts are never deleted or overwritten (user). The
   user's test drafts (22 teams each) in `logos/drafts/logo-drafts/` (session) and
   `logos/drafts/logo-drafts-api/` (API) are never deleted, overwritten or accepted without
@@ -203,138 +183,12 @@ One line each; SPEC has the details. Decisions recorded only here are written ou
   time; the data model is ready for several (§7.3).
 - **Deferred:** one list, [PLAN.md](PLAN.md) Phase 9 (next version).
 
-## Open items
-
-Kept in one place: [SPEC.md §14](SPEC.md) (defaults used unless the user says otherwise).
-
 ## Next steps
 
 1. **Phase 7**, the rest: reprint `out/osenniy-salat/`, the fixes' own checks on an iPhone
    ([docs/manual-checks.md](docs/manual-checks.md)), the mock game, fixes, a docs/comments check.
    Then **Phase 8**, an external test at a tournament, with the same loop.
 2. **Phase 9 — next version:** the deferred list in PLAN.md.
-
-## Lessons learned
-
-- **resvg drops text in a font it doesn't have** (no fallback when `skip_system_fonts`):
-  a `font-family="Helvetica"` name vanished. `render_svg` forces PT Sans with a style sheet
-  (`!important` beats `style=` and `font=`); a test renders four font names identically.
-- **The anthropic SDK 2.x runs on `httpx2`**, so respx can't mock it: the tests give a real
-  client an `httpx2.MockTransport` that answers with SSE text. It sends the key as
-  `Authorization: Bearer`.
-- **Logo drafts, what made them weak** (22 drawn in a session from shared templates): owls all
-  alike; the owl standing next to the prop instead of acting; jokes resting on details that
-  vanish pale (A12's bandage, A18's spade); a cluster of circles read as roses (A17); a name
-  touching the edges (A16). `style_rules` and the review loop now address each.
-- **Max effort without a task budget ran out of tokens:** in the first full API run, 2 of 4
-  drawings thought until the 128K output limit and ended with no SVG (~$2.50 each for nothing);
-  finished drawings used 107-124k in the drawing round, ~150-175k per logo in all (~$3-3.50).
-  Now a 100k task budget plus one retry of a cut-off drawing.
-- **Organiser files are compiled from their text, never imported:** an import reused a stale
-  `.pyc` of a config.py edited within the same second at the same size (seen in a test), and
-  left `__pycache__` in tournament folders (`run_python_file`).
-- **reportlab stores identical images once:** two teams with the same draft gave one image
-  in the PDF; tests that count images need different drawings.
-- **Tokens never go through the chat:** the user runs `chgk backend add … --token …` in a separate
-  terminal, not with Claude Code's `!` prefix, which puts the command into the conversation.
-- **Redeploying:** whenever a commit changes `apps_script/`, run `chgk backend bundle` and
-  `pbcopy < out/apps_script/Code.gs` *before* asking the user to redeploy, and give the version
-  and the steps (paste, save, Deploy → Manage deployments → edit → New version). A stale
-  `Code.gs` was pasted once and the backend stayed old (`chgk backend check` now says so).
-  After "deployed": `chgk backend check`, a live check, this file's version line.
-- **A phone widens the page to fit overflowing content:** `overflow: hidden` on html and body wasn't
-  enough; the board's table stayed cut off because `innerWidth` grew before `fit()` ran. `body` is
-  now `position: fixed` (found by a mobile-emulation screenshot; the desktop view hid it).
-- **Temp paths differ by OS:** a test asserting "no `/tmp` in the output" passed on macOS
-  (`/private/var/folders/…`) and failed on Linux CI, where pytest's tmp_path is under `/tmp`.
-- **Tests of a rule must state the rule themselves.** The first access tests read the allowed
-  token from the ACTIONS table, so weakening the table weakened the tests too; found by
-  deliberately breaking the table. backend_access.test.mjs now pins the rule on its own.
-- **Sheets API, seen live:** in one `spreadsheets.batchUpdate`, a formula written by
-  `updateCells` is not calculated yet for a later `sortRange`; every key looked blank and
-  «Итоги» fell into ID order (totals and places were right). The fake now behaves the
-  same, which reproduces it. Check sorting against a reference on the real Sheet after
-  any change to it (`get_results` returns what Google computed).
-- **Phantom Micro QR:** a test failed about once in 100 runs. For some
-  tournament IDs (e.g. SP7EM) a real QR's corner plus its neighbouring modules form a
-  valid Micro QR, and zxing's "QRCode" format is the whole family (Model 1/2, Micro,
-  rMQR). The phone now asks for `QRCodeModel2` only (`READER_OPTIONS`, camera.js), the
-  tests read the same way (`read_qr` in conftest.py), and three tests guard it: a
-  Micro QR next to a card in the phone's real decoder (browser test), the options
-  themselves (Node), and every card's QR read back at 150 dpi for 12 tournament IDs in
-  every mode. Breaking the filter fails two of them.
-- **A request Google never answers** (seen once: a photo upload > 90 s; the same upload
-  then took 3.4 s). The phone now cuts every request at 45 s (`REQUEST_TIMEOUT_MS`, api.js)
-  and retries it like any failure; marks and photos carry IDs, so nothing counts twice.
-- **Profile before optimising:** the first guess (the sort) was not the main cost; the
-  per-step `timing` showed Google's ~1 s per request, ~0.3 s for opening the spreadsheet,
-  and many small reads and writes.
-- **«Спорные»:** compare with Meta's known values, not with the tab: a jury edit is
-  already on the tab when the trigger reads it (a test caught this). A photo sent in the
-  same request as its «?» must count too.
-- Tabs are sorted (user request), so rows move under the jury. Never trust an edit's row:
-  `applySheetEdits_` diffs every mark against Meta's known values by team ID, in the
-  trigger and at the start of every `record_events`. `get_state` lists teams in ID order
-  for the phones. Every lookup goes by team ID in column A.
-- Sheets turns text that looks like a number into a number (team «42» was right-aligned,
-  ID 645 became a number). Name and ID columns are formatted `@` before rows are written;
-  Sheets API writes are RAW.
-- Test the numbers, not only formula text: `sheet_formulas.mjs` evaluates the backend's
-  formulas in the fakes, and `calculations.test.mjs` compares them with
-  `standings()`/`placeLabels()` in logic.js.
-- **Mutation checks:** for risky logic, break the code on purpose and confirm a test
-  fails (done for the place formula and for the one-call sort: all breaks caught).
-- Scanner: a link to the open page only changes `#…` (no reload) — handle `hashchange`
-  (found by the screenshot run, now in the e2e test). The camera keeps decoding while a
-  card is on screen, so the card lying there isn't reported again; another card is.
-- Browser test: Chrome's `--use-file-for-fake-video-capture=<file>.mjpeg` plays real
-  cut-out cards; requests to script.google.com are routed to the fake backend server.
-- PDF links: a long URL wrapped over lines is only auto-linked on its first line by
-  viewers (user clicked a cut-off Sheet link). Every URL in jury.pdf is a real link
-  annotation (`_link()` markup, plus `linkURL` over each QR); tested.
-- PT Sans has no `″ → ✓ ✗ ◀ ▶ ☐ Σ ☰` glyphs: use words («верно», «неверно»), drawn boxes,
-  «Сумма». `render.missing_glyphs` guards every drawn string; unknown characters print
-  as `?` with a warning.
-- Prettier's single quotes: `chgk backend bundle` looks for `const VERSION = 'dev';`
-  (a test caught the old double-quoted marker).
-- typer 0.27 no longer depends on click: don't `import click`.
-- Never make a phone user type or paste URLs/tokens: deliver them by QR (spike 2 lesson).
-- Logic in `apps_script/` stays pure in logic.js; Code.js is exercised in Node through
-  fakes (range bounds 1000×26 like real sheets).
-- Judge shades on real content: 3% looked right as a solid swatch, but on the light-grey
-  logos it was invisible. Scaling by the darkest pixel was a bug (a few stray dark
-  pixels); now the darkest 10% of the drawing sets the shade.
-- Draw cut guides **after** the cards, or the QR's white quiet zone hides them.
-- Google's consent screen lets the owner untick single permissions. The first live
-  `chgk new` failed with "no permission to call SpreadsheetApp.create". Now `setup()`
-  calls `ScriptApp.requireAllScopes`, ping reports `authorized`, and the CLI explains
-  the error and warns on `backend add/check`.
-- `setup()` run from the editor sees the owner-only `/dev` URL. It prints a placeholder;
-  the CLI needs the deployment's `/exec` URL.
-- The Apps Script editor's Run button starts on the file's first function. Code.js goes
-  first in the bundle and its first function is `setup()` (tested).
-- After a change to how cards or the jury sheet are drawn, regenerate the current tournament's
-  output in the mode already used; don't ask (user feedback).
-
-## On a new machine
-
-A clone has the code, docs and history; the deployed backend and GitHub Pages don't depend
-on any laptop. Not in the repo (git-ignored, private or generated), so set up by hand:
-- **Tools:** `uv` then `uv sync`; Node 22 then `npm ci`; Google Chrome for the 4 browser tests
-  (skipped without it). git push with the AntonMenshov credentials (`gh` is optional); git `user.name` Anton Menshov,
-  `user.email` anton.menshov@gmail.com (commits are authored only as the user).
-- **Backend profile:** copy `~/.config/chgk/backends.json`, or `uv run chgk backend add personal
-  --url <Web app /exec URL> --token <ADMIN_TOKEN>`; the token is in the Apps Script project's
-  Project Settings → Script properties. Then `uv run chgk backend check`.
-- **`tournaments/*/state.json`:** each tournament's ID, Sheet and jury/board tokens. Copy them;
-  without one, chgk treats the tournament as new (a generated ID changes, so old cards no longer match).
-- **Private logos:** `logos/*.png` (the user's team logos; without them cards fall back to the
-  owl, with a warning) and `logos/drafts/` (the logo test drafts).
-- **`ANTHROPIC_API_KEY`** in the shell profile, only for `chgk logos --draw`.
-- **Claude's memory** (`~/.claude/projects/…`) isn't needed: everything is in this file, and
-  `CLAUDE.md` points a new session here.
-- `out/` is regenerated: `uv run chgk cards tournaments/osenniy-salat --mode team-pages`,
-  `uv run chgk backend bundle`.
 
 ## GitHub
 
@@ -351,21 +205,8 @@ on any laptop. Not in the repo (git-ignored, private or generated), so set up by
 All against the user's backend. Earlier versions (2026-10-29/30) covered marks,
 duplicates, stale scans, bad teams and tokens, sums, «2-3» places and tie-break order against
 the logic.js reference, reserve decks, the one-call sort, Latin Drive names, card photos in
-Drive, the board and its QR codes, the view-only link signed out, and each token reaching
-exactly its level. Latest:
-- **2026-10-30, d8a68a3a5e22:** both examples' get_state / get_board; throwaway UAHQT: a re-scan
-  keeps the judgement, question 99 and an unknown team refused alone with the batch in, a jury
-  token with `.`/`+` refused, a tournament without a board token refused. The cleared-cell and
-  deleted-row cases need a Sheet edit (docs/manual-checks.md).
-- **2026-10-30, abab243102b6 (replace-token):** both examples' jury and board access; throwaway
-  K3VRW: after `replace_token` jury, the old token is refused with `retry: true` and the same
-  waiting mark goes in with the new one; after board, the old board token is refused and the
-  new one works; state.json records both.
-- **2026-10-30, a5ab214acd1d (tid from config.py):** both examples' jury and board access;
-  throwaway 90001 (tid=90001 in config.py) with team IDs 58746 and ABCD1234: created, marks
-  in, board OK.
-- **2026-10-30, 44f8934ea10c (comment fixes only):** `backend check` clean; both examples' jury
-  and board access.
+Drive, the board and its QR codes, the view-only link signed out, each token reaching
+exactly its level, replacing a leaked token, and a tid from config.py. Latest:
 - **2026-10-30, 44f8934ea10c (Осенний салат, 18376):** `backend check` clean; created; get_state,
   get_results and get_board answer with the right name, date, teams and 36 empty marks (reserve
   decks off the board and standings); the board token is refused on get_state, a wrong token on

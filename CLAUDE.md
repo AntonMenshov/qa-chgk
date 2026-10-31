@@ -1,10 +1,12 @@
 # qa-chgk: notes for Claude
 
 Read [HANDOVER.md](HANDOVER.md) first: current state, working conventions, key decisions
-(with links into [SPEC.md](SPEC.md)), next steps, lessons learned, and what a new machine
-needs. SPEC.md is the design, [PLAN.md](PLAN.md) the phases.
+(with links into [SPEC.md](SPEC.md)) and next steps. SPEC.md is the design, [PLAN.md](PLAN.md) what's
+left. When needed: [docs/lessons.md](docs/lessons.md) before changing the part a lesson names,
+[docs/new-machine.md](docs/new-machine.md) on a new machine, [docs/logo-drawing.md](docs/logo-drawing.md)
+for logo drawing.
 
-Rules that override your defaults (details in HANDOVER «Working conventions» and «Lessons learned»):
+Rules that override your defaults (details in HANDOVER «Working conventions»):
 
 - **No Claude attribution** in commits or PRs: no `Co-Authored-By: Claude` trailer, no
   "Generated with Claude Code" line. Commits are authored only as the user.

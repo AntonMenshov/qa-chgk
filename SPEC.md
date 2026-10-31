@@ -109,7 +109,7 @@ every request before and after the script runs, so the script does as little as 
   that re-sorts ~1.7–2.2 s, 15 marks ~1.4 s; a third phone sending at the same moment
   waits ~1.1 s for the lock.
 
-### 3.3 Drive names are Latin (user rule, 2026-10-30)
+### 3.3 Drive names are Latin (user rule)
 
 Everything the backend creates in Drive has a Latin name: the root folder `CHGK`, one
 folder per tournament `<date> <name> (<TID>)`, inside it the Sheet `<name> <date> (<TID>)`
@@ -120,7 +120,7 @@ stay Russian.
 ## 4. Tournament configuration (Python, not YAML)
 
 Each tournament is a folder `tournaments/<slug>/` with a `config.py` written by the
-organiser. Its `slug` must equal the folder's name (user rule, 2026-10-30): a copied config that
+organiser. Its `slug` must equal the folder's name (user rule): a copied config that
 kept the old slug would write into the other tournament's `out/<slug>/`, so it is an error.
 
 ```python
@@ -159,7 +159,7 @@ S99 (extra spares from a last page's empty slots included); a config beyond them
 Values the system generates or records (tournament ID, backend, spreadsheet ID, jury and board
 tokens, token replacements) are stored next to the config in `tournaments/<slug>/state.json`,
 which is never hand-edited and is git-ignored because it contains secrets. Teams are in `tournaments/<slug>/teams.py`,
-Python like config.py (user request, replacing teams.csv):
+Python like config.py (user request):
 `teams = [team("42", id="645", logo="42.png"), team("Звезды сошлись"), …]`. `logo_grey=0.2` next to
 `logo=` gives that team's own logo its own shade (user; only in teams.py, not on the Sheet).
 Given team IDs are kept (upper-cased); missing ones are assigned and written back (the
@@ -205,7 +205,7 @@ A missing card scores as incorrect, but the sheet always shows whether a card wa
 ### Rules
 - **Last scan wins**, decided by the client timestamp of the action, so an offline
   scan synced late does not overwrite a newer decision. Clearing a cell in the Sheet is a
-  decision too (user, 2026-10-30): a scan made before the clear doesn't refill it. A mark
+  decision too (user): a scan made before the clear doesn't refill it. A mark
   only ever adds `R` to an empty cell, never over a judgement. Every action stays in Log.
 - A mark for a team whose row was deleted from its round's tab is refused on its own; the
   rest of the batch goes in.
@@ -224,14 +224,14 @@ A missing card scores as incorrect, but the sheet always shows whether a card wa
 - QR content is a URL, so the iPhone's built-in Camera also opens the app:
   `https://<user>.github.io/<repo>/s/#<TID>.<TEAM>.<Q>`
   - `TID`: the tournament ID. Generated: 5 characters without 0/O/1/I/L (readable aloud).
-    Or given in config.py (`tid=`, user, 2026-10-30), e.g. the rating.chgk.info tournament
+    Or given in config.py (`tid=`, user), e.g. the rating.chgk.info tournament
     number: 1-8 digits or capital Latin letters. It must be set before the first `chgk cards`,
     `test-page`, `jury-sheet` or `new`, which keeps the ID in state.json: a tid in config.py that
     differs from the one there is an error.
     `TEAM`: `team_id`; `Q`: question number, or `S1…Sn` for spare cards.
   - Example: `…/s/#K7M2Q.A07.27`. This is short enough for a small, robust QR
     (error correction M, quiet zone 4 modules). Printed at **0.85″** including the
-    quiet zone (configurable; the test print chose 0.65″, later raised by ~30% on request),
+    quiet zone (configurable),
     its black modules 20% farther from the card's top and right edges than the quiet zone alone
     would put them (user: safer when cutting).
   - The checked size is QR version 4 (33 modules). Only the longest mix (an 8-character
@@ -253,8 +253,7 @@ plus the modules beside it can form a valid Micro QR, which the phone must never
 instead of the card.
 
 ### 7.1 Flow (the only mode in v1)
-1. The **current question follows the scans** (user decision, replacing a manual
-   picker): the first numbered card of a later question makes it current, shown in big
+1. The **current question follows the scans** (user decision): the first numbered card of a later question makes it current, shown in big
    digits at the top. The juror never has to set it; ◀ ▶ can still change it by hand.
    It is used only for spare cards, the "missing" list and the warnings below; every
    numbered card is marked for the question in its own QR code.
@@ -316,7 +315,7 @@ only, not data-model changes.
 - Tokens, strongest first: admin (the CLI) → jury → board (read-only). Each backend action
   names the weakest it takes in one table (`ACTIONS`, apps_script/Code.js); the tests pin
   that rule separately (tests/js/backend_access.test.mjs).
-- **A leaked link is replaced** (user, 2026-10-30): `chgk replace-token <folder> jury|board`
+- **A leaked link is replaced** (user): `chgk replace-token <folder> jury|board`
   (asks first; `--yes` skips) gives the tournament a new token through the admin-only
   `replace_token` action; the old one is refused at once, the board's and jury's stay
   distinct. `state.json` records each replacement (kind, time). A new jury sheet
@@ -326,7 +325,7 @@ only, not data-model changes.
   of the same tournament takes the new token; marks and photos waiting there are sent with
   it: a refused token is answered `retry: true`, so nothing is dropped, and the phone and
   board say in words that the link was replaced.
-- No Google sign-in (user, 2026-10-30): the secret jury link stays the only way in.
+- No Google sign-in (user): the secret jury link stays the only way in.
 - Caveat: on iOS a Home-Screen app and Safari keep separate storage, so after adding the
   app to the Home Screen the jury QR is scanned once more inside it (the printed how-to
   says so); a card URL opened from the built-in Camera may ask for the jury link once.
@@ -365,7 +364,7 @@ The app doesn't show it (decided).
 - An embedded Unicode TTF font, PT Sans (OFL licence, in `chgk/assets/fonts/`), is used
   for Cyrillic.
 - The QR is drawn over the logo with its white quiet zone, so a logo never shows through it.
-- `CardFields(no_qr=True)` (user, 2026-10-30; default False): cards without the QR code, for a
+- `CardFields(no_qr=True)` (user; default False): cards without the QR code, for a
   purely paper game with no scanning. Its corner stays empty; nothing else on the card moves.
 - Logo watermark default: **14% grey** (the user's choice from real cards), configurable: the ink of the logo's dark parts (its darkest 10%), not of a single darkest pixel; see §9.
 
@@ -409,7 +408,7 @@ as `chgk jury-sheet <folder>`.
   the links as text (no QR codes) with the backend profile and Google-account label;
   juror how-to; «?» and appeals how-to; the board («Табло») how-to; how to handle a
   team that turns up unregistered (when reserve decks exist).
-- **Team forms** (user request; replaces the old roster): one per team with only the
+- **Team forms** (user request): one per team with only the
   ID and name, then 8 numbered lines for the players' names, two forms per row. Blank forms for the
   reserve decks (R1, R2, …) with a «Название команды:» field. Handed to the teams.
 - **Then a paper backup grid,** for when phones or internet fail: one block per round
@@ -437,7 +436,7 @@ as `chgk jury-sheet <folder>`.
 
 A pale greyscale watermark. The source is chosen per team and per tournament (table below).
 
-**Shared logo library:** `logos/` at the repo root (user decision, 2026-10-29).
+**Shared logo library:** `logos/` at the repo root (user decision).
 - A logo name (`logo=` in teams.py, `tournament_logo`, `fallback_logo`) is looked
   up in the tournament folder first, then in `logos/`, so one team logo serves every
   tournament.
@@ -454,19 +453,18 @@ A pale greyscale watermark. The source is chosen per team and per tournament (ta
   behind the number and footer text, and shrunk to fit; its corner may go under the QR,
   which is drawn on top with its white quiet zone. On a 3×4 card the maximum is about 2.48 in.
 - **Shade:** the darkest 10% of the drawing gets exactly `logo_grey` ink (`CardFields`, or the
-  team's in teams.py for its own logo), and anything darker is clamped. Scaling by the single darkest pixel printed the user's light-grey
-  logos at about a third of the chosen shade (fixed 2026-10-29).
+  team's in teams.py for its own logo), and anything darker is clamped.
 
 | Source | How |
 |---|---|
 | none | no logo |
 | provided file | PNG/JPG/SVG in the tournament folder or `logos/` → greyscale → flatten → lightened to the chosen shade |
-| Claude-drawn SVG (Phase 6, §9.1) | the ЧГК owl acting out the team name, in the style of the existing logos (via the Claude API with the user's key, or drawn in a Claude Code session) |
+| Claude-drawn SVG (§9.1) | the ЧГК owl acting out the team name, in the style of the existing logos (via the Claude API with the user's key, or drawn in a Claude Code session) |
 | image API (next version, PLAN Phase 9) | prompt → OpenAI / Google image model (user's API key) → same post-processing |
 
 The Claude API does not output raster images, but it can write SVG.
 
-### 9.1 Phase 6: SVG and Claude-drawn logos (user decisions, 2026-10-30)
+### 9.1 SVG and Claude-drawn logos (user decisions)
 - **SVG input** wherever PNG/JPG is accepted (`chgk/svg.py`): rendered by resvg (`resvg-py`,
   no system libraries) to 600 px, then the same pale step. Every text is set in PT Sans,
   the cards' font, whatever font the file names; no system font is used, so a logo looks
@@ -476,38 +474,13 @@ The Claude API does not output raster images, but it can write SVG.
 - **`chgk logos <folder>`:** per team, its own logo file and what is wrong with it (not set,
   not found, unreadable, refused), what its cards show (own / tournament / fallback / no
   logo), and whether a draft is waiting; whether `ANTHROPIC_API_KEY` is set.
-- **Claude-drawn drafts** (`--draw`): for registered teams whose own logo can't be used and
-  that have no draft yet; `--draw --team A01` draws (or redraws) those teams whatever
-  their logo. Always Claude Opus 5.5 (`claude-opus-5-5`) at **max effort** (user,
-  2026-10-30), streamed, up to 128K output tokens, server-side `fallbacks: "default"` (a
-  declined request is re-run on Anthropic's fallback model); 4 teams at a time. A task budget
-  of 100k tokens (beta `task-budgets-2026-03-13`), which Claude sees and plans to finish within,
-  so a drawing ends before 128K with an SVG (without it, half of the first drawings didn't); a
-  drawing cut off anyway is asked for again once. Each round prints its time and output tokens.
-- **The prompt** (`chgk/logo_drafts.py`): a system text on how the logo is used, built from
-  the tournament's own cards (`logo_look`: printed size, card size, shade, whether the QR
-  covers its corner), and the set's style; then
-  `style_rules(name)`, written from the first 22 drafts: one idea that the owl itself acts
-  out, at most three props each recognisable by its outline (no joke resting on small
-  details), the owl's anatomy, layout zones in canvas units (drawing y 40–720, name below
-  760, 30-unit margins, top-right corner for accents only), grey ranges (no large area darker
-  than #c8c8c8), the name's exact spelling and size rule (a bold capital ≈ 0.62 × size, lines
-  under 900), and the allowed SVG elements. Up to 4 library logos (the owl first, no drafts)
-  go as 512 px PNG references, cached across teams.
-- **Review loop** (user: "the API does the same loop" as a Claude Code session): after the
-  drawing, its rendering goes back in the same conversation: full size (800 px), pale at card
-  size (260 px, the tournament's shade), and measured facts (where the ink reaches, edges
-  closer than 30 units), with `review_checklist(name)`. Claude replies `APPROVED` or a
-  complete corrected SVG; up to `REVIEW_ROUNDS` = 2 reviews. A reply without a usable SVG
-  (none, refused, undrawable) goes back as feedback; a declined or cut-off review keeps the
-  drawing it had. No usable SVG in any round is reported for that team, and the others go
-  on; a refused key stops the teams not started yet.
+- **Claude-drawn drafts** (`--draw`): for registered teams whose own logo can't be used and that have no
+  draft yet; `--draw --team A01` draws (or redraws) those teams whatever their logo. Without a key it sends
+  nothing and writes `out/<slug>/logo-brief.md` for a Claude Code session. How they are drawn (model, prompt,
+  review loop): [docs/logo-drawing.md](docs/logo-drawing.md).
 - **Drafts are never overwritten:** a redraw keeps the previous one as `<team_id>.1.svg`,
-  `.2.svg`, … (user, 2026-10-30: keep the drafts).
-- **Without a key:** `--draw` sends nothing and writes `out/<slug>/logo-brief.md` for a Claude
-  Code session: the same system text, rules and review checklist, the reference paths and
-  each draft's path, and how to render a drawing to review it.
-- **API key only from the environment** (user, 2026-10-30): `ANTHROPIC_API_KEY`, e.g. set in
+  `.2.svg`, … (user: keep the drafts).
+- **API key only from the environment** (user): `ANTHROPIC_API_KEY`, e.g. set in
   the shell profile. chgk never stores, prints or logs it.
 - **Preview, then accept:** drafts are `logos/drafts/<slug>/<team_id>.svg` (private). Whenever
   drafts exist, `chgk logos` writes `out/<slug>/logo-preview.pdf`: one real card per drafted
@@ -516,15 +489,6 @@ The Claude API does not output raster images, but it can write SVG.
   another team's file has that name) and records them in teams.py.
 
 ## 10. Outputs
-
-| Output | v1 | Next version (Phase 9) |
-|---|---|---|
-| «Итоги» + per-round tabs (standings, round sums, place) | ✓ | |
-| «Статистика» tab (teams taking each question) | ✓ | |
-| «Спорные» tab (every undecided «?», with counts) | ✓ | |
-| Card photos in the tournament's `Photos` folder (§7.2), linked from «Спорные» | ✓ | |
-| Projector board (§10.1) | ✓ | |
-| rating.chgk.info export | | after the core is done |
 
 ### 10.1 Projector board (user decisions)
 - A web page next to the scanner (`…/b/`), opened on the projector laptop from the board
@@ -564,15 +528,14 @@ Every component has unit tests, and a phase is not done until they pass. Logic i
 written as pure functions, so the code that touches the camera, Sheets and Drive
 stays a thin layer.
 
-| Layer | Runner | What is unit-tested |
-|---|---|---|
-| Python (`chgk/`) | `uv run pytest` | config validation and question/round numbering; QR payload encode/decode; imposition (every card placed exactly once; simulated cut-and-stack yields sorted decks; page count); layout geometry (everything inside margins, QR ≥ min size, a sized logo centred on the card); logo processing (greyscale, darkest pixel ≤ chosen shade; SVG rendering, PT Sans lettering, unsafe SVGs refused); Claude-drawn logos with the Anthropic SDK on mocked HTTP (request, refusals, key never printed), the brief, preview and accept; the Apps Script client and the CLI with mocked HTTP (`respx`), answered by the real backend code running in Node on fake Google services (`tests/node_backend.py`) |
-| PDF output | `uv run pytest` | smoke tests: page count; Cyrillic text extractable (`pypdf`); **QR codes decoded back from the rendered PDF** (`pypdfium2` + `zxing-cpp`) and matching the expected payloads |
-| Apps Script logic (`apps_script/`) | `npm test` (node:test) | last-write-wins merge, status → cell mapping, request validation, token check, idempotency by `scan_id`. Pure functions live in a file that runs both in Apps Script and in Node |
-| Backend in Node (`apps_script/*.js`) | `npm test` (node:test) | every action against in-memory fakes of Sheets, Drive and the Sheets API (`tests/js/fake_apps_script.mjs`): tabs, sums and places vs the logic.js reference on random tournaments, sorting (one-call API sort vs the slow sort), «Спорные», `upload_photo`, Latin Drive names; run again with the Sheets API off |
-| Web app logic (`web/`) | `npm test` (node:test) | payload parsing, offline queue (retry, dedupe), missing-teams computation, question-mismatch / duplicate warnings, spare-card handling, «Чья карточка?», the photo queue (two at a time, retry, drop on refusal, survives a reload), the board's model, link encoder and QR drawing |
-| Browser end to end | `uv run pytest` (headless Chrome) | the scanner with a fake camera showing real cut-out cards against the fake backend: verdicts, spare keypad, reserve deck, foreign card, «Чья карточка?», one photo per card whose QR decodes back to that card; the board: rounds revealed by hand, places, marks' colours, its QR codes decoded from screenshots = the jury sheet's links, and the same page on a phone; the phone's decoder reads the card, not a phantom Micro QR beside it |
-| Cross-language contract | both | shared test vectors in `tests/vectors/*.json` (QR payloads, jury and board links, merge cases), checked by both the Python and JS suites, so the encoder and the decoders can't drift apart |
+- `uv run pytest`: the Python package; **QR codes decoded back from the rendered PDFs** and matched to the
+  slots they were assigned (the cut-stack test simulates the guillotine); the CLI against the real backend
+  code running in Node on fake Google services; the scanner and board in headless Chrome, with a fake camera
+  showing real cut-out cards.
+- `npm test` (node:test): `apps_script/` and `web/` logic, and every backend action on in-memory fakes of
+  Sheets, Drive and the Sheets API, again with the Sheets API off.
+- Both: shared test vectors in `tests/vectors/*.json` (QR payloads, jury and board links, merge cases), so
+  the encoder and the decoders can't drift apart.
 
 Not unit-testable, so covered by a manual checklist per release
 ([docs/manual-checks.md](docs/manual-checks.md)):
@@ -595,8 +558,8 @@ CI (`.github/workflows/tests.yml`) runs on every push: `ruff check`, `ruff forma
 - **Shared rules:** `apps_script/logic.js` is one ES module used by the backend (bundled
   without its `export`s), the scanner (the mark-merge rule) and the board (place labels,
   tie-break order), served to the pages as `web/shared/logic.js`. One copy, no drift.
-- **Web** (`web/`): plain HTML/JS with vendored libraries (scanner: QR reader `zxing-wasm`,
-  picked in spike 2; board: `qrcode-generator`), served by GitHub Pages.
+- **Web** (`web/`): plain HTML/JS with vendored libraries (scanner: QR reader `zxing-wasm`;
+  board: `qrcode-generator`), served by GitHub Pages.
 - **Node** (dev only): its built-in `node --test` runner (`npm test`); npm devDependencies
   only for ESLint + Prettier.
 
@@ -618,7 +581,3 @@ uv run chgk version
 
 Generated files go to the repo's `out/<slug>/` whichever folder a command runs from
 (`--out` overrides); `out/apps_script/Code.gs` likewise.
-
-## 14. Open items
-
-The one list of open items; HANDOVER.md points here. Nothing is open right now.
