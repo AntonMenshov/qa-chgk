@@ -98,7 +98,7 @@ class Tournament:
     # characters); or give your own, e.g. the rating.chgk.info tournament number (1-8 digits
     # or capital Latin letters). Set it before the first `chgk cards`, `test-page` or `new`:
     # from then on state.json keeps the ID.
-    tid: str | int | None = None
+    tid: str | None = None  # a number is accepted too, and kept as text
     card: CardFields = field(default_factory=CardFields)
     layout: Layout = field(default_factory=Layout)
 

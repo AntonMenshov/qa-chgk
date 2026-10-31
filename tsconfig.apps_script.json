@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
+    "noEmit": true,
+    "target": "ES2022",
+    "module": "ES2022",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022"],
+    "skipLibCheck": true,
+    "strict": false,
+    "types": ["google-apps-script"]
+  },
+  "include": ["apps_script/*.js", "apps_script/globals.d.ts"]
+}

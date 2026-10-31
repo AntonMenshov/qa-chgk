@@ -3,6 +3,7 @@
 from dataclasses import dataclass, replace
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 from chgk.backend import BackendClient, Profile, Profiles
 from chgk.config import load_config
@@ -17,7 +18,7 @@ class NewResult:
     created: bool  # False if the tournament already existed on its backend
 
 
-def _team_dicts(teams: list[Team]) -> list[dict]:
+def _team_dicts(teams: list[Team]) -> list[dict[str, Any]]:
     return [{"team_id": t.team_id, "name": t.name, "city": t.city, "logo_file": t.logo_file} for t in teams]
 
 
@@ -36,7 +37,7 @@ def new_tournament(folder: Path, profile: Profile, client: BackendClient | None 
     teams = read_teams(folder / TEAMS_FILE)
     state = load_or_create_state(folder, tournament.tid)
     remember_team_ids(folder, [t.team_id for t in teams])
-    state = load_state(folder)
+    state = replace(state, used_team_ids=sorted({*state.used_team_ids, *(t.team_id for t in teams)}))
 
     client = client or BackendClient(profile.url, profile.admin_token)
     account = profile.account or client.ping().get("account", "")
@@ -110,14 +111,16 @@ def sync_teams(
     rows = [r for r in client.get_teams(state.tid) if not r.get("reserve")]
     if not rows:
         raise ValueError("the Teams tab in the Sheet is empty")
-    given = [Team(*(r.get(k) or "" for k in ("team_id", "name", "city", "logo_file"))) for r in rows]
+    given = [
+        Team(r.get("team_id") or "", r.get("name") or "", r.get("city") or "", r.get("logo_file") or "") for r in rows
+    ]
     mine_teams = _local_teams(folder / TEAMS_FILE)
     local = {t.team_id: t for t in mine_teams}
     by_name = {t.name: t for t in mine_teams}
-    state = load_state(folder)  # reading teams.py just noted its IDs
+    used = (load_state(folder) or state).used_team_ids  # reading teams.py just noted its IDs
     teams = []
     kept = set()
-    for t in normalize_teams(given, "Teams tab", state.used_team_ids):
+    for t in normalize_teams(given, "Teams tab", used):
         mine = local.get(t.team_id) or by_name.get(t.name)
         if mine:
             kept.add(mine.team_id)
@@ -178,6 +181,7 @@ def replace_token(folder: Path, which: str, profiles: Profiles, client: BackendC
     save_state(folder, replace(state, pending_token={"which": which, "token": token}))
     (client or default_client).replace_token(state.tid, which, token)
     record = {"which": which, "at": datetime.now().strftime("%Y-%m-%dT%H:%M")}
-    state = replace(state, **{f"{which}_token": token}, replaced=[*state.replaced, record], pending_token=None)
+    state = replace(state, replaced=[*state.replaced, record], pending_token=None)
+    state = replace(state, jury_token=token) if which == "jury" else replace(state, board_token=token)
     save_state(folder, state)
     return state

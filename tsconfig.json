@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
+    "noEmit": true,
+    "target": "ES2022",
+    "module": "ES2022",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable", "WebWorker"],
+    "skipLibCheck": true,
+    "strict": false,
+    "types": []
+  },
+  "include": ["web/s/**/*.js", "web/b/**/*.js", "web/shared/*.js"],
+  "exclude": ["web/s/vendor", "web/b/vendor"]
+}

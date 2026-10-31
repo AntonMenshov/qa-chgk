@@ -9,6 +9,7 @@ import {boardModel} from './lib/board.js';
 import {qrSvg} from './lib/qr.js';
 
 const REFRESH_EVERY_MS = 15000;
+/** @type {(id: string) => any} */
 const $ = (id) => document.getElementById(id);
 const store = storage();
 const access = decodeBoard(location.hash);

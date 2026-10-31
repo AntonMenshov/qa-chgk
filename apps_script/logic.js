@@ -10,7 +10,12 @@ const MAX_EVENTS_PER_REQUEST = 500;
 const MAX_DATE_MS = 8.64e15; // beyond it JavaScript has no Date, and formatting one throws
 export const MAX_PHOTO_CHARS = 4000000; // base64 of a ~3 MB JPEG; phones send ~150-300 KB
 
-export class RequestError extends Error {}
+export class RequestError extends Error {
+  constructor(message) {
+    super(message);
+    this.retry = false; // true: worth sending again all the same (a refused token, see requireToken_)
+  }
+}
 
 export function fail(message) {
   throw new RequestError(message);
@@ -581,6 +586,7 @@ export function summaryOrder(roundSizes, ids, values) {
 
 /** Hidden Meta tab: team_id, a last-write time per question, then the last value the backend knows. */
 export function metaLayout(n) {
+  /** @type {(string|number)[]} */
   const header = ['team_id'];
   for (let q = 1; q <= n; q++) {
     header.push(q);
@@ -607,6 +613,7 @@ export function sheetEdits(current, known) {
 
 /** «Статистика» rows: one per question with how many teams took it. */
 export function statsRows(roundSizes) {
+  /** @type {(string|number)[][]} */
   const rows = [['Вопрос', 'Тур', 'Взяли', 'Доля']];
   for (let q = 1; q <= totalQuestions(roundSizes); q++) {
     const at = questionCell(roundSizes, q);
@@ -629,7 +636,7 @@ export function disputedKeys(values) {
  * The «Спорные» tab (user request): every undecided «?» — round, question, team, photo of
  * the card when there is one — by question, then team ID; and how many there are overall,
  * per round and per team (teams with none left out, most first).
- * @param values {"TEAM:Q": mark}   @param names {team_id: name}   @param photos {"TEAM:Q": link or file name}
+ * values: {"TEAM:Q": mark}; names: {team_id: name}; photos: {"TEAM:Q": link or file name}.
  * @returns {{list: any[][], summary: any[][]}}  list goes to A–D, summary to G–H (disputedBlock_)
  */
 export function disputedSheet(roundSizes, names, values, photos) {

@@ -40,9 +40,11 @@ export function prepareReader() {
 }
 
 export class Camera {
-  /** `onTrouble(message)`: the stream ended by itself, or the decoder keeps failing. */
+  /** @param {(message: string) => void} [onTrouble] the stream ended by itself, or the decoder keeps failing */
   constructor(video, onCode, onTrouble = () => {}) {
-    Object.assign(this, {video, onCode, onTrouble});
+    this.video = video;
+    this.onCode = onCode;
+    this.onTrouble = onTrouble;
     this.canvas = document.createElement('canvas');
     this.ctx = this.canvas.getContext('2d', {willReadFrequently: true});
     this.running = false;

@@ -66,7 +66,7 @@ More commands: `uv run chgk --help`. Before a real game: [docs/manual-checks.md]
   [docs/new-machine.md](docs/new-machine.md).
 - Tests: `uv run pytest` and `npm test`.
 - Lint and format before committing (Google style where it applies, 120 columns):
-  `uv run ruff format . && uv run ruff check .`, `npm run format && npm run lint`.
+  `uv run ruff format . && uv run ruff check . && uv run mypy`, `npm run format && npm run lint && npm run typecheck`.
 - The scanner (`web/s/`) and the board (`web/b/`) are plain HTML/JS with no build
   step, published by GitHub Pages; the backend is `apps_script/` (bundled by
   `uv run chgk backend bundle`).

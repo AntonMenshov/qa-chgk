@@ -8,13 +8,16 @@ import {BACKOFF_MS} from './queue.js'; // the same pauses as the marks
 export class PhotoQueue {
   /**
    * @param {object} o
-   * @param {{all(): Promise<object[]>, put(rec): Promise<void>, delete(id): Promise<void>}} o.store
+   * @param {{all(): Promise<any[]>, put(rec): Promise<void>, delete(id): Promise<void>}} o.store
    * @param {(rec) => Promise<object>} o.send  upload_photo call; throws on failure (err.retry === false: don't retry)
    * @param {() => number} [o.now]
    * @param {number} [o.parallel]  uploads at the same time
    */
   constructor({store, send, now = Date.now, parallel = 2}) {
-    Object.assign(this, {store, send, now, parallel});
+    this.store = store;
+    this.send = send;
+    this.now = now;
+    this.parallel = parallel;
     this.items = new Map(); // photo_id → {rec, failures, nextAt}
     this.inFlight = new Set();
     this.sent = 0;

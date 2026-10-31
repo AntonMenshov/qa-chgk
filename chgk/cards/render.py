@@ -92,7 +92,7 @@ def make_qr(payload: str) -> segno.QRCode:
 def denser_qr_warning(payloads: list[str]) -> str | None:
     """A warning when the longest card payload needs a denser QR code than the checked one."""
     longest = max(payloads, key=len, default="")
-    version = make_qr(longest).version if longest else 0
+    version = int(make_qr(longest).version) if longest else 0
     if version <= CHECKED_QR_VERSION:
         return None
     return (
@@ -256,7 +256,7 @@ def render_cards(
             if card is None:
                 continue
             key = first_logo(tournament.card, card.team.team_id, logos)
-            draw_card(c, card, parts, tournament, readers.get(key), warnings)
+            draw_card(c, card, parts, tournament, readers.get(key) if key else None, warnings)
         # Guides last: the QR's white quiet zone would otherwise hide them at the corners.
         _draw_guides(c, tournament, mode, rects)
         c.showPage()

@@ -10,13 +10,16 @@
     "test": "node --test --test-timeout=60000 \"tests/js/**/*.test.mjs\" && CHGK_NO_SHEETS_API=1 node --test --test-timeout=60000 \"tests/js/backend*.test.mjs\" tests/js/calculations.test.mjs",
     "lint": "eslint .",
     "format": "prettier --write \"**/*.{js,mjs,html,css}\"",
-    "format:check": "prettier --check \"**/*.{js,mjs,html,css}\""
+    "format:check": "prettier --check \"**/*.{js,mjs,html,css}\"",
+    "typecheck": "tsc -p . && tsc -p tsconfig.apps_script.json"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
+    "@types/google-apps-script": "2.0.14",
     "eslint": "10.14.0",
     "eslint-config-prettier": "10.1.8",
     "globals": "17.13.0",
-    "prettier": "3.9.10"
+    "prettier": "3.9.10",
+    "typescript": "7.0.2"
   }
 }

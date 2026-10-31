@@ -7,6 +7,7 @@ so a tournament stays on the Google account it was created on.
 import json
 from dataclasses import asdict, dataclass, field, fields, replace
 from pathlib import Path
+from typing import Any
 
 from chgk import write_file
 from chgk.ids import BoardAccess, JuryAccess, generate_tid
@@ -26,10 +27,10 @@ class State:
     board_token: str | None = None  # read-only token for the projector board
     # Each token replaced after a leaked link (`chgk replace-token`): {"which": "jury"|"board",
     # "at": "YYYY-MM-DDTHH:MM"}, oldest first. The jury sheet says what happened.
-    replaced: list[dict] = field(default_factory=list)
+    replaced: list[dict[str, Any]] = field(default_factory=list)
     # A replacement under way: {"which": …, "token": …}, saved before the backend is called, so a
     # lost reply never leaves the live token only on the backend; a retry sends the same one.
-    pending_token: dict | None = None
+    pending_token: dict[str, Any] | None = None
     # Every team ID this tournament has used: printed on cards, so never given to another team.
     used_team_ids: list[str] = field(default_factory=list)
 

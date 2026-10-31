@@ -8,7 +8,7 @@ import {statusOf, STATUS_LABEL} from './marks.js';
 
 /**
  * @param {string} text        the scanned QR code
- * @param {Session|null} session  this phone's tournament, if set up
+ * @param {import('./session.js').Session|null} session  this phone's tournament, if set up
  * @returns {{tone: "ok"|"warn"|"bad", title: string, details: string[]}}
  */
 export function identify(text, session = null) {

@@ -3,6 +3,8 @@
 from dataclasses import dataclass, replace
 from pathlib import Path
 
+from PIL.Image import Image
+
 from chgk import out_dir
 from chgk.cards.impose import Mode, impose
 from chgk.cards.model import team_deck
@@ -38,7 +40,7 @@ class BuildResult:
     warnings: list[str]
 
 
-def _pale(sources: dict, grey: float, teams: list[Team]) -> dict:
+def _pale(sources: dict[str, Image], grey: float, teams: list[Team]) -> dict[str, Image]:
     """The pale logos: `grey`, or a team's own logo_grey for its own logo (keyed by its team_id)."""
     own = {t.team_id: t.logo_grey for t in teams if t.logo_grey is not None}
     return {key: pale(image, own.get(key, grey)) for key, image in sources.items()}
@@ -120,7 +122,12 @@ def build_test_page(folder: Path, out: Path | None = None) -> tuple[Path, list[s
     key = first_logo(tournament.card, team.team_id, sources)
     out = Path(out) if out else out_dir(tournament.slug, "test-page.pdf")
     warnings += logo_warnings + render_test_page(
-        tournament, state.tid, team, out, sources.get(key), _pale(sources, tournament.card.logo_grey, teams)
+        tournament,
+        state.tid,
+        team,
+        out,
+        sources.get(key) if key else None,
+        _pale(sources, tournament.card.logo_grey, teams),
     )
     return out, sorted(set(warnings))
 

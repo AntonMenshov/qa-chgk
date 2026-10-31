@@ -20,7 +20,11 @@ export class Session {
    * @param {() => string} [o.uuid]
    */
   constructor({tid, state, current = null, juror = '', device = '', now = Date.now, uuid = () => crypto.randomUUID()}) {
-    Object.assign(this, {tid, juror, device, now, uuid});
+    this.tid = tid;
+    this.juror = juror;
+    this.device = device;
+    this.now = now;
+    this.uuid = uuid;
     this.local = []; // {event, pending, ackedAt}
     this.setSnapshot(state, -Infinity);
     this.current = current && current >= 1 && current <= this.total ? current : this.lastMarkedQuestion() || 1;

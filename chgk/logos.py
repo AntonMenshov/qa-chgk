@@ -7,12 +7,16 @@ A logo name is looked up in the tournament folder first, then in the shared libr
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 from PIL import Image, ImageOps
 
 from chgk import PROJECT_DIR
 from chgk.config import CardFields, LogoMode
 from chgk.svg import open_svg
+
+if TYPE_CHECKING:
+    from chgk.teams import Team
 
 LOGO_LIBRARY = PROJECT_DIR / "logos"
 MAX_SIDE = 600  # px: ≥ ~300 dpi at the sizes used, and keeps PDFs small
@@ -32,7 +36,7 @@ def logo_chain(fields: CardFields, team_id: str) -> list[str]:
     return [*chain, FALLBACK_KEY]
 
 
-def first_logo(fields: CardFields, team_id: str, logos: dict) -> str | None:
+def first_logo(fields: CardFields, team_id: str, logos: dict[str, Any]) -> str | None:
     """The key of the logo a team's cards show, or None."""
     return next((key for key in logo_chain(fields, team_id) if key in logos), None)
 
@@ -95,12 +99,12 @@ def open_logo(path: Path) -> Image.Image:
         raise ValueError(f"not a readable image ({err})") from err
 
 
-def load_logos(folder: Path, fields: CardFields, teams: list) -> tuple[dict[str, Image.Image], list[str]]:
+def load_logos(folder: Path, fields: CardFields, teams: "list[Team]") -> tuple[dict[str, Image.Image], list[str]]:
     """The logos these teams' cards can use, keyed as in logo_chain, plus warnings.
 
     A missing or unreadable file is a warning, not an error: the cards use the next logo in their chain.
     """
-    names = {t.team_id: (f"team {t.team_id}", t.logo_file) for t in teams}
+    names: dict[str, tuple[str, str | None]] = {t.team_id: (f"team {t.team_id}", t.logo_file) for t in teams}
     names[TOURNAMENT_KEY] = ("tournament", fields.tournament_logo)
     names[FALLBACK_KEY] = ("fallback", fields.fallback_logo)
     images: dict[str, Image.Image] = {}
@@ -132,7 +136,7 @@ class LogoStatus:
     shown: str  # what the team's cards show: "own logo", "tournament logo", "fallback logo" or "no logo"
 
 
-def own_logo_problem(team, folder: Path) -> str | None:
+def own_logo_problem(team: "Team", folder: Path) -> str | None:
     """Why a team's own logo can't be used, or None if it loads."""
     if not team.logo_file:
         return "not set"
@@ -146,7 +150,7 @@ def own_logo_problem(team, folder: Path) -> str | None:
     return None
 
 
-def logo_report(folder: Path, fields: CardFields, teams: list) -> tuple[list[LogoStatus], list[str]]:
+def logo_report(folder: Path, fields: CardFields, teams: "list[Team]") -> tuple[list[LogoStatus], list[str]]:
     """Each team's own logo and what its cards show, plus the warnings the cards would print."""
     images, warnings = load_logos(folder, fields, teams)
     rows = []

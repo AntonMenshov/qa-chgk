@@ -3,8 +3,8 @@
 See [SPEC.md](SPEC.md). Which phases are done is tracked only in
 [HANDOVER.md](HANDOVER.md) ("Current state"). Each phase ends with:
 - its unit tests passing (`uv run pytest`, and `npm test` where JS is involved);
-- lint and format clean (`uv run ruff format . && uv run ruff check .`,
-  `npm run format && npm run lint`), as CI checks;
+- lint, format and types clean (`uv run ruff format . && uv run ruff check . && uv run mypy`,
+  `npm run format && npm run lint && npm run typecheck`), as CI checks;
 - a commit on `main`;
 - [HANDOVER.md](HANDOVER.md) updated in the same commit.
 

@@ -40,7 +40,7 @@ function wire() {
     app.spareResult = null;
     sheet(null);
   };
-  for (const b of document.querySelectorAll('.keypad button')) {
+  for (const b of /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('.keypad button'))) {
     b.onclick = () => {
       const k = b.dataset.k;
       if (k === 'ok') {

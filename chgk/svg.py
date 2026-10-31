@@ -10,6 +10,7 @@ import io
 import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
+from typing import Any
 
 import resvg_py
 from PIL import Image
@@ -67,8 +68,8 @@ def _size(text: str) -> tuple[float, float]:
     root = ET.fromstring(text)
     numbers = re.split(r"[\s,]+", (root.get("viewBox") or "").strip())
     try:
-        w, h = (numbers[2], numbers[3]) if len(numbers) == 4 else (root.get("width"), root.get("height"))
-        w, h = float(re.sub(r"[a-z%]+$", "", w)), float(re.sub(r"[a-z%]+$", "", h))
+        sides = (numbers[2], numbers[3]) if len(numbers) == 4 else (root.get("width") or "", root.get("height") or "")
+        w, h = float(re.sub(r"[a-z%]+$", "", sides[0])), float(re.sub(r"[a-z%]+$", "", sides[1]))
     except (TypeError, ValueError):
         return 1.0, 1.0
     return (w, h) if w > 0 and h > 0 else (1.0, 1.0)
@@ -77,7 +78,7 @@ def _size(text: str) -> tuple[float, float]:
 def render_svg(text: str, max_side: int) -> Image.Image:
     """The SVG as an RGBA image whose longer side is `max_side` px; ValueError if unsafe or unreadable."""
     check_svg(text)
-    options = {
+    options: dict[str, Any] = {
         "svg_string": text,
         "skip_system_fonts": True,
         "font_files": FONT_FILES,
@@ -87,7 +88,9 @@ def render_svg(text: str, max_side: int) -> Image.Image:
     w, h = _size(text)
     if max(w, h) > MAX_ASPECT * min(w, h):
         raise ValueError(f"SVG too long and narrow ({w:g}×{h:g}) to be a logo")
-    side = {"height": max_side} if h > w else {"width": max_side}  # chosen first: a tall one can't fill the memory
+    side: dict[str, Any] = (
+        {"height": max_side} if h > w else {"width": max_side}
+    )  # chosen first: a tall one can't fill the memory
     try:
         image = Image.open(io.BytesIO(bytes(resvg_py.svg_to_bytes(**options, **side))))
         image.load()

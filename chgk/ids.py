@@ -92,9 +92,9 @@ def assign_team_ids(existing: list[str | None], taken: Iterable[str] = ()) -> li
 
     `taken`: IDs used earlier, which are on printed cards: a new team never gets one.
     """
-    existing = [normalize_team_id(t) for t in existing]
-    used = set()
-    for team_id in existing:
+    given = [normalize_team_id(t) for t in existing]
+    used: set[str] = set()
+    for team_id in given:
         if team_id is None:
             continue
         if not TEAM_ID_RE.fullmatch(team_id):
@@ -102,11 +102,13 @@ def assign_team_ids(existing: list[str | None], taken: Iterable[str] = ()) -> li
         if team_id in used:
             raise ValueError(f"duplicate team_id {team_id}")
         used.add(team_id)
-    result, n = [], 0
-    for team_id in existing:
+    result: list[str] = []
+    n = 0
+    for team_id in given:
         if team_id is None:
-            while (team_id := _team_id(n)) in used or team_id in taken:
+            while _team_id(n) in used or _team_id(n) in taken:
                 n += 1
+            team_id = _team_id(n)
             used.add(team_id)
         result.append(team_id)
     return result

@@ -40,7 +40,7 @@ self.addEventListener('install', (event) => {
     caches
       .open(CACHE)
       .then((cache) => cache.addAll(FILES))
-      .then(() => self.skipWaiting()),
+      .then(() => /** @type {any} */ (self).skipWaiting()),
   );
 });
 
@@ -51,7 +51,7 @@ self.addEventListener('activate', (event) => {
       .then((keys) =>
         Promise.all(keys.filter((k) => k.startsWith('chgk-scanner-') && k !== CACHE).map((k) => caches.delete(k))),
       )
-      .then(() => self.clients.claim()),
+      .then(() => /** @type {any} */ (self).clients.claim()),
   );
 });
 

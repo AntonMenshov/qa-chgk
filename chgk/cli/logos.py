@@ -9,12 +9,12 @@ from chgk import logo_drafts as drafts
 from chgk import out_dir
 from chgk.cards.build import build_logo_preview
 from chgk.cli.common import app, fail, team_ids
-from chgk.config import LogoMode, load_config
+from chgk.config import LogoMode, Tournament, load_config
 from chgk.logos import LOGO_LIBRARY, logo_report, own_logo_problem
-from chgk.teams import TEAMS_FILE, read_teams
+from chgk.teams import TEAMS_FILE, Team, read_teams
 
 
-def _draw(folder: Path, slug: str, look: drafts.LogoLook, teams: list, only: list[str] | None) -> None:
+def _draw(folder: Path, slug: str, look: drafts.LogoLook, teams: list[Team], only: list[str] | None) -> None:
     if only:
         unknown = sorted(set(only) - {t.team_id for t in teams})
         if unknown:
@@ -39,7 +39,7 @@ def _draw(folder: Path, slug: str, look: drafts.LogoLook, teams: list, only: lis
         f"each reviewed up to {drafts.REVIEW_ROUNDS} times ({len(references)} reference logos). This takes a while…"
     )
 
-    def log(team, line: str, problem: bool) -> None:
+    def log(team: Team, line: str, problem: bool) -> None:
         typer.secho(f"  {team.team_id} «{team.name}»: {line}", fg="yellow" if problem else None)
 
     try:
@@ -48,7 +48,7 @@ def _draw(folder: Path, slug: str, look: drafts.LogoLook, teams: list, only: lis
         raise fail(ValueError(f"the API refused {drafts.API_KEY_ENV} (HTTP {err.status_code})")) from err
 
 
-def _report(folder: Path, tournament, teams: list) -> None:
+def _report(folder: Path, tournament: Tournament, teams: list[Team]) -> None:
     rows, warnings = logo_report(folder, tournament.card, teams)
     have = drafts.existing_drafts(tournament.slug, teams)
     for r in rows:

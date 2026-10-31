@@ -9,7 +9,7 @@ from math import ceil
 
 from chgk.cards.model import Card, spare_card
 
-Page = list[Card | None]
+Page = list[Card]
 
 
 class Mode(Enum):
@@ -28,7 +28,7 @@ def with_extra_spares(deck: list[Card], extra: int) -> list[Card]:
     """The deck followed by `extra` more spares, numbered after its own."""
     if not extra:
         return list(deck)
-    next_spare = 1 + max((c.id.spare for c in deck if c.is_spare), default=0)
+    next_spare = 1 + max((c.id.spare or 0 for c in deck), default=0)
     first = deck[0]
     return list(deck) + [spare_card(first.id.tid, first.team, next_spare + i) for i in range(extra)]
 
@@ -70,7 +70,4 @@ def cut_stack(decks: list[list[Card]], per_page: int) -> list[Page]:
     free = n_pages * per_page - total
     decks = [with_extra_spares(deck, free // len(decks) + (k < free % len(decks))) for k, deck in enumerate(decks)]
     sequence = [card for deck in decks for card in deck]
-    pages: list[Page] = [[None] * per_page for _ in range(n_pages)]
-    for i, card in enumerate(sequence):
-        pages[i % n_pages][i // n_pages] = card
-    return pages
+    return [sequence[p::n_pages] for p in range(n_pages)]

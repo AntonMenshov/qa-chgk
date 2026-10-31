@@ -15,7 +15,11 @@ export class Queue {
    * @param {number} [o.batchSize]
    */
   constructor({storage, key, send, now = Date.now, batchSize = 200}) {
-    Object.assign(this, {storage, key, send, now, batchSize});
+    this.storage = storage;
+    this.key = key;
+    this.send = send;
+    this.now = now;
+    this.batchSize = batchSize;
     const saved = storage.get(key) || {};
     this.pending = saved.pending || [];
     this.rejected = saved.rejected || [];

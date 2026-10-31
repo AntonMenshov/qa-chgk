@@ -18,7 +18,7 @@ export function cellMark(value) {
 
 /**
  * The board after `revealed` rounds.
- * @param {object} data      get_board reply: {tournament: {name, date, round_sizes}, teams, marks, view_url}
+ * @param {any} data      get_board reply: {tournament: {name, date, round_sizes}, teams, marks, view_url}
  * @param {number} revealed  rounds shown so far (0 = title screen)
  * @param {object} o
  * @param {number} o.gridMax  up to this many teams: the full grid of every round, else "compact"

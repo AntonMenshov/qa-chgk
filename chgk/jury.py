@@ -11,6 +11,7 @@ notice of each replacement on page 1 (and a board one on page 2 too).
 
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 from xml.sax.saxutils import escape
 
 from reportlab.lib import colors
@@ -106,6 +107,7 @@ REPLACED_NOTE = {
     "board": "Ссылка табло заменена {at}: прежняя больше не действует. "
     "Откройте табло на проекторе по новому QR на стр. 2.",
 }
+Styles = dict[str, Any]  # the sheet's paragraph styles, by name
 PLAYER_LINES = 8
 FORMS_NOTE = "Раздайте бланки командам и соберите заполненные."
 FORMS_RESERVE_NOTE = (
@@ -208,24 +210,24 @@ class QrPage(Flowable):
     PAD = 0.25 * INCH
     MAX_QR = 4.0 * INCH
 
-    def __init__(self, rows: list[list[Panel]], styles):
+    def __init__(self, rows: list[list[Panel]], styles: Styles) -> None:
         super().__init__()
         self.rows, self.s = rows, styles
 
-    def wrap(self, avail_w, avail_h):
+    def wrap(self, avail_w: float, avail_h: float) -> tuple[float, float]:
         self.w, self.h = avail_w, avail_h
         return avail_w, avail_h
 
-    def _height(self, text, style, width):
-        return Paragraph(text, style).wrap(width, 10000)[1]
+    def _height(self, text: str, style: Any, width: float) -> float:
+        return float(Paragraph(text, style).wrap(width, 10000)[1])
 
-    def _para(self, text, style, x, top, width):
+    def _para(self, text: str, style: Any, x: float, top: float, width: float) -> float:
         para = Paragraph(text, style)
         _, height = para.wrap(width, 10000)
         para.drawOn(self.canv, x, top - height)
-        return height
+        return float(height)
 
-    def _texts(self, panel, inner):
+    def _texts(self, panel: Panel, inner: float) -> tuple[float, float]:
         """Heights of the text above the QR code and of the address under it."""
         title, hint, payload, _ = panel
         above = (
@@ -234,7 +236,7 @@ class QrPage(Flowable):
         below = self._height(_link(payload), self.s["url"], inner) if payload else 0
         return above, below
 
-    def boxes(self):
+    def boxes(self) -> list[Any]:
         """(panel, x, y, w, h, qr_size, text_above) for every panel; one QR size per row."""
         out = []
         row_h = (self.h - self.GAP * (len(self.rows) - 1)) / len(self.rows)
@@ -250,7 +252,7 @@ class QrPage(Flowable):
                 out.append((panel, k * (w + self.GAP), y, w, row_h, size, above))
         return out
 
-    def draw(self):
+    def draw(self) -> None:
         c = self.canv
         for (title, hint, payload, secret), x, y, w, h, size, above in self.boxes():
             inner = w - 2 * self.PAD
@@ -286,7 +288,7 @@ def sheet_version(state: State) -> int:
     return 1 + len(state.replaced)
 
 
-def _replaced_notes(state: State, kinds: tuple[str, ...], s) -> list[Flowable]:
+def _replaced_notes(state: State, kinds: tuple[str, ...], s: Styles) -> list[Flowable]:
     """A boxed notice for each replaced token of these kinds, oldest first."""
     notes = []
     for r in state.replaced:
@@ -305,7 +307,7 @@ def _questions_line(t: Tournament) -> str:
     return f"{' + '.join(map(str, sizes))}, вопросов: {t.total_questions}"
 
 
-def _links_table(t: Tournament, state: State, s) -> Table:
+def _links_table(t: Tournament, state: State, s: Styles) -> Table:
     """The same links as text (the QR codes are on pages 1-2)."""
     backend = NOT_YET
     if state.backend_url:
@@ -315,7 +317,7 @@ def _links_table(t: Tournament, state: State, s) -> Table:
         ("Сканер жюри", _link(t.scanner_url)),
         ("Таблица (редактирование)", _link(state.spreadsheet_url) if state.spreadsheet_url else NOT_YET),
         ("Таблица (только просмотр)", _link(state.view_url) if state.view_url else NOT_YET),
-        ("Табло для проектора", _link(board_link(t, state)) if state.board_access else NOT_YET),
+        ("Табло для проектора", _link(board_link(t, state) or "") if state.board_access else NOT_YET),
         ("Бэкенд (Google-аккаунт)", backend),
     ]
     data = [[Paragraph(name, s["cell"]), Paragraph(value, s["small"])] for name, value in rows]
@@ -331,7 +333,7 @@ def _links_table(t: Tournament, state: State, s) -> Table:
     return table
 
 
-def _numbered(items: list[str], s) -> list[Flowable]:
+def _numbered(items: list[str], s: Styles) -> list[Flowable]:
     return [Paragraph(f"{i}. {text}", s["base"]) for i, text in enumerate(items, start=1)]
 
 
@@ -348,7 +350,7 @@ FORM_ID_W = 0.85 * INCH
 SUM_W = 0.52 * INCH  # paper grid: «Сумма» in bold 8.5 pt and the cell's padding
 
 
-def _player_form(team: Team, s, warnings: list[str]) -> Table:
+def _player_form(team: Team, s: Styles, warnings: list[str]) -> Table:
     """ID and team name, then lines for the players. A reserve team writes its name in."""
     name = (
         Paragraph("Название команды:", s["form_hint"])
@@ -385,7 +387,7 @@ def _player_form(team: Team, s, warnings: list[str]) -> Table:
     return table
 
 
-def _player_forms(teams: list[Team], s, warnings: list[str]) -> list[Flowable]:
+def _player_forms(teams: list[Team], s: Styles, warnings: list[str]) -> list[Flowable]:
     """The forms two per row; a row never splits over pages."""
     forms = [_player_form(t, s, warnings) for t in teams]
     rows = []
@@ -407,7 +409,7 @@ def _player_forms(teams: list[Team], s, warnings: list[str]) -> list[Flowable]:
     return rows
 
 
-def _grid(header: list[str], teams: list[Team], name_w: float, s, warnings: list[str]) -> Table:
+def _grid(header: list[str], teams: list[Team], name_w: float, s: Styles, warnings: list[str]) -> Table:
     n = len(header)
     # The last column holds a word («Сумма», «Итого»), whatever the number of questions.
     other_w = (WIDTH - name_w - SUM_W) / (n - 1)
@@ -513,8 +515,8 @@ def render_jury_sheet(tournament: Tournament, state: State, teams: list[Team], o
         )
     )
 
-    def footer(label):
-        def draw(canvas, doc):
+    def footer(label: str) -> Any:
+        def draw(canvas: Any, doc: Any) -> None:
             canvas.setFont(FONT, 7.5)
             canvas.setFillGray(0.4)
             canvas.drawString(MARGIN, 0.3 * INCH, f"{printable(tournament.name, [])} · {day} · {label}{edition}")

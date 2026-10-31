@@ -102,7 +102,7 @@ def render_test_page(
     for card, rect in zip(samples, bottom_row, strict=False):  # fewer samples than slots is fine
         key = first_logo(tournament.card, card.team.team_id, logos)
         logo_pt = tournament.card.logo_size * INCH if tournament.card.logo_size else None
-        draw_card(c, card, card_parts(rect, qr_pt, logo_pt), tournament, readers.get(key), warnings)
+        draw_card(c, card, card_parts(rect, qr_pt, logo_pt), tournament, readers.get(key) if key else None, warnings)
         c.rect(rect.x, rect.y, rect.w, rect.h, stroke=1, fill=0)
     c.showPage()
     c.save()

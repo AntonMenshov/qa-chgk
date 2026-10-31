@@ -1,5 +1,7 @@
 """What every command group shares: the app, the `backend` group, error and warning output."""
 
+from typing import Any
+
 import typer
 from typer.core import TyperGroup
 
@@ -10,7 +12,7 @@ from chgk.backend import PERMISSIONS_HINT, SHEETS_API_HINT, BackendError
 class CleanErrors(TyperGroup):
     """Any command: a broken file, a bad path or a refusal is `Error: …`, never a traceback."""
 
-    def invoke(self, ctx: typer.Context):
+    def invoke(self, ctx: Any) -> Any:
         try:
             return super().invoke(ctx)
         except (ValueError, OSError, BackendError) as err:
@@ -24,7 +26,7 @@ backend_app = typer.Typer(
 app.add_typer(backend_app, name="backend")
 
 
-def warn_permissions(reply: dict) -> None:
+def warn_permissions(reply: dict[str, Any]) -> None:
     if reply.get("authorized") is False:
         typer.secho(PERMISSIONS_HINT, fg="yellow")
     if reply.get("sheets_api") is False:

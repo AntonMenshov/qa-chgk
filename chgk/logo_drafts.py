@@ -22,6 +22,7 @@ from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, replace
 from pathlib import Path
+from typing import Any, cast
 
 import anthropic
 from PIL import Image
@@ -209,7 +210,7 @@ def reference_logos() -> list[Path]:
     return files[:MAX_REFERENCES]
 
 
-def _png_block(image: Image.Image) -> dict:
+def _png_block(image: Image.Image) -> dict[str, Any]:
     """An image as an API PNG block, transparent parts white as on the card."""
     flat = Image.new("RGB", image.size, "white")
     rgba = image.convert("RGBA")
@@ -220,7 +221,7 @@ def _png_block(image: Image.Image) -> dict:
     return {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": data}}
 
 
-def reference_blocks(paths: list[Path]) -> tuple[list[dict], list[str]]:
+def reference_blocks(paths: list[Path]) -> tuple[list[dict[str, Any]], list[str]]:
     """The reference logos as API image blocks (PNG on white), plus warnings for files that can't be read.
 
     The same blocks open every team's request, so they are cached: later teams pay less for them.
@@ -263,7 +264,7 @@ def measure(image: Image.Image) -> str:
     return where + (f" Too close to the edge: {', '.join(tight)} units." if tight else "")
 
 
-def _review_message(name: str, image: Image.Image, grey: float, round_no: int) -> dict:
+def _review_message(name: str, image: Image.Image, grey: float, round_no: int) -> dict[str, Any]:
     card = logos.pale(image, grey).convert("RGBA")
     card.thumbnail((CARD_SIDE, CARD_SIDE))
     text = (
@@ -284,7 +285,7 @@ class CutOffError(ValueError):
 _now = time.monotonic  # the clock for progress lines and round times (tests replace it)
 
 
-def _ask(client: anthropic.Anthropic, messages: list[dict], system: str, log, label: str):
+def _ask(client: anthropic.Anthropic, messages: Any, system: str, log: Any, label: str) -> tuple[Any, str]:
     """One streamed request; returns the message and a note on its time and tokens.
 
     A max-effort round can think for many minutes before any text: `log` gets a line every
@@ -296,7 +297,7 @@ def _ask(client: anthropic.Anthropic, messages: list[dict], system: str, log, la
         max_tokens=MAX_TOKENS,
         betas=[FALLBACK_BETA, TASK_BUDGET_BETA],
         fallbacks="default",
-        output_config={"effort": EFFORT, "task_budget": {"type": "tokens", "total": TASK_BUDGET}},
+        output_config=cast(Any, {"effort": EFFORT, "task_budget": {"type": "tokens", "total": TASK_BUDGET}}),
         cache_control={"type": "ephemeral"},  # each round resends the conversation so far: cache it
         system=system,
         messages=messages,
@@ -318,9 +319,9 @@ def _ask(client: anthropic.Anthropic, messages: list[dict], system: str, log, la
 def draw_logo(
     client: anthropic.Anthropic,
     name: str,
-    references: list[dict],
+    references: list[dict[str, Any]],
     look: LogoLook = DEFAULT_LOOK,
-    log=lambda line: None,
+    log: Callable[[str], None] = lambda line: None,
 ) -> str:
     """Ask Claude for one team's logo, then let it review and fix its own rendering; return checked SVG text.
 
@@ -420,7 +421,7 @@ def draw_drafts(
     client: anthropic.Anthropic,
     slug: str,
     teams: list[Team],
-    references: list[dict],
+    references: list[dict[str, Any]],
     look: LogoLook = DEFAULT_LOOK,
     log: Callable[[Team, str, bool], None] = lambda team, line, problem: None,
 ) -> list[DraftOutcome]:

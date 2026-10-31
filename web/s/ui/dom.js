@@ -2,16 +2,17 @@
 
 import {app} from './state.js';
 
+/** @type {(id: string) => any} */
 export const $ = (id) => document.getElementById(id);
 
 export function show(id) {
-  for (const s of document.querySelectorAll('.screen')) {
+  for (const s of /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('.screen'))) {
     s.hidden = s.id !== id;
   }
 }
 
 export function sheet(id) {
-  for (const s of document.querySelectorAll('.sheet')) {
+  for (const s of /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('.sheet'))) {
     s.hidden = s.id !== id;
   }
   app.lookingUp = id === 'lookup'; // any other sheet ends «Чья карточка?»
@@ -26,7 +27,7 @@ let audio = null;
 
 export function unlockAudio() {
   try {
-    audio ??= new (window.AudioContext || window.webkitAudioContext)();
+    audio ??= new (window.AudioContext || /** @type {any} */ (window).webkitAudioContext)();
     if (audio.state === 'suspended') {
       audio.resume();
     }

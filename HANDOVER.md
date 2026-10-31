@@ -74,7 +74,7 @@ chgk/                 Python package (at repo root, no src/ — user's preferenc
 apps_script/          backend, one global scope, joined in the order of bundle.json into one Code.gs:
                       Code.js (constants, setup, requests, access), logic.js (pure, Node-tested),
                       sheet_io.js (batched read/write), marks.js, sort.js, teams.js, drive.js,
-                      disputed.js, photos.js, trigger.js. logic.js is an ES module (package.json);
+                      disputed.js, photos.js, results.js (the public copy), trigger.js; globals.d.ts for tsc only. logic.js is an ES module (package.json);
                       the bundler and the Node fake drop its `export`s, since Apps Script has none
 logos/                shared logo library (team logos git-ignored; nologo.png public); drafts/<slug>/<team_id>.svg
 tournaments/example/  reference to copy, never run: config.py, teams.py (the user's real teams)
@@ -98,17 +98,17 @@ web/shared/logic.js   link to apps_script/logic.js: the scanner (merge rule) and
 web/b/                projector board: index.html, board.css, board.js; lib/board.js = what to show
                       (rounds revealed by hand, places from revealed rounds only, grid vs compact);
                       lib/qr.js + vendor/qrcode-generator-1.4.4 (QR codes on screen)
-.github/workflows/    tests.yml (ruff + pytest; ESLint + Prettier + npm test), pages.yml (deploys web/, also when apps_script/logic.js changes)
+.github/workflows/    tests.yml (ruff + mypy + pytest; ESLint + tsc + Prettier + npm test), pages.yml (deploys web/, also when apps_script/logic.js changes)
 .node-version         the Node version (CI reads it)
 package.json          `npm test`, `npm run lint|format|format:check` (devDependencies: ESLint + Prettier only)
-eslint.config.js, .prettierrc.json, pyproject.toml ([tool.ruff])  lint and format settings
+eslint.config.js, .prettierrc.json, pyproject.toml ([tool.ruff], [tool.mypy]), tsconfig*.json  lint, format and type settings (JS: tsc on the JSDoc, not strict)
 README.md             organiser guide (end to end) and contributor commands
 ```
 
 ### How to run
 - Tests: `uv run pytest` (541, incl. 4 browser tests that need Google Chrome + Node) and
   `npm test` (231, then 78 backend and calculation tests again with the Sheets API off).
-- Lint and format: `uv run ruff format . && uv run ruff check .`, `npm run format && npm run lint`.
+- Lint, format and types: `uv run mypy`, `npm run typecheck`, `uv run ruff format . && uv run ruff check .`, `npm run format && npm run lint`.
 - Every `chgk` command: [SPEC.md §13](SPEC.md) or `uv run chgk --help`; the organiser's walkthrough:
   [README.md](README.md).
 
@@ -189,9 +189,10 @@ One line each; SPEC has the details. Decisions recorded only here are written ou
 
 ## Next steps
 
-0. **Code review, 2026-10-31:** all findings triaged in `out/code-review/TRIAGE.md` (local only: the repo is
-   public; by theme, with `triage.tsv`). The small fixes are in; the rest wait for the user's decisions, then one
-   backend redeploy, before the mock game.
+0. **Code review, 2026-10-31:** all findings triaged with the user and the decisions implemented
+   (`out/code-review/TRIAGE.md`, `DECISIONS.md`; local only: the repo is public). The backend part waits for the
+   user's redeploy; then `chgk results-copy tournaments/osenniy-salat`, a live check of the public copy and of
+   «Итоги» sorting, and a reprint of the jury sheet (its results QR changes).
 1. **Phase 7**, the rest: reprint `out/osenniy-salat/`, the fixes' own checks on an iPhone
    ([docs/manual-checks.md](docs/manual-checks.md)), the mock game, fixes, a docs/comments check.
    Then **Phase 8**, an external test at a tournament, with the same loop.

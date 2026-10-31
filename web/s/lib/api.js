@@ -34,7 +34,7 @@ const REFUSED = {
 };
 
 /** A function (action, payload) => reply for one backend and token (jury or board). */
-export function backend(url, token, fetchImpl = (...a) => fetch(...a), timeoutMs = REQUEST_TIMEOUT_MS) {
+export function backend(url, token, fetchImpl = (url, init) => fetch(url, init), timeoutMs = REQUEST_TIMEOUT_MS) {
   return async (action, payload = {}) => {
     const abort = new AbortController();
     const timer = setTimeout(() => abort.abort(), timeoutMs);

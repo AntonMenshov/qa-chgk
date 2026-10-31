@@ -21,7 +21,7 @@ def _ask_mode() -> Mode:
     for i, mode in enumerate(modes, start=1):
         typer.echo(f"  {i}. {mode.value:<11} {MODE_HELP[mode]}")
     while True:
-        choice = typer.prompt(f"Choose 1-{len(modes)}", type=int)
+        choice: int = typer.prompt(f"Choose 1-{len(modes)}", type=int)
         if 1 <= choice <= len(modes):
             return modes[choice - 1]
         typer.echo(f"Please enter a number from 1 to {len(modes)}.")

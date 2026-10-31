@@ -4,6 +4,7 @@ import os
 import tempfile
 from importlib.metadata import version
 from pathlib import Path
+from typing import Any
 
 __version__ = version("chgk")
 
@@ -15,7 +16,7 @@ FONT_BOLD_FILE = FONTS_DIR / "PT_Sans-Web-Bold.ttf"
 OUT_ROOT = PROJECT_DIR / "out"  # generated files (git-ignored); the tests point it at a temporary folder
 
 
-def run_python_file(path: Path) -> dict:
+def run_python_file(path: Path) -> dict[str, Any]:
     """Run an organiser's Python file (config.py, teams.py) and return its names.
 
     Compiled from the current text every time: an import would reuse a cached .pyc when the

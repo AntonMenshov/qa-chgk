@@ -8,8 +8,10 @@ import hashlib
 import json
 import os
 import re
+from collections.abc import Sequence
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
+from typing import Any
 
 import httpx
 
@@ -115,7 +117,7 @@ class BackendClient:
         self.url, self.token = url, token
         self.http = http or httpx.Client(follow_redirects=True, timeout=90)
 
-    def call(self, action: str, **payload) -> dict:
+    def call(self, action: str, **payload: Any) -> dict[str, Any]:
         body = json.dumps({**payload, "action": action, "token": self.token}, ensure_ascii=False)
         try:
             # text/plain: Apps Script web apps don't answer CORS preflights; same as the phone.
@@ -144,7 +146,7 @@ class BackendClient:
             raise BackendError(error)
         return data
 
-    def ping(self) -> dict:
+    def ping(self) -> dict[str, Any]:
         return self.call("ping")
 
     def create_tournament(
@@ -154,10 +156,10 @@ class BackendClient:
         date: str,
         round_sizes: list[int],
         jury_token: str,
-        teams: list[dict],
+        teams: list[dict[str, Any]],
         board_token: str,
-        reserve: list[str] = (),
-    ) -> dict:
+        reserve: Sequence[str] = (),
+    ) -> dict[str, Any]:
         return self.call(
             "create_tournament",
             tid=tid,
@@ -170,22 +172,23 @@ class BackendClient:
             board_token=board_token,
         )
 
-    def make_public_copy(self, tid: str) -> dict:
+    def make_public_copy(self, tid: str) -> dict[str, Any]:
         return self.call("make_public_copy", tid=tid)
 
-    def delete_tournament(self, tid: str) -> dict:
+    def delete_tournament(self, tid: str) -> dict[str, Any]:
         return self.call("delete_tournament", tid=tid)
 
-    def get_state(self, tid: str) -> dict:
+    def get_state(self, tid: str) -> dict[str, Any]:
         return self.call("get_state", tid=tid)
 
-    def get_teams(self, tid: str) -> list[dict]:
-        return self.call("get_teams", tid=tid)["teams"]
+    def get_teams(self, tid: str) -> list[dict[str, Any]]:
+        teams: list[dict[str, Any]] = self.call("get_teams", tid=tid)["teams"]
+        return teams
 
-    def set_teams(self, tid: str, teams: list[dict]) -> dict:
+    def set_teams(self, tid: str, teams: list[dict[str, Any]]) -> dict[str, Any]:
         return self.call("set_teams", tid=tid, teams=teams)
 
-    def replace_token(self, tid: str, which: str, new_token: str) -> dict:
+    def replace_token(self, tid: str, which: str, new_token: str) -> dict[str, Any]:
         return self.call("replace_token", tid=tid, which=which, new_token=new_token)
 
 
