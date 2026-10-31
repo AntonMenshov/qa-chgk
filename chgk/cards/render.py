@@ -16,6 +16,7 @@ from chgk import FONT_BOLD_FILE, FONT_REGULAR_FILE
 from chgk.cards.geometry import (
     INFO_SIZE,
     NUMBER_SIZE,
+    PAD,
     PAGE_H,
     PAGE_W,
     ROUND_SIZE,
@@ -196,6 +197,8 @@ def draw_card(
         c.line(start, parts.team_baseline - 1, fr.right, parts.team_baseline - 1)
     elif fields.team_name:
         text, size = fit_text(printable(card.team.name, warnings), FONT_BOLD, TEAM_SIZE, fr.w, 5.5)
+        if text.endswith(ELLIPSIS):
+            warnings.append(f"team name cut on the cards: {card.team.name!r} prints as {text!r}")
         c.setFont(FONT_BOLD, size)
         c.drawString(fr.x, parts.team_baseline, text)
     info = " · ".join(
@@ -237,13 +240,17 @@ def render_cards(
     rects = card_rects(tournament.layout)
     qr_pt = tournament.layout.qr_size * 72
     logo_pt = tournament.card.logo_size * 72 if tournament.card.logo_size else None
-    all_parts = [card_parts(r, qr_pt, logo_pt) for r in rects]
+    no_qr = tournament.card.no_qr
+    all_parts = [card_parts(r, qr_pt, logo_pt, no_qr) for r in rects]
+    number_w = pdfmetrics.stringWidth(str(tournament.total_questions), FONT_BOLD, NUMBER_SIZE)
 
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     c = Canvas(str(out_path), pagesize=(PAGE_W, PAGE_H))
     c.setTitle(f"{tournament.name} — карточки ({mode.value})")
     warnings: list[str] = []
+    if not no_qr and number_w > all_parts[0].number.w + PAD:
+        warnings.append(f"question {tournament.total_questions} is wider than its place: it can reach the QR code")
     for page in pages:
         for card, parts in zip(page, all_parts, strict=False):  # a last page may have empty slots
             if card is None:

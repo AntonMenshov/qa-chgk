@@ -61,9 +61,11 @@ def test_page(
 ) -> None:
     """Print one calibration page: rulers, QR sizes, logo shades and sample cards."""
     try:
-        path = build_test_page(folder, out)
+        path, warnings = build_test_page(folder, out)
     except ValueError as err:
         raise fail(err) from err
+    for warning in warnings:
+        typer.secho(f"Warning: {warning}", fg="yellow", err=True)
     typer.echo(f"{path}: print on Letter at 100% / Actual size and check the rulers, QR sizes and logo shades.")
 
 

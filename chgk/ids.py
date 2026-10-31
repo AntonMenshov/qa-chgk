@@ -14,6 +14,7 @@ can need a denser code (render.py CHECKED_QR_VERSION warns).
 
 import re
 import secrets
+from collections.abc import Iterable
 from dataclasses import dataclass
 from urllib.parse import urljoin
 
@@ -86,8 +87,11 @@ def normalize_team_id(team_id: str | None) -> str | None:
     return team_id or None
 
 
-def assign_team_ids(existing: list[str | None]) -> list[str]:
-    """Keep the given IDs (normalised) and give each missing one the next unused A01, A02, and so on."""
+def assign_team_ids(existing: list[str | None], taken: Iterable[str] = ()) -> list[str]:
+    """Keep the given IDs (normalised) and give each missing one the next unused A01, A02, and so on.
+
+    `taken`: IDs used earlier, which are on printed cards: a new team never gets one.
+    """
     existing = [normalize_team_id(t) for t in existing]
     used = set()
     for team_id in existing:
@@ -101,7 +105,7 @@ def assign_team_ids(existing: list[str | None]) -> list[str]:
     result, n = [], 0
     for team_id in existing:
         if team_id is None:
-            while (team_id := _team_id(n)) in used:
+            while (team_id := _team_id(n)) in used or team_id in taken:
                 n += 1
             used.add(team_id)
         result.append(team_id)

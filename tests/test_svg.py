@@ -87,3 +87,15 @@ def test_broken_svg_file_is_a_value_error(tmp_path):
     (tmp_path / "bad.svg").write_bytes(b"\xff\xfe<svg")
     with pytest.raises(ValueError):
         open_logo(tmp_path / "bad.svg")
+
+
+def test_a_very_tall_svg_is_refused_before_it_is_drawn():
+    with pytest.raises(ValueError, match="long and narrow"):
+        render_svg('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 100000"/>', 300)
+
+
+def test_a_tall_svg_fits_its_height():
+    image = render_svg(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 400"><rect width="9" height="9"/></svg>', 600
+    )
+    assert image.size == (150, 600)

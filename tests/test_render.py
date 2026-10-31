@@ -335,7 +335,7 @@ def test_unusable_team_logo_warns_and_falls_back(folder, tmp_path, name, content
     write_teams_file(folder, [(TEAM_ROWS[0][0], TEAM_ROWS[0][1], "", name), *TEAM_ROWS[1:]])
     result = build_cards(folder, Mode.TEAM_PAGES, tmp_path / "out.pdf")  # no crash
     assert any("team A01" in w and name in w and why in w for w in result.warnings)
-    assert build_test_page(folder, tmp_path / "test.pdf").is_file()  # the test page copes too
+    assert build_test_page(folder, tmp_path / "test.pdf")[0].is_file()  # the test page copes too
 
 
 def test_svg_team_logo_prints_like_a_png(folder, tmp_path):

@@ -7,7 +7,7 @@ from pathlib import Path
 from chgk.backend import BackendClient, Profile, Profiles
 from chgk.config import load_config
 from chgk.ids import generate_jury_token
-from chgk.state import State, check_tid, load_or_create_state, load_state, save_state
+from chgk.state import State, check_tid, load_or_create_state, load_state, remember_team_ids, save_state
 from chgk.teams import TEAMS_FILE, Team, normalize_teams, read_teams, reserve_teams, write_teams
 
 
@@ -35,6 +35,8 @@ def new_tournament(folder: Path, profile: Profile, client: BackendClient | None 
     # teams.py first: without it nothing is created (the jury sheet needs the teams too).
     teams = read_teams(folder / TEAMS_FILE)
     state = load_or_create_state(folder, tournament.tid)
+    remember_team_ids(folder, [t.team_id for t in teams])
+    state = load_state(folder)
 
     client = client or BackendClient(profile.url, profile.admin_token)
     account = profile.account or client.ping().get("account", "")
@@ -76,21 +78,31 @@ def tournament_client(folder: Path, profiles: Profiles) -> tuple[State, BackendC
 
 
 def _local_teams(path: Path) -> list[Team]:
-    """The teams in teams.py, or none if it is missing or broken (the Sheet's list replaces it)."""
+    """The teams in teams.py, or none if it is missing (the Sheet's list replaces it).
+
+    A broken file is refused: only it holds the local logos and logo_grey.
+    """
+    if not Path(path).is_file():
+        return []
     try:
         return read_teams(path)
-    except ValueError:
-        return []
+    except ValueError as err:
+        raise ValueError(f"{err}. Fix it, or delete it to take the Sheet's list as it is") from err
 
 
-def sync_teams(folder: Path, profiles: Profiles, client: BackendClient | None = None) -> list[Team]:
+def sync_teams(
+    folder: Path, profiles: Profiles, client: BackendClient | None = None, warnings: list[str] | None = None
+) -> list[Team]:
     """The Sheet's Teams tab is the source of truth: pull it into teams.py.
 
     Teams added in the Sheet without a team_id get one, and the IDs are written back.
     Reserve teams (R1, R2, …) stay on the backend: the jury names them in the Sheet.
     A team with no logo in the Sheet keeps the one teams.py gives it (set locally, e.g. by
     `chgk logos --accept`); a logo in the Sheet wins. A team's logo_grey is only ever in teams.py.
+    A team whose ID was changed in the Sheet is found by its name. `warnings` collects what
+    needs the organiser's eye: a local logo left behind, a team only on the other tabs.
     """
+    warnings = warnings if warnings is not None else []
     folder = Path(folder)
     state, default_client = tournament_client(folder, profiles)
     client = client or default_client
@@ -98,14 +110,34 @@ def sync_teams(folder: Path, profiles: Profiles, client: BackendClient | None = 
     if not rows:
         raise ValueError("the Teams tab in the Sheet is empty")
     given = [Team(*(r.get(k) or "" for k in ("team_id", "name", "city", "logo_file"))) for r in rows]
-    local = {t.team_id: t for t in _local_teams(folder / TEAMS_FILE)}
+    mine_teams = _local_teams(folder / TEAMS_FILE)
+    local = {t.team_id: t for t in mine_teams}
+    by_name = {t.name: t for t in mine_teams}
+    state = load_state(folder)  # reading teams.py just noted its IDs
     teams = []
-    for t in normalize_teams(given, "Teams tab"):
-        mine = local.get(t.team_id)
+    kept = set()
+    for t in normalize_teams(given, "Teams tab", state.used_team_ids):
+        mine = local.get(t.team_id) or by_name.get(t.name)
+        if mine:
+            kept.add(mine.team_id)
         teams.append(replace(t, logo_file=t.logo_file or mine.logo_file, logo_grey=mine.logo_grey) if mine else t)
+    for t in mine_teams:
+        if t.team_id not in kept and (t.logo_file or t.logo_grey is not None):
+            warnings.append(
+                f"{t.team_id} {t.name!r} is no longer on the Teams tab: its logo {t.logo_file!r} left teams.py"
+            )
+    listed = {t.team_id for t in teams}
+    on_tabs = client.get_state(state.tid).get("teams", [])
+    gone = [t["team_id"] for t in on_tabs if not t.get("reserve") and t["team_id"] not in listed]
+    if gone:
+        warnings.append(
+            f"still on the tabs but not on Teams: {', '.join(gone)}. If they withdrew, delete their rows on «Итоги» "
+            "and the round tabs by hand; their marks stay in the Log."
+        )
     reserve_teams(load_config(folder).reserve_teams, teams)  # R1, R2, … are printed on the reserve decks
     client.set_teams(state.tid, _team_dicts(teams))  # writes assigned IDs back and adds rows on every tab
     write_teams(folder / TEAMS_FILE, teams)  # only once the Sheet has the same IDs
+    remember_team_ids(folder, [t.team_id for t in teams])
     return teams
 
 
@@ -115,16 +147,18 @@ TOKEN_KINDS = ("jury", "board")
 def replace_token(folder: Path, which: str, profiles: Profiles, client: BackendClient | None = None) -> State:
     """A leaked jury or board link: give the tournament a new token; the old one stops working at once.
 
-    The backend switches first, then state.json records the new token and the replacement
-    (time and kind). If the reply is lost, running it again simply sets another new token.
+    The new token goes into state.json first, then to the backend, then counts as replaced (time
+    and kind). If the reply is lost, running it again sends the same token, so nothing is locked out.
     """
     if which not in TOKEN_KINDS:
         raise ValueError(f"which token? one of {', '.join(TOKEN_KINDS)}, got {which!r}")
     folder = Path(folder)
     state, default_client = tournament_client(folder, profiles)
-    token = generate_jury_token()
+    pending = state.pending_token or {}
+    token = pending["token"] if pending.get("which") == which else generate_jury_token()
+    save_state(folder, replace(state, pending_token={"which": which, "token": token}))
     (client or default_client).replace_token(state.tid, which, token)
     record = {"which": which, "at": datetime.now().strftime("%Y-%m-%dT%H:%M")}
-    state = replace(state, **{f"{which}_token": token}, replaced=[*state.replaced, record])
+    state = replace(state, **{f"{which}_token": token}, replaced=[*state.replaced, record], pending_token=None)
     save_state(folder, state)
     return state

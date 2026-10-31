@@ -15,6 +15,7 @@ from xml.sax.saxutils import escape
 
 from reportlab.lib import colors
 from reportlab.lib.styles import ParagraphStyle
+from reportlab.pdfbase import pdfmetrics
 from reportlab.platypus import (
     Flowable,
     KeepTogether,
@@ -95,7 +96,7 @@ PUBLIC_NOTE = (
     "Без секретов. Таблицу «только просмотр» можно показать командам: отметки видны в ней сразу, "
     "как их ставит жюри, а табло показывает тур только после нажатия стрелки."
 )
-GRID_LEGEND = "+ верно,  − неверно,  ? спорно,  пусто — нет карточки."
+GRID_LEGEND = "+ верно (в таблице 1),  − неверно (в таблице 0),  ? спорно,  пусто — нет карточки."
 
 # A token replaced after a leaked link (`chgk replace-token`): what happened and what to do.
 REPLACED_NOTE = {
@@ -108,7 +109,8 @@ REPLACED_NOTE = {
 PLAYER_LINES = 8
 FORMS_NOTE = "Раздайте бланки командам и соберите заполненные."
 FORMS_RESERVE_NOTE = (
-    "Бланки с ID R1, R2, … — для команд, пришедших без регистрации: название команды впишите в таблицу (см. стр. 3)."
+    "Бланки с ID R1, R2, … — для команд, пришедших без регистрации: название команды впишите в таблицу "
+    "(см. раздел «Команда без регистрации»)."
 )
 
 
@@ -299,8 +301,8 @@ def _replaced_notes(state: State, kinds: tuple[str, ...], s) -> list[Flowable]:
 def _questions_line(t: Tournament) -> str:
     sizes = t.round_sizes
     if len(set(sizes)) == 1:
-        return f"{t.rounds} × {sizes[0]} = {t.total_questions} вопросов"
-    return f"{' + '.join(map(str, sizes))} = {t.total_questions} вопросов"
+        return f"{t.rounds} × {sizes[0]}, вопросов: {t.total_questions}"
+    return f"{' + '.join(map(str, sizes))}, вопросов: {t.total_questions}"
 
 
 def _links_table(t: Tournament, state: State, s) -> Table:
@@ -343,6 +345,7 @@ def _team_label(team: Team, width: float, warnings: list[str]) -> str:
 FORM_GAP = 0.3 * INCH
 FORM_W = (WIDTH - FORM_GAP) / 2
 FORM_ID_W = 0.85 * INCH
+SUM_W = 0.52 * INCH  # paper grid: «Сумма» in bold 8.5 pt and the cell's padding
 
 
 def _player_form(team: Team, s, warnings: list[str]) -> Table:
@@ -352,10 +355,9 @@ def _player_form(team: Team, s, warnings: list[str]) -> Table:
         if team.reserve
         else Paragraph(escape(printable(team.name, warnings)), s["form_name"])
     )
-    # IDs are 1-8 characters (rating numbers such as 58746): smaller type for long ones, never wrapped.
-    id_style = (
-        s["form_id"] if len(team.team_id) <= 5 else ParagraphStyle("form_id_long", parent=s["form_id"], fontSize=9.5)
-    )
+    # IDs are 1-8 characters (rating numbers such as 58746): smaller type for wide ones, never wrapped.
+    size = min(13.0, (FORM_ID_W - 12) / pdfmetrics.stringWidth(team.team_id, FONT_BOLD, 1))
+    id_style = s["form_id"] if size == 13 else ParagraphStyle("form_id_small", parent=s["form_id"], fontSize=size)
     rows = [[Paragraph(escape(team.team_id), id_style), name], ["№", "Фамилия и имя игрока"]]
     rows += [[str(i), ""] for i in range(1, PLAYER_LINES + 1)]
     # The name row grows for a long name (wrapped); the player lines are fixed.
@@ -407,9 +409,10 @@ def _player_forms(teams: list[Team], s, warnings: list[str]) -> list[Flowable]:
 
 def _grid(header: list[str], teams: list[Team], name_w: float, s, warnings: list[str]) -> Table:
     n = len(header)
-    other_w = (WIDTH - name_w) / n
+    # The last column holds a word («Сумма», «Итого»), whatever the number of questions.
+    other_w = (WIDTH - name_w - SUM_W) / (n - 1)
     rows = [["Команда", *header]] + [[_team_label(t, name_w, warnings)] + [""] * n for t in teams]
-    table = Table(rows, colWidths=[name_w] + [other_w] * n, rowHeights=0.25 * INCH, repeatRows=1)
+    table = Table(rows, colWidths=[name_w] + [other_w] * (n - 1) + [SUM_W], rowHeights=0.25 * INCH, repeatRows=1)
     table.setStyle(
         TableStyle(
             [
@@ -491,7 +494,12 @@ def render_jury_sheet(tournament: Tournament, state: State, teams: list[Team], o
         story.append(
             KeepTogether(
                 [
-                    Paragraph(f"Тур {round_no} (вопросы {questions[0]}–{questions[-1]})", s["h3"]),
+                    Paragraph(
+                        f"Тур {round_no} ("
+                        + (f"вопрос {questions[0]}" if size == 1 else f"вопросы {questions[0]}–{questions[-1]}")
+                        + ")",
+                        s["h3"],
+                    ),
                     _grid([str(q) for q in questions] + ["Сумма"], teams, name_w, s, warnings),
                 ]
             )

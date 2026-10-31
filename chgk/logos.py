@@ -8,7 +8,7 @@ A logo name is looked up in the tournament folder first, then in the shared libr
 from dataclasses import dataclass
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageOps
 
 from chgk import PROJECT_DIR
 from chgk.config import CardFields, LogoMode
@@ -84,10 +84,14 @@ def open_logo(path: Path) -> Image.Image:
     if path.suffix.lower() == ".svg":
         return open_svg(path, MAX_SIDE)
     try:
-        with Image.open(path) as image:
+        with Image.open(path) as opened:
+            image = ImageOps.exif_transpose(opened)  # a phone's photo is stored sideways
+            if image.mode in ("P", "1"):  # or shrinking keeps only exact pixels: thin lines break
+                image = image.convert("RGBA")
             image.thumbnail((MAX_SIDE, MAX_SIDE))
             return image.copy()
-    except (OSError, Image.DecompressionBombError) as err:
+    # Pillow raises SyntaxError for a damaged PNG.
+    except (OSError, SyntaxError, Image.DecompressionBombError) as err:
         raise ValueError(f"not a readable image ({err})") from err
 
 

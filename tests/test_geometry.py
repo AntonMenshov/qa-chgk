@@ -92,3 +92,10 @@ def test_rect_helpers():
     assert not a.intersects(Rect(10, 0, 5, 5))  # touching edges is not overlap
     assert a.contains(Rect(1, 1, 2, 2))
     assert not a.contains(Rect(9, 9, 2, 2))
+
+
+def test_a_card_without_a_qr_is_not_too_small_for_it():
+    card = Rect(0, 0, 1.33 * INCH, 2.62 * INCH)
+    with pytest.raises(GeometryError):
+        card_parts(card, 0.85 * INCH)
+    assert card_parts(card, 0.85 * INCH, no_qr=True)

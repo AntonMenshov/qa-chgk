@@ -150,3 +150,32 @@ def test_logo_report_says_what_each_team_shows(folder):
     rows, _ = logo_report(folder, CardFields(logo=LogoMode.NONE), teams)
     assert {r.shown for r in rows} == {"no logo"}
     assert rows[0].problem is None  # the team's own logo is fine, the mode just doesn't show it
+
+
+def test_a_damaged_png_is_a_warning_not_a_crash(tmp_path):
+    path = tmp_path / "bad.png"
+    Image.effect_noise((1000, 1000), 50).save(path)  # noise: several IDAT chunks
+    data = bytearray(path.read_bytes())
+    second = data.index(b"IDAT", data.index(b"IDAT") + 4)
+    data[second - 4 : second + 4] = b"\xff" * 8  # a damaged chunk header: Pillow raises SyntaxError
+    path.write_bytes(bytes(data))
+    with pytest.raises(ValueError):
+        open_logo(path)
+
+
+def test_a_phone_photo_is_turned_upright(tmp_path):
+    path = tmp_path / "photo.jpg"
+    exif = Image.Exif()
+    exif[0x0112] = 6  # rotate 90°
+    Image.new("RGB", (300, 100), "white").save(path, exif=exif)
+    assert open_logo(path).size == (100, 300)
+
+
+def test_a_palette_logo_is_shrunk_smoothly(tmp_path):
+    path = tmp_path / "palette.png"
+    image = Image.new("RGB", (1200, 1200), "white")
+    ImageDraw.Draw(image).line((0, 0, 1199, 1199), fill="black", width=3)
+    image.convert("P").save(path)
+    logo = open_logo(path)
+    assert logo.mode == "RGBA"
+    assert len(logo.convert("L").getcolors(256)) > 2

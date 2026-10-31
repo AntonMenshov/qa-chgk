@@ -12,7 +12,7 @@ from chgk.config import LogoMode, Tournament, load_config
 from chgk.ids import encode_payload, generate_tid
 from chgk.jury import render_jury_sheet
 from chgk.logos import first_logo, load_logos, open_logo, pale
-from chgk.state import load_or_create_state, load_state
+from chgk.state import State, load_or_create_state, load_state, remember_team_ids
 from chgk.teams import TEAMS_FILE, Team, read_teams, reserve_teams
 
 INSTRUCTIONS = {
@@ -50,6 +50,20 @@ def load_teams(folder: Path, tournament: Tournament) -> list[Team]:
     return teams + reserve_teams(tournament.reserve_teams, teams)
 
 
+def _state(folder: Path, tournament: Tournament) -> tuple[State, list[str]]:
+    """The tournament's state, plus a warning if a new ID was just made though printouts exist."""
+    is_new = load_state(folder) is None
+    state = load_or_create_state(folder, tournament.tid)
+    remember_team_ids(folder, [t.team_id for t in read_teams(folder / TEAMS_FILE)])
+    printed = is_new and any(out_dir(tournament.slug).glob("*.pdf"))
+    if printed and not tournament.tid:
+        return state, [
+            f"no state.json in {folder}: this is a new tournament ID ({state.tid}), so cards printed "
+            f"earlier (out/{tournament.slug}/) won't scan into it. Restore state.json if you have it."
+        ]
+    return state, []
+
+
 def build_cards(folder: Path, mode: Mode, out: Path | None = None, team_ids: list[str] | None = None) -> BuildResult:
     folder = Path(folder)
     tournament = load_config(folder)
@@ -62,7 +76,7 @@ def build_cards(folder: Path, mode: Mode, out: Path | None = None, team_ids: lis
         if unknown:
             raise ValueError(f"unknown team_id(s): {', '.join(sorted(unknown))}")
         teams = [t for t in teams if t.team_id in team_ids]
-    state = load_or_create_state(folder, tournament.tid)
+    state, warnings = _state(folder, tournament)
     sources, logo_warnings = load_logos(folder, tournament.card, teams)
     decks = [team_deck(tournament, state.tid, team) for team in teams]
     pages = impose(mode, decks, tournament.layout.per_page)
@@ -75,7 +89,7 @@ def build_cards(folder: Path, mode: Mode, out: Path | None = None, team_ids: lis
         out = out_dir(tournament.slug, f"cards-{mode.value}{only}.pdf")
         jury_out = out.with_name("jury.pdf")
     logos = _pale(sources, tournament.card.logo_grey, teams)
-    warnings = logo_warnings + render_cards(pages, tournament, mode, out, logos)
+    warnings += logo_warnings + render_cards(pages, tournament, mode, out, logos)
     payloads = [encode_payload(tournament.scanner_url, card.id) for page in pages for card in page if card]
     if not tournament.card.no_qr:
         warnings += [w for w in [denser_qr_warning(payloads)] if w]
@@ -90,25 +104,25 @@ def build_jury_sheet(folder: Path, out: Path | None = None) -> tuple[Path, list[
     folder = Path(folder)
     tournament = load_config(folder)
     teams = load_teams(folder, tournament)
-    state = load_or_create_state(folder, tournament.tid)
+    state, warnings = _state(folder, tournament)
     out = Path(out) if out else out_dir(tournament.slug, "jury.pdf")
-    return out, render_jury_sheet(tournament, state, teams, out)
+    return out, warnings + render_jury_sheet(tournament, state, teams, out)
 
 
-def build_test_page(folder: Path, out: Path | None = None) -> Path:
+def build_test_page(folder: Path, out: Path | None = None) -> tuple[Path, list[str]]:
     """Calibration page for the first registered team with a logo, else the first team."""
     folder = Path(folder)
     tournament = load_config(folder)
     teams = read_teams(folder / TEAMS_FILE)  # a registered team: the page shows a real one
-    state = load_or_create_state(folder, tournament.tid)
-    sources, _ = load_logos(folder, tournament.card, teams)
+    state, warnings = _state(folder, tournament)
+    sources, logo_warnings = load_logos(folder, tournament.card, teams)
     team = next((t for t in teams if t.team_id in sources), teams[0])
     key = first_logo(tournament.card, team.team_id, sources)
     out = Path(out) if out else out_dir(tournament.slug, "test-page.pdf")
-    render_test_page(
+    warnings += logo_warnings + render_test_page(
         tournament, state.tid, team, out, sources.get(key), _pale(sources, tournament.card.logo_grey, teams)
     )
-    return out
+    return out, sorted(set(warnings))
 
 
 def build_logo_preview(folder: Path, drafts: dict[str, Path], out: Path | None = None) -> tuple[Path | None, list[str]]:

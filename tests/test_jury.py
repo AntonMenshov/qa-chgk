@@ -21,9 +21,13 @@ from chgk.jury import (
     JUROR_HOWTO,
     NOT_YET,
     RESERVE_HOWTO,
+    SUM_W,
+    _grid,
     _questions_line,
+    _styles,
 )
 from chgk.state import load_or_create_state, save_state
+from chgk.teams import Team
 
 BACKEND = "https://script.google.com/macros/s/AKfycbTEST_deployment_0000000/exec"
 
@@ -176,7 +180,7 @@ def test_static_text_is_printable():
     assert missing_glyphs(everything) == set()
 
 
-@pytest.mark.parametrize("sizes,expected", [(12, "3 × 12 = 36 вопросов"), ([12, 12, 15], "12 + 12 + 15 = 39 вопросов")])
+@pytest.mark.parametrize("sizes,expected", [(12, "3 × 12, вопросов: 36"), ([12, 12, 15], "12 + 12 + 15, вопросов: 39")])
 def test_questions_line(sizes, expected):
     t = Tournament(
         slug="t",
@@ -220,3 +224,9 @@ def test_links_are_clickable_with_the_full_address(folder, tmp_path):
     assert page2.count(board) >= 2 and page2.count(VIEW) >= 2 and set(page2) == {board, VIEW}
     assert decode_jury_link(setup).jury_token == state.jury_token
     assert {EDIT, SCANNER, VIEW, board, BACKEND} <= set(link_targets(out, 2))  # page 3 links table, backend too
+
+
+def test_grid_keeps_room_for_the_sum_column():
+    teams = [Team("A01", "Первая")]
+    table = _grid([str(q) for q in range(1, 19)] + ["Сумма"], teams, 100, _styles(), [])
+    assert table._colWidths[-1] == SUM_W > table._colWidths[-2]

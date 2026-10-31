@@ -16,6 +16,7 @@ from PIL import Image
 
 from chgk import FONT_BOLD_FILE, FONT_REGULAR_FILE
 
+MAX_ASPECT = 20  # longer side / shorter side of a logo at most: beyond it, not a logo
 FONT_FILES = [str(FONT_REGULAR_FILE), str(FONT_BOLD_FILE)]
 FONT_FAMILY = "PT Sans"
 FORCE_FONT = f'* {{ font-family: "{FONT_FAMILY}" !important; }}'
@@ -61,6 +62,18 @@ def check_svg(text: str) -> None:
                     raise ValueError(f"SVG with an external reference (url({ref[:60]})) is refused")
 
 
+def _size(text: str) -> tuple[float, float]:
+    """The SVG's width and height: its viewBox, else its width and height; square if it has neither."""
+    root = ET.fromstring(text)
+    numbers = re.split(r"[\s,]+", (root.get("viewBox") or "").strip())
+    try:
+        w, h = (numbers[2], numbers[3]) if len(numbers) == 4 else (root.get("width"), root.get("height"))
+        w, h = float(re.sub(r"[a-z%]+$", "", w)), float(re.sub(r"[a-z%]+$", "", h))
+    except (TypeError, ValueError):
+        return 1.0, 1.0
+    return (w, h) if w > 0 and h > 0 else (1.0, 1.0)
+
+
 def render_svg(text: str, max_side: int) -> Image.Image:
     """The SVG as an RGBA image whose longer side is `max_side` px; ValueError if unsafe or unreadable."""
     check_svg(text)
@@ -71,13 +84,14 @@ def render_svg(text: str, max_side: int) -> Image.Image:
         "font_family": FONT_FAMILY,
         "style_sheet": FORCE_FONT,
     }
+    w, h = _size(text)
+    if max(w, h) > MAX_ASPECT * min(w, h):
+        raise ValueError(f"SVG too long and narrow ({w:g}×{h:g}) to be a logo")
+    side = {"height": max_side} if h > w else {"width": max_side}  # chosen first: a tall one can't fill the memory
     try:
-        png = resvg_py.svg_to_bytes(**options, width=max_side)
-        image = Image.open(io.BytesIO(bytes(png)))
-        if image.height > max_side:  # taller than wide: fit the height instead
-            image = Image.open(io.BytesIO(bytes(resvg_py.svg_to_bytes(**options, height=max_side))))
+        image = Image.open(io.BytesIO(bytes(resvg_py.svg_to_bytes(**options, **side))))
         image.load()
-    except (ValueError, OSError) as err:
+    except (ValueError, OSError, Image.DecompressionBombError) as err:
         raise ValueError(f"SVG could not be drawn ({err})") from err
     return image.convert("RGBA")
 

@@ -40,8 +40,8 @@ def render_test_page(
     out_path: Path,
     source_logo: Image.Image | None = None,
     logos: dict[str, Image.Image] | None = None,
-) -> None:
-    """Draw the test page.
+) -> list[str]:
+    """Draw the test page; return warnings (e.g. characters the font cannot print).
 
     `source_logo` (unprocessed) is shown at every shade in GREYS; the sample cards use the
     tournament's configured logos and shade.
@@ -106,3 +106,4 @@ def render_test_page(
         c.rect(rect.x, rect.y, rect.w, rect.h, stroke=1, fill=0)
     c.showPage()
     c.save()
+    return warnings

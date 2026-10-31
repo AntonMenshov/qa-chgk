@@ -196,3 +196,21 @@ def test_a_trailing_newline_is_no_part_of_a_slug():
             questions_per_round=12,
             scanner_url="https://x.github.io/s/",
         )
+
+
+def test_no_qr_without_a_team_name_is_refused():
+    with pytest.raises(ConfigError, match="whose it is"):
+        CardFields(no_qr=True, team_name=False)
+
+
+def test_numbers_must_be_whole():
+    with pytest.raises(ConfigError, match="reserve_teams must be a whole number"):
+        Tournament(
+            slug="t",
+            name="T",
+            date=date(2026, 11, 15),
+            rounds=1,
+            questions_per_round=12,
+            scanner_url="https://x.github.io/s/",
+            reserve_teams=1.5,
+        )

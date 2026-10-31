@@ -1,12 +1,26 @@
 """What every command group shares: the app, the `backend` group, error and warning output."""
 
 import typer
+from typer.core import TyperGroup
 
 from chgk import __version__
-from chgk.backend import PERMISSIONS_HINT, SHEETS_API_HINT
+from chgk.backend import PERMISSIONS_HINT, SHEETS_API_HINT, BackendError
 
-app = typer.Typer(help="ЧГК answer cards and jury scanning.", no_args_is_help=True)
-backend_app = typer.Typer(help="Google backends: one named profile per Google account.", no_args_is_help=True)
+
+class CleanErrors(TyperGroup):
+    """Any command: a broken file, a bad path or a refusal is `Error: …`, never a traceback."""
+
+    def invoke(self, ctx: typer.Context):
+        try:
+            return super().invoke(ctx)
+        except (ValueError, OSError, BackendError) as err:
+            raise fail(err) from err
+
+
+app = typer.Typer(cls=CleanErrors, help="ЧГК answer cards and jury scanning.", no_args_is_help=True)
+backend_app = typer.Typer(
+    cls=CleanErrors, help="Google backends: one named profile per Google account.", no_args_is_help=True
+)
 app.add_typer(backend_app, name="backend")
 
 

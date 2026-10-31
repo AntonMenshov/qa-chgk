@@ -149,3 +149,19 @@ def test_files_are_replaced_whole_and_state_is_private(tmp_path):
         save_state(tmp_path, State(tid="OTHER"))
     assert load_state(tmp_path).tid == "K7M2Q"
     assert [p.name for p in tmp_path.iterdir()] == ["state.json"]
+
+
+def test_a_new_team_never_gets_an_id_the_tournament_used_before(tmp_path):
+    save_state(tmp_path, State(tid="K7M2Q", used_team_ids=["A01", "A02", "A03"]))
+    (tmp_path / "teams.py").write_text(HEADER + 'teams = [team("Один", id="A01"), team("Новые")]\n', encoding="utf-8")
+    assert [t.team_id for t in read_teams(tmp_path / "teams.py")] == ["A01", "A04"]
+    assert load_state(tmp_path).used_team_ids == ["A01", "A02", "A03", "A04"]
+
+
+def test_broken_state_json_says_which_file(tmp_path):
+    (tmp_path / "state.json").write_text("{", encoding="utf-8")
+    with pytest.raises(ValueError, match=r"state\.json is broken"):
+        load_state(tmp_path)
+    (tmp_path / "state.json").write_text("{}", encoding="utf-8")  # no tid
+    with pytest.raises(ValueError, match=r"state\.json is broken"):
+        load_state(tmp_path)

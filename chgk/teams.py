@@ -14,12 +14,14 @@ also regenerates it from the Sheet's Teams tab.
 """
 
 import json
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
 from chgk import run_python_file, write_file
 from chgk.config import check_logo_grey
 from chgk.ids import assign_team_ids
+from chgk.state import load_state, remember_team_ids
 
 TEAMS_FILE = "teams.py"
 
@@ -41,9 +43,12 @@ def team(name: str, id: str | None = None, city: str = "", logo: str = "", logo_
     return Team("" if id is None else str(id), name, city, logo, logo_grey=logo_grey)
 
 
-def normalize_teams(teams: list[Team], source: str) -> list[Team]:
-    """Assign the missing team IDs and strip spaces; every team needs a name (`source` names the list)."""
-    ids = assign_team_ids([t.team_id.strip() or None for t in teams])
+def normalize_teams(teams: list[Team], source: str, taken: Iterable[str] = ()) -> list[Team]:
+    """Assign the missing team IDs and strip spaces; every team needs a name (`source` names the list).
+
+    `taken`: IDs the tournament used before (state.json), never given to a new team.
+    """
+    ids = assign_team_ids([t.team_id.strip() or None for t in teams], taken)
     out = []
     for t, team_id in zip(teams, ids, strict=True):
         name = t.name.strip()
@@ -75,9 +80,11 @@ def read_teams(path: Path) -> list[Team]:
         raise ValueError(f"{path} must define `teams = [team(...), ...]`")
     if not given:
         raise ValueError(f"{path} has no teams")
-    teams = normalize_teams(given, str(path))
+    state = load_state(path.parent)
+    teams = normalize_teams(given, str(path), state.used_team_ids if state else ())
     if teams != given:
         write_teams(path, teams)
+    remember_team_ids(path.parent, [t.team_id for t in teams])
     return teams
 
 

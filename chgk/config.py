@@ -50,6 +50,8 @@ class CardFields:
         if self.logo_size is not None and not 0.2 <= self.logo_size <= 8:
             raise ConfigError(f"logo_size must be 0.2–8 in, got {self.logo_size}")
         check_logo_grey(self.logo_grey)
+        if self.no_qr and not self.team_name:
+            raise ConfigError("no_qr with team_name=False: nothing on a card would tell whose it is")
         if not isinstance(self.logo, LogoMode):
             raise ConfigError(f"logo must be a LogoMode, e.g. LogoMode.TEAM, got {self.logo!r}")
         if self.logo is LogoMode.TOURNAMENT and not self.tournament_logo:
@@ -110,6 +112,9 @@ class Tournament:
             raise ConfigError(f"slug must be lowercase letters, digits and dashes, got {self.slug!r}")
         if not self.name.strip():
             raise ConfigError("name must not be empty")
+        for name in ("rounds", "spares_per_team", "reserve_teams", "board_grid_max_teams"):
+            if not isinstance(getattr(self, name), int) or isinstance(getattr(self, name), bool):
+                raise ConfigError(f"{name} must be a whole number, got {getattr(self, name)!r}")
         if not isinstance(self.date, date) or isinstance(self.date, datetime):
             raise ConfigError(f"date must be a date, e.g. date(2026, 11, 15), got {self.date!r}")
         if self.rounds < 1:

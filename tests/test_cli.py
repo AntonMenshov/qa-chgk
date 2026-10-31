@@ -33,3 +33,36 @@ def test_a_teams_option_with_no_ids_is_refused(folder):
     result = runner.invoke(app, ["cards", str(folder), "--mode", "team-pages", "--teams", ","])
     assert result.exit_code == 1
     assert "no team IDs" in result.output
+
+
+def test_a_typo_in_an_organisers_file_is_a_clean_error(folder):
+    (folder / "config.py").write_text("tournament = Tournament(\n", encoding="utf-8")
+    result = runner.invoke(app, ["cards", str(folder), "--mode", "team-pages"])
+    assert result.exit_code == 1
+    assert "config.py" in result.output and "SyntaxError" in result.output
+    assert not isinstance(result.exception, SyntaxError)
+
+
+def test_a_broken_backends_file_is_a_clean_error(tmp_path, monkeypatch):
+    monkeypatch.setenv("CHGK_CONFIG_DIR", str(tmp_path))
+    (tmp_path / "backends.json").write_text("{", encoding="utf-8")
+    result = runner.invoke(app, ["backend", "list"])
+    assert result.exit_code == 1
+    assert "backends.json is broken" in result.output
+
+
+def test_a_bad_output_path_is_a_clean_error(folder, tmp_path):
+    (tmp_path / "file").write_text("x", encoding="utf-8")
+    result = runner.invoke(
+        app, ["cards", str(folder), "--mode", "team-pages", "--out", str(tmp_path / "file" / "x.pdf")]
+    )
+    assert result.exit_code == 1
+    assert "Error" in result.output
+
+
+def test_cards_warn_when_a_lost_state_json_makes_a_new_tournament_id(folder):
+    assert runner.invoke(app, ["cards", str(folder), "--mode", "team-pages"]).exit_code == 0
+    (folder / "state.json").unlink()
+    result = runner.invoke(app, ["cards", str(folder), "--mode", "team-pages"])
+    assert result.exit_code == 0
+    assert "new tournament ID" in result.output

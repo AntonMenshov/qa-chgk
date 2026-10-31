@@ -5,7 +5,7 @@ so a tournament stays on the Google account it was created on.
 """
 
 import json
-from dataclasses import asdict, dataclass, field, fields
+from dataclasses import asdict, dataclass, field, fields, replace
 from pathlib import Path
 
 from chgk import write_file
@@ -26,6 +26,11 @@ class State:
     # Each token replaced after a leaked link (`chgk replace-token`): {"which": "jury"|"board",
     # "at": "YYYY-MM-DDTHH:MM"}, oldest first. The jury sheet says what happened.
     replaced: list[dict] = field(default_factory=list)
+    # A replacement under way: {"which": …, "token": …}, saved before the backend is called, so a
+    # lost reply never leaves the live token only on the backend; a retry sends the same one.
+    pending_token: dict | None = None
+    # Every team ID this tournament has used: printed on cards, so never given to another team.
+    used_team_ids: list[str] = field(default_factory=list)
 
     @property
     def spreadsheet_url(self) -> str | None:
@@ -56,9 +61,12 @@ def load_state(folder: Path) -> State | None:
     path = Path(folder) / STATE_FILE
     if not path.is_file():
         return None
-    data = json.loads(path.read_text(encoding="utf-8"))
-    known = {f.name for f in fields(State)}
-    return State(**{k: v for k, v in data.items() if k in known})
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        known = {f.name for f in fields(State)}
+        return State(**{k: v for k, v in data.items() if k in known})
+    except (ValueError, TypeError, AttributeError) as err:
+        raise ValueError(f"{path} is broken ({err}): restore it from your copy") from err
 
 
 def check_tid(state: State, tid: str | None) -> None:
@@ -81,6 +89,13 @@ def load_or_create_state(folder: Path, tid: str | None = None) -> State:
     state = State(tid=tid or generate_tid())
     save_state(folder, state)
     return state
+
+
+def remember_team_ids(folder: Path, team_ids: list[str]) -> None:
+    """Note these IDs as used, if this tournament has a state yet (before that nothing is printed)."""
+    state = load_state(folder)
+    if state is not None and not set(team_ids) <= set(state.used_team_ids):
+        save_state(folder, replace(state, used_team_ids=sorted({*state.used_team_ids, *team_ids})))
 
 
 def save_state(folder: Path, state: State) -> None:

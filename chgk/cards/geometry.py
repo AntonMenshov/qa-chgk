@@ -88,14 +88,15 @@ def card_rects(layout: Layout) -> list[Rect]:
     ]
 
 
-def card_parts(card: Rect, qr_size: float, logo_size: float | None = None) -> CardParts:
+def card_parts(card: Rect, qr_size: float, logo_size: float | None = None, no_qr: bool = False) -> CardParts:
     """Split one card into its parts. `qr_size` in points, including the quiet zone.
 
     The QR's quiet zone provides most of its margin; QR_INSET_SHARE of its side moves it in further.
     `logo_size` (points): None fits the logo into the writing area; a number makes it a
     square of that side centred on the card (user request: not shifted left by the QR
     column), shrunk to fit. It may sit behind the number and footer text, and its corner
-    may reach under the QR, which is drawn on top with its white quiet zone.
+    may reach under the QR, which is drawn on top with its white quiet zone. `no_qr`: no QR is
+    printed, so its size can't make the card too small.
     """
     inset = qr_size * QR_INSET_SHARE
     qr = Rect(card.right - inset - qr_size, card.top - inset - qr_size, qr_size, qr_size)
@@ -104,7 +105,7 @@ def card_parts(card: Rect, qr_size: float, logo_size: float | None = None) -> Ca
     footer = Rect(card.x + PAD, card.y + PAD, card.w - 2 * PAD, FOOTER_H)
     writing_top = min(qr.y, number.y)
     writing = Rect(card.x + PAD, footer.top, card.w - 2 * PAD, writing_top - footer.top)
-    if number.w < 0.45 * INCH or writing.h < MIN_WRITING_H:
+    if not no_qr and (number.w < 0.45 * INCH or writing.h < MIN_WRITING_H):
         raise GeometryError(
             f"card {card.w / INCH:.2f}×{card.h / INCH:.2f} in is too small for a {qr_size / INCH:.2f} in QR code"
         )

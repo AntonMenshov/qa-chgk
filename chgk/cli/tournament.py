@@ -7,12 +7,12 @@ import typer
 
 from chgk import out_dir
 from chgk.backend import BackendError, Profiles
-from chgk.cards.build import build_jury_sheet
+from chgk.cards.build import build_jury_sheet, load_teams
 from chgk.cli.common import app, fail
 from chgk.config import load_config
 from chgk.jury import board_link, sheet_version
 from chgk.remote import new_tournament, replace_token, sync_teams
-from chgk.state import load_state
+from chgk.state import check_tid, load_state
 
 
 @app.command("new")
@@ -42,10 +42,13 @@ def new(
 @app.command("teams")
 def teams_cmd(folder: Path = typer.Argument(..., help="Tournament folder")) -> None:
     """Pull the Sheet's Teams tab into teams.py (assigning team IDs, written back to the Sheet)."""
+    warnings: list[str] = []
     try:
-        teams = sync_teams(folder, Profiles())
+        teams = sync_teams(folder, Profiles(), warnings=warnings)
     except (ValueError, BackendError) as err:
         raise fail(err) from err
+    for warning in warnings:
+        typer.secho(f"Warning: {warning}", fg="yellow", err=True)
     typer.echo(f"{len(teams)} teams synced to {Path(folder) / 'teams.py'}.")
 
 
@@ -94,13 +97,40 @@ def replace_token_cmd(
     yes: bool = typer.Option(False, "--yes", help="Don't ask for confirmation"),
 ) -> None:
     """Replace a leaked jury or board link: the old one stops working at once; writes jury-v<N>.pdf."""
-    if not yes:
-        typer.confirm(f"The old {LEAKED[which]} stops working at once. Replace it?", abort=True)
+    # All that the new sheet needs comes first: once the backend switches, the old link is dead.
     try:
         tournament = load_config(folder)
+        load_teams(folder, tournament)
+        current = load_state(folder)
+        if current is not None:
+            check_tid(current, tournament.tid)
+        out_dir(tournament.slug).mkdir(parents=True, exist_ok=True)
+    except ValueError as err:
+        raise fail(err) from err
+    if not yes:
+        typer.confirm(
+            f"«{tournament.name}» ({tournament.slug}): the old {LEAKED[which]} stops working at once. Replace it?",
+            abort=True,
+        )
+    try:
         state = replace_token(folder, which.value, Profiles())
+    except BackendError as err:
+        typer.secho(
+            "It may have been replaced all the same: run this command again, it sends the same new token.",
+            fg="yellow",
+            err=True,
+        )
+        raise fail(err) from err
+    except ValueError as err:
+        raise fail(err) from err
+    try:
         path, warnings = build_jury_sheet(folder, out_dir(tournament.slug, f"jury-v{sheet_version(state)}.pdf"))
-    except (ValueError, BackendError) as err:
+    except (ValueError, OSError) as err:
+        typer.secho(
+            f"The new token is live, but the sheet failed: fix this, then `chgk jury-sheet {folder}`.",
+            fg="yellow",
+            err=True,
+        )
         raise fail(err) from err
     for warning in warnings:
         typer.secho(f"Warning: {warning}", fg="yellow", err=True)
@@ -113,4 +143,6 @@ def replace_token_cmd(
         )
     else:
         typer.echo(f"Open the new board link on the projector (page 2, or `chgk board {folder}`).")
-    typer.echo("Earlier jury sheets hold the old link: destroy their printouts.")
+    typer.echo(
+        f"Earlier jury sheets hold the old link, {out_dir(tournament.slug, 'jury.pdf')} too: destroy their printouts."
+    )

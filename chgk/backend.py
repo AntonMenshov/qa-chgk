@@ -60,9 +60,12 @@ def config_dir() -> Path:
 class Profiles:
     def __init__(self, path: Path | None = None):
         self.path = path or config_dir() / "backends.json"
-        data = json.loads(self.path.read_text(encoding="utf-8")) if self.path.is_file() else {}
-        self.active_name: str | None = data.get("active")
-        self.profiles = {name: Profile(name=name, **p) for name, p in data.get("profiles", {}).items()}
+        try:
+            data = json.loads(self.path.read_text(encoding="utf-8")) if self.path.is_file() else {}
+            self.active_name: str | None = data.get("active")
+            self.profiles = {name: Profile(name=name, **p) for name, p in data.get("profiles", {}).items()}
+        except (ValueError, TypeError, AttributeError) as err:
+            raise ValueError(f"{self.path} is broken ({err}): fix it, or add the backends again") from err
 
     def save(self) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -119,6 +122,10 @@ class BackendClient:
             response = self.http.post(
                 self.url, content=body.encode(), headers={"Content-Type": "text/plain;charset=utf-8"}
             )
+        except httpx.TimeoutException as err:
+            raise BackendError(
+                f"the backend did not answer in time, but it may have done {action} all the same"
+            ) from err
         except httpx.HTTPError as err:
             raise BackendError(f"cannot reach the backend: {err}") from err
         try:
@@ -162,6 +169,9 @@ class BackendClient:
             reserve=list(reserve),
             board_token=board_token,
         )
+
+    def get_state(self, tid: str) -> dict:
+        return self.call("get_state", tid=tid)
 
     def get_teams(self, tid: str) -> list[dict]:
         return self.call("get_teams", tid=tid)["teams"]

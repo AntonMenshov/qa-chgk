@@ -21,7 +21,7 @@ from chgk.backend import (
 from chgk.cli import app
 from chgk.ids import decode_jury_link, encode_jury_link
 from chgk.remote import new_tournament, replace_token, sync_teams
-from chgk.state import load_or_create_state
+from chgk.state import load_or_create_state, load_state
 from chgk.teams import Team, read_teams
 
 URL_A = "https://script.google.com/macros/s/AKfycbAccountA_000000000/exec"
@@ -564,3 +564,62 @@ def test_sync_teams_refuses_a_registered_team_on_a_reserve_id_before_changing_an
         sync_teams(folder, Profiles())
     assert (folder / "teams.py").read_text(encoding="utf-8") == before
     assert not sent(a, "set_teams")
+
+
+def test_sync_teams_refuses_a_broken_teams_py_and_keeps_it(folder, backends):
+    profiles = Profiles()
+    profiles.add(Profile("personal", URL_A, "tokA"))
+    profiles.save()
+    new_tournament(folder, profiles.active())
+    (folder / "teams.py").write_text(
+        'teams = [team("X"), team("X", id="A01"), team("Y", id="A01")]\n', encoding="utf-8"
+    )
+    broken = (folder / "teams.py").read_text(encoding="utf-8")
+    with pytest.raises(ValueError, match="delete it to take the Sheet"):
+        sync_teams(folder, Profiles())
+    assert (folder / "teams.py").read_text(encoding="utf-8") == broken
+
+
+def test_sync_teams_keeps_a_logo_by_name_and_warns_about_teams_only_on_the_tabs(folder, backends):
+    a, _ = backends
+    profiles = Profiles()
+    profiles.add(Profile("personal", URL_A, "tokA"))
+    profiles.save()
+    state = new_tournament(folder, profiles.active()).state
+    first = read_teams(folder / "teams.py")[0]
+    assert first.logo_file
+    a.set_cell(state.tid, "Teams", 2, 1, "58746")  # the first team takes its rating number
+    a.set_cell(state.tid, "Teams", 2, 4, "")  # the logo is only in teams.py
+    warnings = []
+    teams = sync_teams(folder, Profiles(), warnings=warnings)
+    assert next(t for t in teams if t.team_id == "58746").logo_file == first.logo_file
+    assert any("still on the tabs" in w for w in warnings) and first.team_id in " ".join(warnings)
+
+
+def test_replace_token_retry_after_a_lost_reply_sends_the_same_token(folder, backends):
+    a, _ = backends
+    profiles = Profiles()
+    profiles.add(Profile("personal", URL_A, "tokA"))
+    profiles.save()
+    state = new_tournament(folder, profiles.active()).state
+
+    class Lost(BackendClient):
+        def replace_token(self, *args, **kwargs):
+            super().replace_token(*args, **kwargs)
+            raise BackendError("the reply was lost")
+
+    with pytest.raises(BackendError):
+        replace_token(folder, "jury", Profiles(), Lost(URL_A, "tokA"))
+    saved = load_state(folder)
+    assert saved.jury_token == state.jury_token and saved.pending_token["which"] == "jury"
+    done = replace_token(folder, "jury", Profiles())
+    assert done.jury_token == saved.pending_token["token"]
+    assert done.pending_token is None and len(done.replaced) == 1
+    assert a.call("get_state", tid=state.tid, token=done.jury_token)["ok"]
+
+
+def test_a_timeout_says_the_request_may_have_been_done():
+    with respx.mock as mock:
+        mock.post(URL_A).mock(side_effect=httpx.ReadTimeout("slow"))
+        with pytest.raises(BackendError, match="may have done replace_token"):
+            BackendClient(URL_A, "t").call("replace_token")
