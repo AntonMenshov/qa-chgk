@@ -326,7 +326,7 @@ only, not data-model changes.
   of the same tournament takes the new token; marks and photos waiting there are sent with
   it: a refused token is answered `retry: true`, so nothing is dropped, and the phone and
   board say in words that the link was replaced.
-- Next version (PLAN Phase 9): Google sign-in with an allow-list of emails.
+- No Google sign-in (user, 2026-10-30): the secret jury link stays the only way in.
 - Caveat: on iOS a Home-Screen app and Safari keep separate storage, so after adding the
   app to the Home Screen the jury QR is scanned once more inside it (the printed how-to
   says so); a card URL opened from the built-in Camera may ask for the jury link once.
