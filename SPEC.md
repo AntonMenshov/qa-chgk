@@ -266,13 +266,13 @@ instead of the card.
    - a card whose question is beyond the tournament's last one (printed for a longer
      tournament) is refused with a message and never becomes the current question;
    - the team name is shown in large type and a `received` event is recorded;
-   - **warning** (colour + vibration) if the card is from an earlier question than the
-     current one («Карточка вопроса 5 (идёт 7) — отмечено для 5»; the mark still goes
-     to 5), or if this team already has a mark for this question.
+   - **warning** (colour + sound; iOS has no vibration for web pages) if the card is from an
+     earlier question than the current one («Карточка вопроса 5 (идёт 7) — отмечается для 5»;
+     the mark still goes to 5), or if it is already judged («Уже отмечено: верно»).
 3. The juror taps **✓ / ✗ / ?**. The status event is recorded and the app returns to
    scanning. Without a verdict: «Решить позже» for a new card, and «Отмена (останется: …)»
    for a card already entered (user), which keeps its mark.
-4. **"Missing: n teams ▸"** lists teams with no card for the current question
+4. **«Нет карточек: n ›»** lists teams with no card for the current question
    (local state merged with server state).
 5. **«Чья карточка?»** (user request): a read-only mode. The camera keeps scanning and
    each card is only described — team name and ID, question and round (or the spare
@@ -347,9 +347,9 @@ The app doesn't show it (decided).
 ### 8.2 Card contents (Russian labels; no «Вопрос»)
 ```
 ┌───────────────────────────────┐
-│ 27                ▄▄▄▄  Тур 3 │   big question number; QR top-right
-│                   █▀▀█        │
-│                   ▀▀▀▀        │
+│ 27                     ▄▄▄▄   │   big question number; QR top-right
+│ Тур 3                  █▀▀█   │
+│                        ▀▀▀▀   │
 │   (pale logo watermark)       │   writing area
 │                               │
 │ Синие зайцы · Осенний кубок   │   optional footer (date only with date=True)
@@ -367,8 +367,7 @@ The app doesn't show it (decided).
 - The QR is drawn over the logo with its white quiet zone, so a logo never shows through it.
 - `CardFields(no_qr=True)` (user, 2026-10-30; default False): cards without the QR code, for a
   purely paper game with no scanning. Its corner stays empty; nothing else on the card moves.
-- Logo watermark default: **14% grey** (the user's choice from real cards; a team's `logo_grey` in teams.py overrides it), configurable:
-  the ink of the logo's dark parts (its darkest 10%), not of a single darkest pixel; see §9.
+- Logo watermark default: **14% grey** (the user's choice from real cards), configurable: the ink of the logo's dark parts (its darkest 10%), not of a single darkest pixel; see §9.
 
 ### 8.3 Imposition: all three modes are available, and the CLI **asks which one** before generating unless it's passed
 | Mode | Description |
@@ -454,8 +453,8 @@ A pale greyscale watermark. The source is chosen per team and per tournament (ta
   the writing area. A number makes it a square centred on the card (user request),
   behind the number and footer text, and shrunk to fit; its corner may go under the QR,
   which is drawn on top with its white quiet zone. On a 3×4 card the maximum is about 2.48 in.
-- **Shade:** the darkest 10% of the drawing gets exactly `logo_grey` ink, and anything
-  darker is clamped. Scaling by the single darkest pixel printed the user's light-grey
+- **Shade:** the darkest 10% of the drawing gets exactly `logo_grey` ink (`CardFields`, or the
+  team's in teams.py for its own logo), and anything darker is clamped. Scaling by the single darkest pixel printed the user's light-grey
   logos at about a third of the chosen shade (fixed 2026-10-29).
 
 | Source | How |
@@ -556,7 +555,8 @@ The Claude API does not output raster images, but it can write SVG.
   card yet a small grey «•»; `?` and `R` show as «?». Only `1` counts.
 - **On a phone** (no mouse, `hover: none`; user): the reveal buttons stay on screen and the title
   screen says to tap «Показать тур 1»; by default no QR codes and only the last revealed round's
-  grid (the QR and G buttons change that, and the choice is kept).
+  grid (the QR and «Сетка» buttons change that, and the choice is kept); no fullscreen button on an
+  iPhone, which has none.
 
 ## 11. Testing (required for every phase)
 
@@ -571,7 +571,7 @@ stays a thin layer.
 | Apps Script logic (`apps_script/`) | `npm test` (node:test) | last-write-wins merge, status → cell mapping, request validation, token check, idempotency by `scan_id`. Pure functions live in a file that runs both in Apps Script and in Node |
 | Backend in Node (`apps_script/*.js`) | `npm test` (node:test) | every action against in-memory fakes of Sheets, Drive and the Sheets API (`tests/js/fake_apps_script.mjs`): tabs, sums and places vs the logic.js reference on random tournaments, sorting (one-call API sort vs the slow sort), «Спорные», `upload_photo`, Latin Drive names; run again with the Sheets API off |
 | Web app logic (`web/`) | `npm test` (node:test) | payload parsing, offline queue (retry, dedupe), missing-teams computation, question-mismatch / duplicate warnings, spare-card handling, «Чья карточка?», the photo queue (two at a time, retry, drop on refusal, survives a reload), the board's model, link encoder and QR drawing |
-| Browser end to end | `uv run pytest` (headless Chrome) | the scanner with a fake camera showing real cut-out cards against the fake backend: verdicts, spare keypad, reserve deck, foreign card, «Чья карточка?», one photo per card whose QR decodes back to that card; the board: rounds revealed by hand, places, its QR codes decoded from screenshots = the jury sheet's links; the phone's decoder reads the card, not a phantom Micro QR beside it |
+| Browser end to end | `uv run pytest` (headless Chrome) | the scanner with a fake camera showing real cut-out cards against the fake backend: verdicts, spare keypad, reserve deck, foreign card, «Чья карточка?», one photo per card whose QR decodes back to that card; the board: rounds revealed by hand, places, marks' colours, its QR codes decoded from screenshots = the jury sheet's links, and the same page on a phone; the phone's decoder reads the card, not a phantom Micro QR beside it |
 | Cross-language contract | both | shared test vectors in `tests/vectors/*.json` (QR payloads, jury and board links, merge cases), checked by both the Python and JS suites, so the encoder and the decoders can't drift apart |
 
 Not unit-testable, so covered by a manual checklist per release

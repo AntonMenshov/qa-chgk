@@ -18,5 +18,5 @@ Rules that override your defaults (details in HANDOVER «Working conventions» a
 - After a change to how cards or the jury sheet are drawn, regenerate the current tournament's
   cards and jury sheet (now `out/osenniy-salat/`) in the mode already used, without asking.
 - `logos/drafts/` holds the user's logo test drafts: never delete, overwrite or accept them.
-- `ANTHROPIC_API_KEY` is set in the user's shell profile; if a command doesn't see it, run it
-  through `zsh -ic '…'`. Never print or store it.
+- `ANTHROPIC_API_KEY` comes from the shell profile (not set on the current machine, not needed for
+  Phases 7 and 8); if a command doesn't see it, run it through `zsh -ic '…'`. Never print or store it.

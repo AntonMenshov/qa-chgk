@@ -31,7 +31,7 @@ Tests are written alongside the code, not after it.
 - Teams come from a local file until Phase 2 (now `teams.py`, Python like config.py).
 - Font bundled under `chgk/assets/fonts/` (OFL).
 - **Tests:**
-  - config edge cases (1 round; uneven rounds; 0 spares);
+  - config edge cases (1 round; uneven rounds; too few spares);
   - payload round-trip against the vectors;
   - imposition properties for all modes over many (teams, questions, grid) combos;
   - geometry (margins, QR minimum size, no overlap);
@@ -109,8 +109,8 @@ Tests are written alongside the code, not after it.
   calls; key never logged), the no-key brief, preview and accept.
 
 ## Phase 7 — Internal test at home, with printouts
-- Starts with every check in docs/manual-checks.md (the user's manual checks are part
-  of this phase): iPhone scanner incl. «Чья карточка?» and photos, the Sheet's edit
+- Starts with the checks in docs/manual-checks.md, all but the logo drawing ones (the user's
+  manual checks are part of this phase): iPhone scanner incl. «Чья карточка?» and photos, the Sheet's edit
   trigger, the board, the view-only link, the test page and a full card print.
 - Then a mock game at home with the printed cards and jury sheet: iPhone scanner, the
   Sheet, the board and card photos together.

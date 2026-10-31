@@ -20,13 +20,11 @@ Needs [uv](https://docs.astral.sh/uv/) and a Gmail account for the results.
    project). Check with `uv run chgk backend check`.
 2. **A tournament** is a folder `tournaments/<slug>/`: copy `config.py` and `teams.py`
    from `tournaments/example/` (3 rounds of 12), which is only a reference: chgk refuses to
-   run on it. Then edit them: `slug` (must equal the
-   folder's name, which chgk checks: outputs go to `out/<slug>/`), name, date, rounds and
-   questions; team names (IDs such as rating numbers are optional, missing ones are assigned).
+   run on it. Then edit them: `slug` (must equal the folder's name, which chgk checks: outputs
+   go to `out/<slug>/`), name, date, rounds and questions; team names (IDs such as rating numbers are optional, missing ones are assigned).
    To use your own tournament ID (e.g. its rating.chgk.info number), set `tid=` in config.py
    before the first `chgk cards`, `test-page`, `jury-sheet` or `new`; otherwise one is generated.
-   The example's cards differ from the defaults (no team name, a 1.85 in
-   logo): change or delete those lines in `card=CardFields(...)` to get the defaults.
+   The example's cards differ from the defaults (no team name, a 1.85 in logo): change or delete those lines in `card=CardFields(...)` to get the defaults.
 3. **Create its Sheet:** `uv run chgk new tournaments/<slug>`.
 4. **Print:** `uv run chgk cards tournaments/<slug>` writes `out/<slug>/cards-<mode>.pdf`
    (it asks how you'll cut: one team per page, guillotine stack, or scissors) and
@@ -46,7 +44,8 @@ Needs [uv](https://docs.astral.sh/uv/) and a Gmail account for the results.
    on the Sheet later.
 
 **Logos** (a pale watermark on each team's cards): put PNG, JPG or SVG files in `logos/` (shared
-by all tournaments, kept off GitHub) and name them in teams.py (`logo="fiasko.png"`; add `logo_grey=0.2` for one logo that prints too pale or too dark).
+by all tournaments, kept off GitHub) and name them in teams.py (`logo="fiasko.png"`; add
+`logo_grey=0.2` for one logo that prints too pale or too dark; the default is 0.14).
 `uv run chgk logos tournaments/<slug>` shows which logo each team's cards use. With
 `--draw`, Claude (Opus, max effort) draws SVG drafts in the style of your logos for teams
 without one, then reviews its own rendering and fixes it (with

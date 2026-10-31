@@ -20,14 +20,14 @@ Full design: [SPEC.md](SPEC.md). Build order: [PLAN.md](PLAN.md).
 | Phase | Status |
 |---|---|
 | Spec and plan | ✅ done, agreed with the user |
-| 0 — Skeleton and spikes | ✅ spike 1 (laptop + iPhone Safari), spike 2 (all QR sizes scan well; zxing-wasm chosen), spike 3 (0.65 in QR, later 0.85; logo shade later changed to 12%) |
+| 0 — Skeleton and spikes | ✅ spike 1 (laptop + iPhone Safari), spike 2 (all QR sizes scan well; zxing-wasm chosen), spike 3 (0.65 in QR, later 0.85; logo shade later changed to 14%) |
 | 1 — Config, identity, card PDF | ✅ done; cards + jury sheet work offline from `teams.py` |
-| 2 — Apps Script backend + Sheet | ✅ deployed under the user's Gmail and checked live (sums, places, order, reserve teams, IDs, view-only link); the Sheet-trigger checks are in Phase 7 |
-| 3 — Scanner web app | ✅ built and tested (unit + integration + headless-Chrome end-to-end with a fake camera), checked live on Pages against the real backend; the iPhone check is in Phase 7 |
-| 4 — Card photos | ✅ built, tested (phone queue, backend `upload_photo`, headless-Chrome check that each photo shows its card) and checked live (API upload to Drive); the iPhone check is in Phase 7 |
+| 2 — Apps Script backend + Sheet | ✅ deployed under the user's Gmail and checked live (sums, places, order, reserve teams, IDs, view-only link); the Sheet-trigger checks passed in Phase 7 |
+| 3 — Scanner web app | ✅ built and tested (unit + integration + headless-Chrome end-to-end with a fake camera), checked live on Pages against the real backend; the iPhone checks passed in Phase 7 |
+| 4 — Card photos | ✅ built, tested (phone queue, backend `upload_photo`, headless-Chrome check that each photo shows its card) and checked live (API upload to Drive); the iPhone checks passed in Phase 7 |
 | 5 — Projector board + stats | ✅ built, tested and checked live |
 | 6 — Logos | ✅ built and tested (SPEC §9.1); tried on the user's 22 teams, in a session and through the API (drafts kept, never accepted: Key decisions, Logos) |
-| 7 — Internal test at home (printouts) | in progress: manual checks done on a throwaway tournament (CHECK1; since deleted, locally and in Drive), all fine except the feedback below, now fixed; the fixes' own new checks need an iPhone. Next: the mock game, then a docs/comments check |
+| 7 — Internal test at home (printouts) | in progress: manual checks done on a throwaway tournament (CHECK1; since deleted, locally and in Drive), all fine except the feedback below, now fixed. Next: reprint, the fixes' own checks on an iPhone, the mock game, then a docs/comments check |
 | 8 — External test at a tournament | not started: the same loop with real teams |
 | 9 — Next version | the deferred list in PLAN.md |
 
@@ -40,11 +40,10 @@ Full design: [SPEC.md](SPEC.md). Build order: [PLAN.md](PLAN.md).
 - **Phase 7 feedback (2026-10-30), fixed:** a card already entered offers «Отмена (останется: …)»;
   board: wrong is a red «×», no card yet a small grey «•»; board on a phone: the buttons stay, it says
   what to tap, no QR codes and the last round's grid by default; the QR sits 20% farther from the
-  card's top and right edges (the printed cards changed by ~0.4 mm, no reprint needed to test).
-  Screen rotation can't be locked from a web page on an iPhone: use its Portrait Orientation Lock.
-- **Current machine (since 2026-10-30):** the user's logos are here;
-  `ANTHROPIC_API_KEY` is not set, and for now isn't needed (user): the `--draw` checks are out of
-  scope for Phases 7 and 8.
+  card's top and right edges (~0.4 mm); logo shade 14% by default, `logo_grey=` per team in teams.py.
+  Earlier printouts still scan, but have the old shade and QR position. Screen rotation can't be locked from a web page on an iPhone: use its Portrait Orientation Lock.
+- **`ANTHROPIC_API_KEY`:** not set on the current machine, and not needed for now: the `--draw`
+  checks are out of scope for Phases 7 and 8 (user).
 - **Example:** `tournaments/example/` is only a reference to copy (the user's four teams 645 «42»,
   58746 Фиаско, 40400 Совхоз Победа, A01 Звезды сошлись). It is never run and never has a `state.json`
   (user, 2026-10-30); `load_config` refuses it. The second example, example-15, was removed. Sheets
@@ -89,7 +88,7 @@ tournaments/osenniy-salat/  the Phase 7 test game
 tests/                pytest (tests/test_*.py) and node:test (tests/js/*.test.mjs), e.g.:
   conftest.py         shared `folder` fixture: a small tournament on disk (TEST_GRID: 3×5, 0.65 in QR on purpose)
   node_backend.py     the real backend (js/fake_backend_server.mjs in Node) answering the CLI tests through respx
-  test_scanner_e2e.py headless Chrome: the scanner (fake camera shows real cut-out cards), the board, the phone's decoder vs a phantom Micro QR; skipped without Chrome/Node
+  test_scanner_e2e.py headless Chrome: the scanner (fake camera shows real cut-out cards), the board (also on a phone), the phone's decoder vs a phantom Micro QR; skipped without Chrome/Node
   js/fake_apps_script.mjs  in-memory Sheets, Drive, properties and Sheets API to run Code.js in Node:
                       computed values, "42" → 42 unless "@", a formula written in the same API call
                       is not calculated yet for a sortRange (seen live)
@@ -129,13 +128,13 @@ README.md             organiser guide (end to end) and contributor commands
 - A tournament: `uv run chgk new <folder>` (Sheet + Drive folder), `uv run chgk teams <folder>`
   (pull the Teams tab), `uv run chgk board <folder>` / `uv run chgk view <folder>` (board and
   view-only links), `uv run chgk replace-token <folder> jury|board` (a leaked link).
-- Cards: `uv run chgk cards tournaments/example [--mode team-pages|cut-stack|scissors] [--teams A01,A02]`
+- Cards: `uv run chgk cards <folder> [--mode team-pages|cut-stack|scissors] [--teams A01,A02]`
   → `out/<slug>/cards-<mode>.pdf` + `out/<slug>/jury.pdf`. Without `--mode` it asks.
 - Jury sheet alone: `uv run chgk jury-sheet <folder>`; calibration page: `uv run chgk test-page <folder>`.
 - Logos: `uv run chgk logos <folder> [--draw [--team A01]] [--accept all|A01,A02]` (report; drafts;
   `out/<slug>/logo-preview.pdf`). The tests never call the API: the SDK runs on a mocked transport.
-  `ANTHROPIC_API_KEY` is set in the user's shell profile; a Claude Code session started before
-  it was set doesn't see it, so run `zsh -ic 'uv run chgk logos … --draw'`.
+  `ANTHROPIC_API_KEY` comes from the shell profile; a Claude Code session started before it was
+  set doesn't see it, so run `zsh -ic 'uv run chgk logos … --draw'`.
 
 The render tests decode every QR code back from the rendered PDF and check it sits in
 the slot the imposition assigned. The cut-stack test simulates the guillotine and
@@ -180,7 +179,7 @@ One line each; SPEC has the details. Decisions recorded only here are written ou
 - **No upgrade code for older Sheets** (user, 2026-10-30): migrations and the pre-Phase-5
   board-token upgrade were removed; a tournament made by an older version is created again.
 - **Sheet tabs**, mark cells (blank / `R` / `1` `0` `?`, last write wins), «Спорные» — SPEC §5.
-- **QR and card identity** — SPEC §6: QR 0.85 in (was 0.65; user: ~30% bigger); the tournament
+- **QR and card identity** — SPEC §6: QR 0.85 in (was 0.65; user: ~30% bigger), moved 20% in from the top and right edges (user); the tournament
   ID from config.py (`tid=`, e.g. the rating number) or generated (5 characters); it and team IDs
   are 1-8 `[0-9A-Z]`; the QR is version 4-M except for the longest mix (both 8 characters, a
   3-digit question), where `chgk cards` warns.
@@ -196,8 +195,8 @@ One line each; SPEC has the details. Decisions recorded only here are written ou
   user's test drafts (22 teams each) in `logos/drafts/logo-drafts/` (session) and
   `logos/drafts/logo-drafts-api/` (API) are never deleted, overwritten or accepted without
   asking; their tournament folders were deleted, so `chgk logos` can't preview them. The
-  examples have no team name on cards, logo_size 1.85 in (user); elsewhere the
-  defaults stay.
+  example and Осенний салат have no team name on cards and logo_size 1.85 in (user); elsewhere
+  the defaults stay.
 - **A leaked jury or board link** — `chgk replace-token`, a new jury-v<N>.pdf saying what
   happened; phones keep their waiting marks and photos (SPEC §7.4).
 - **Board** — SPEC §10.1. **Juror view:** no official answer (§7.5). **Jurors:** one at a
@@ -210,10 +209,9 @@ Kept in one place: [SPEC.md §14](SPEC.md) (defaults used unless the user says o
 
 ## Next steps
 
-1. **Phase 7** internal test at home with printouts: it starts with the user's manual
-   checks ([docs/manual-checks.md](docs/manual-checks.md)), then a mock game. Then **Phase 8**,
-   an external test at a tournament. Each with feedback entry, bug analysis and fixes, and a
-   docs/comments check.
+1. **Phase 7**, the rest: reprint `out/osenniy-salat/`, the fixes' own checks on an iPhone
+   ([docs/manual-checks.md](docs/manual-checks.md)), the mock game, fixes, a docs/comments check.
+   Then **Phase 8**, an external test at a tournament, with the same loop.
 2. **Phase 9 — next version:** the deferred list in PLAN.md.
 
 ## Lessons learned
@@ -321,25 +319,24 @@ Kept in one place: [SPEC.md §14](SPEC.md) (defaults used unless the user says o
 A clone has the code, docs and history; the deployed backend and GitHub Pages don't depend
 on any laptop. Not in the repo (git-ignored, private or generated), so set up by hand:
 - **Tools:** `uv` then `uv sync`; Node 22 then `npm ci`; Google Chrome for the 4 browser tests
-  (skipped without it). `gh auth login` as AntonMenshov to push; git `user.name` Anton Menshov,
+  (skipped without it). git push with the AntonMenshov credentials (`gh` is optional); git `user.name` Anton Menshov,
   `user.email` anton.menshov@gmail.com (commits are authored only as the user).
 - **Backend profile:** copy `~/.config/chgk/backends.json`, or `uv run chgk backend add personal
   --url <Web app /exec URL> --token <ADMIN_TOKEN>`; the token is in the Apps Script project's
   Project Settings → Script properties. Then `uv run chgk backend check`.
-- **`tournaments/*/state.json`:** each tournament's ID and jury/board tokens. Copy them; without
-  one, chgk gives that tournament a new ID, so its cards no longer match its Sheet.
+- **`tournaments/*/state.json`:** each tournament's ID, Sheet and jury/board tokens. Copy them;
+  without one, chgk treats the tournament as new (a generated ID changes, so old cards no longer match).
 - **Private logos:** `logos/*.png` (the user's team logos; without them cards fall back to the
   owl, with a warning) and `logos/drafts/` (the logo test drafts).
-- **`ANTHROPIC_API_KEY`** in the shell profile, for `chgk logos --draw`.
-- **Claude's memory** stays on the old machine (`~/.claude/projects/…`); everything in it is in
-  this file, and `CLAUDE.md` points a new session here.
+- **`ANTHROPIC_API_KEY`** in the shell profile, only for `chgk logos --draw`.
+- **Claude's memory** (`~/.claude/projects/…`) isn't needed: everything is in this file, and
+  `CLAUDE.md` points a new session here.
 - `out/` is regenerated: `uv run chgk cards tournaments/osenniy-salat --mode team-pages`,
   `uv run chgk backend bundle`.
 
 ## GitHub
 
-- Repo: <https://github.com/AntonMenshov/qa-chgk> (public). `gh` is logged in as
-  AntonMenshov.
+- Repo: <https://github.com/AntonMenshov/qa-chgk> (public).
 - Pages: <https://antonmenshov.github.io/qa-chgk/>, deployed by `.github/workflows/pages.yml`
   on pushes touching `web/` or `apps_script/logic.js` (web/shared/logic.js links to it). The
   scanner URL printed in QR codes is `https://antonmenshov.github.io/qa-chgk/s/`.
