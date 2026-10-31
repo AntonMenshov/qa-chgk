@@ -76,6 +76,8 @@ afterwards (`docs/google-account.md` §5).
 
 - [ ] `uv run chgk logos <folder>`: every team's row matches its logo file; an SVG logo
       prints with its lettering in PT Sans.
+The two `--draw` checks below are not needed for Phases 7 and 8 (user): no new logos are drawn there.
+
 - [ ] With `ANTHROPIC_API_KEY` set: `--draw --team <id>` on a throwaway tournament gives a
       draft in the style of the library's logos (owl acting out the name, the name in bold
       capitals below); the key appears nowhere in the output.

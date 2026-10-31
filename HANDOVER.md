@@ -44,7 +44,8 @@ Full design: [SPEC.md](SPEC.md). Build order: [PLAN.md](PLAN.md).
   Screen rotation can't be locked from a web page on an iPhone: use its Portrait Orientation Lock.
 - **Current machine (since 2026-10-30):** no `state.json` for the examples, so a `chgk cards` there
   would give them new IDs that don't match their Sheets. The user's logos are here;
-  `ANTHROPIC_API_KEY` is not set, and for now isn't needed (user).
+  `ANTHROPIC_API_KEY` is not set, and for now isn't needed (user): the `--draw` checks are out of
+  scope for Phases 7 and 8.
 - **Example tournament:** `tournaments/example/` (the user's four teams 645 «42», 58746
   Фиаско, 40400 Совхоз Победа, A01 Звезды сошлись; reserve decks R1, R2), TID **UYDJ7** on
   that backend; `out/example/` holds its cards (team-pages, 3×4, 24 pages) and jury.pdf.
