@@ -219,6 +219,7 @@ def test_jury_scans_cards_and_marks_reach_the_backend(folder, tmp_path, backend_
                 page.click('.keypad button[data-k="2"]')
                 page.click('.keypad button[data-k="ok"]')
             elif page.is_visible("#card"):
+                assert page.evaluate("document.getElementById('main').inert")  # nothing can open over the card
                 team = page.inner_text("#c-team")
                 question = int(re.search(r"Вопрос (\d+)", page.inner_text("#c-meta"))[1])
                 key = next((k for k in verdicts if team.startswith(k[0]) and k[1] == question), None)
@@ -408,7 +409,7 @@ def test_projector_board_reveals_round_by_round(folder, tmp_path, backend_server
         # (here a token the backend refuses, so the switch shows as the error).
         other = encode_board_link(f"{web_server}/s/", BoardAccess(tid, "x" * 24, BACKEND), 5)
         page.evaluate("hash => { location.hash = hash; }", other.split("#", 1)[1])
-        page.wait_for_selector("text=Не удалось загрузить")
+        page.wait_for_selector("text=ссылка табло больше не действует")
         browser.close()
     assert not errors, errors
 
