@@ -15,5 +15,5 @@ on any laptop. Not in the repo (git-ignored, private or generated), so set up by
 - **`ANTHROPIC_API_KEY`** in the shell profile, only for `chgk logos --draw`.
 - **Claude's memory** (`~/.claude/projects/…`) isn't needed: everything is in the repo's docs, and
   `CLAUDE.md` points a new session to HANDOVER.
-- `out/` is regenerated: `uv run chgk cards tournaments/osenniy-salat --mode team-pages`,
+- `out/code-review/` can't be regenerated without a new review: copy it. The rest of `out/` is regenerated: `uv run chgk cards tournaments/osenniy-salat --mode team-pages`,
   `uv run chgk backend bundle`.

@@ -5,7 +5,7 @@ another person (CLAUDE.md points here). It is updated at the end of every work s
 every phase. On another laptop: [docs/new-machine.md](docs/new-machine.md). Why the code is the
 way it is: [docs/lessons.md](docs/lessons.md).
 
-Last updated: 2026-10-30
+Last updated: 2026-10-31
 
 ## What this project is
 
@@ -189,6 +189,8 @@ One line each; SPEC has the details. Decisions recorded only here are written ou
 
 ## Next steps
 
+0. **Code review, 2026-10-31:** per-file findings, unverified and not yet triaged, are in `out/code-review/`
+   (start at its README.md; local only, kept out of the public repo). Triage before the mock game.
 1. **Phase 7**, the rest: reprint `out/osenniy-salat/`, the fixes' own checks on an iPhone
    ([docs/manual-checks.md](docs/manual-checks.md)), the mock game, fixes, a docs/comments check.
    Then **Phase 8**, an external test at a tournament, with the same loop.
