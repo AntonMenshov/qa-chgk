@@ -215,7 +215,7 @@ function requireToken_(who, props, reg, req) {
   if (!accepted.some((token) => tokensEqual(req.token, token))) {
     // Worth retrying: after a leaked link is replaced, the phone scans the new jury QR and
     // sends again; its waiting photos must not be dropped as a hopeless request meanwhile.
-    const err = new RequestError(`forbidden: ${who} token required`);
+    const err = new RequestError(`forbidden: ${who} token required`, `${who}_token_refused`);
     err.retry = true;
     throw err;
   }

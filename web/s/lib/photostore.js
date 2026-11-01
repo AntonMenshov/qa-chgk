@@ -25,7 +25,7 @@ export function photoStore(tid, indexedDB = globalThis.indexedDB) {
         new Promise((resolve, reject) => {
           const tx = d.transaction(STORE, mode);
           const req = fn(tx.objectStore(STORE));
-          tx.oncomplete = () => resolve(req && req.result);
+          tx.oncomplete = () => resolve(req.result);
           tx.onerror = () => reject(tx.error);
           tx.onabort = () => reject(tx.error || new Error('transaction aborted')); // e.g. quota, at commit
         }),

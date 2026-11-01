@@ -28,10 +28,9 @@ export const REQUEST_TIMEOUT_MS = 45000;
  * replaced (a leaked link, `chgk replace-token`), and the fix is the new QR code.
  */
 const REFUSED = {
-  'forbidden: jury token required':
+  jury_token_refused:
     'ключ жюри больше не действует (ссылку заменили): отсканируйте новый QR «Доступ жюри» с листа жюри',
-  'forbidden: board token required':
-    'ссылка табло больше не действует (её заменили): откройте новую по QR на стр. 2 листа жюри',
+  board_token_refused: 'ссылка табло больше не действует (её заменили): откройте новую по QR на стр. 2 листа жюри',
 };
 
 /** A function (action, payload) => reply for one backend and token (jury or board). */
@@ -62,8 +61,8 @@ export function backend(url, token, fetchImpl = (url, init) => fetch(url, init),
       clearTimeout(timer);
     }
     if (!data?.ok) {
-      const message = REFUSED[data?.error] || data?.error || `ошибка сервера (HTTP ${response.status})`;
-      throw new BackendError(message, data?.retry !== false, data?.error in REFUSED);
+      const message = REFUSED[data?.code] || data?.error || `ошибка сервера (HTTP ${response.status})`;
+      throw new BackendError(message, data?.retry !== false, data?.code in REFUSED);
     }
     return data;
   };

@@ -6,7 +6,7 @@
 // refusal was temporary («unknown team» while `chgk teams` rewrites Teams), and the card counts as
 // photographed, so it isn't retaken. Only the photo is lost, never the mark; the panel shows a count.
 
-import {BACKOFF_MS} from './queue.js'; // the same pauses as the marks
+import {backoffMs, errorText} from './queue.js'; // the same pauses as the marks
 
 export class PhotoQueue {
   /**
@@ -44,10 +44,13 @@ export class PhotoQueue {
   /** Start the uploads that are due, oldest first, up to `parallel` at once; resolves when they end. */
   async pump() {
     await this.ready;
+    const room = this.parallel - this.inFlight.size;
+    if (room <= 0) {
+      return [];
+    }
     const due = [...this.items.values()]
       .filter((it) => !this.inFlight.has(it.rec.photo_id) && this.now() >= it.nextAt)
       .sort((a, b) => a.rec.client_ts - b.rec.client_ts);
-    const room = Math.max(0, this.parallel - this.inFlight.size);
     return Promise.all(due.slice(0, room).map((it) => this.upload(it)));
   }
 
@@ -60,14 +63,14 @@ export class PhotoQueue {
       this.sent += 1;
       this.lastError = null;
     } catch (err) {
-      const message = String(err && err.message ? err.message : err);
+      const message = errorText(err);
       if (err && err.retry === false) {
         await this.forget(id);
         const {blob, ...meta} = it.rec; // eslint-disable-line no-unused-vars
         this.dropped.push({rec: meta, error: message});
       } else {
         it.failures += 1;
-        it.nextAt = this.now() + BACKOFF_MS[Math.min(it.failures, BACKOFF_MS.length) - 1];
+        it.nextAt = this.now() + backoffMs(it.failures);
         this.lastError = message;
       }
     } finally {

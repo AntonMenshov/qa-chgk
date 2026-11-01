@@ -40,9 +40,16 @@ export function handleCode(text) {
       // The frame the card was read from: its photo, kept once the question is known. For a card
       // opened by link with the camera running, that's whatever the camera sees, and the real scan
       // takes no photo (accepted, like the rest of card links: app.js).
-      r.shot = app.camera ? app.camera.captureJpeg() : Promise.resolve(null);
+      r.shot = app.camera && !alreadyPhotographed(r) ? app.camera.captureJpeg() : Promise.resolve(null);
       return r.kind === 'spare' ? openSpare(r) : openCard(r);
   }
+}
+
+const photoKey = (r) => `${r.team.team_id}:${r.question}${r.spare ? `:S${r.spare}` : ''}`;
+
+/** Numbered cards only: a spare's question isn't known yet. Spares a JPEG on every scan of the same card. */
+function alreadyPhotographed(r) {
+  return r.kind === 'card' && (store.get(K.photographed(app.setup.tid)) || []).includes(photoKey(r));
 }
 
 /** One photo per card per phone (a card scanned again is not photographed again). */
@@ -52,7 +59,7 @@ function keepPhoto(r, shot) {
     set: (keys) => store.set(K.photographed(app.setup.tid), keys),
   };
   const photoQueue = app.photos;
-  firstPhoto(shot, `${r.team.team_id}:${r.question}${r.spare ? `:S${r.spare}` : ''}`, photographed).then((blob) => {
+  firstPhoto(shot, photoKey(r), photographed).then((blob) => {
     if (!blob) {
       return;
     }

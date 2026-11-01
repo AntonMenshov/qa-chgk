@@ -2,7 +2,7 @@
 // projector laptop reveals it (→ / space / button). Read-only: its link carries a board
 // token that can't change marks. The logic is in lib/board.js (tested in Node).
 
-import {decodeBoard, encodeBoardLink} from '../s/lib/payload.js';
+import {decodeBoard, encodeBoardLink, sameBoardAccess} from '../s/lib/payload.js';
 import {backend} from '../s/lib/api.js';
 import {storage} from '../s/lib/storage.js';
 import {boardModel} from './lib/board.js';
@@ -83,62 +83,74 @@ const stripe = (round) => `r${((round - 1) % 9) + 1}`;
 
 function table(m) {
   const grid = m.view === 'grid';
-  const head1 = el('tr', {className: 'rounds'}, el('th'), el('th'));
-  const head2 = el('tr', {}, el('th', {textContent: 'Место'}), el('th', {className: 'team', textContent: 'Команда'}));
-  if (!grid) {
-    head1.append(el('th'));
-    head2.append(el('th', {textContent: 'Итого'}));
-  }
-  for (const g of m.groups) {
-    head1.append(
-      el('th', {colSpan: g.questions.length + 1, className: `${stripe(g.round)} edge`, textContent: `Тур ${g.round}`}),
-    );
-    g.questions.forEach((q, i) =>
-      head2.append(el('th', {className: `${stripe(g.round)}${i === 0 ? ' edge' : ''}`, textContent: q})),
-    );
-    head2.append(el('th', {className: `${stripe(g.round)}`, textContent: 'Σ'}));
-  }
-  if (grid) {
-    head1.append(el('th'));
-    head2.append(el('th', {textContent: 'Итого'}));
-  }
-  const body = m.rows.map((r) => {
-    const tr = el(
+  // Итого stands right of the rounds in the grid, left of them otherwise.
+  const withTotal = (cells, total) => (grid ? [...cells, total] : [total, ...cells]);
+  const eachColumn = (cell, sum) =>
+    m.groups.flatMap((g) => [
+      ...g.questions.map((q, i) => cell(g, q, `${stripe(g.round)}${i === 0 ? ' edge' : ''}`)),
+      sum(g, stripe(g.round)),
+    ]);
+  const head1 = el(
+    'tr',
+    {className: 'rounds'},
+    el('th'),
+    el('th'),
+    ...withTotal(
+      m.groups.map((g) =>
+        el('th', {
+          colSpan: g.questions.length + 1,
+          className: `${stripe(g.round)} edge`,
+          textContent: `Тур ${g.round}`,
+        }),
+      ),
+      el('th'),
+    ),
+  );
+  const head2 = el(
+    'tr',
+    {},
+    el('th', {textContent: 'Место'}),
+    el('th', {className: 'team', textContent: 'Команда'}),
+    ...withTotal(
+      eachColumn(
+        (g, q, className) => el('th', {className, textContent: q}),
+        (g, className) => el('th', {className, textContent: 'Σ'}),
+      ),
+      el('th', {textContent: 'Итого'}),
+    ),
+  );
+  const body = m.rows.map((r) =>
+    el(
       'tr',
       {},
       el('td', {className: 'place', textContent: r.place}),
       el('td', {className: 'team', textContent: r.name}),
-    );
-    const total = el('td', {className: 'total', textContent: r.total});
-    if (!grid) {
-      tr.append(total);
-    }
-    for (const g of m.groups) {
-      g.questions.forEach((q, i) => {
-        const mark = r.marks[q];
-        const kind = {'+': 'plus', '×': 'wrong', '?': 'maybe', '•': 'no-card'}[mark];
-        tr.append(el('td', {className: `q ${kind} ${stripe(g.round)}${i === 0 ? ' edge' : ''}`, textContent: mark}));
-      });
-      tr.append(el('td', {className: `sum ${stripe(g.round)}`, textContent: r.sums[g.round - 1]}));
-    }
-    if (grid) {
-      tr.append(total);
-    }
-    return tr;
-  });
-  const foot = el('tr', {}, el('td'), el('td', {className: 'label', textContent: 'Взяли'}));
-  if (!grid) {
-    foot.append(el('td'));
-  }
-  for (const g of m.groups) {
-    g.questions.forEach((q, i) =>
-      foot.append(el('td', {className: `${stripe(g.round)}${i === 0 ? ' edge' : ''}`, textContent: m.took[q]})),
-    );
-    foot.append(el('td', {className: `${stripe(g.round)}`}));
-  }
-  if (grid) {
-    foot.append(el('td'));
-  }
+      ...withTotal(
+        eachColumn(
+          (g, q, className) => {
+            const mark = r.marks[q];
+            const kind = {'+': 'plus', '×': 'wrong', '?': 'maybe', '•': 'no-card'}[mark];
+            return el('td', {className: `q ${kind} ${className}`, textContent: mark});
+          },
+          (g, className) => el('td', {className: `sum ${className}`, textContent: r.sums[g.round - 1]}),
+        ),
+        el('td', {className: 'total', textContent: r.total}),
+      ),
+    ),
+  );
+  const foot = el(
+    'tr',
+    {},
+    el('td'),
+    el('td', {className: 'label', textContent: 'Взяли'}),
+    ...withTotal(
+      eachColumn(
+        (g, q, className) => el('td', {className, textContent: m.took[q]}),
+        (g, className) => el('td', {className}),
+      ),
+      el('td'),
+    ),
+  );
   return el(
     'section',
     {},
@@ -221,22 +233,23 @@ function setRevealed(n) {
   if (!data) {
     return;
   }
-  revealed = Math.min(Math.max(0, n), data.tournament.round_sizes.length);
-  store.set(key('revealed'), revealed);
+  revealed = n; // boardModel keeps it in range, and render() takes its answer
   render();
+  store.set(key('revealed'), revealed);
 }
 
 function toggleView() {
   if (!data) {
     return;
   }
-  const current = boardModel(data, revealed, {gridMax, view}).view;
+  const current = view || (data.teams.length <= gridMax ? 'grid' : 'compact');
   view = current === 'grid' ? 'compact' : 'grid';
   store.set(key('view'), view);
   render();
 }
 
 let loading = false;
+let lastReply = null;
 
 async function load() {
   // One at a time, so an older reply can't replace a newer one; a hidden page asks when shown again.
@@ -245,9 +258,16 @@ async function load() {
   }
   loading = true;
   try {
-    data = await backend(access.backendUrl, access.boardToken)('get_board', {tid: access.tid});
+    const reply = await backend(access.backendUrl, access.boardToken)('get_board', {tid: access.tid});
     lastOk = new Date();
     $('status').hidden = true;
+    const {timing, ...shown} = reply; // eslint-disable-line no-unused-vars
+    const text = JSON.stringify(shown);
+    if (text === lastReply) {
+      return; // polled every 15 s, mostly unchanged: nothing to redraw
+    }
+    lastReply = text;
+    data = reply;
   } catch (err) {
     $('status').hidden = false;
     $('status').textContent = err.refused
@@ -286,15 +306,7 @@ function wake() {
 // A board link opened into this tab only changes the #… (no reload): load the board it names.
 addEventListener('hashchange', () => {
   const next = decodeBoard(location.hash);
-  if (
-    next &&
-    !(
-      access &&
-      next.tid === access.tid &&
-      next.boardToken === access.boardToken &&
-      next.backendUrl === access.backendUrl
-    )
-  ) {
+  if (next && !sameBoardAccess(next, access)) {
     location.reload();
   }
 });

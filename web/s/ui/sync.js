@@ -79,7 +79,7 @@ export function render() {
     list.map((t) => [t.team_id, t.name]),
     app.queue.status,
     app.queue.rejected.length,
-    app.photos?.status,
+    app.photos.status,
     app.refused,
     app.secondTab,
   ]);
@@ -103,9 +103,8 @@ export function render() {
     st.pending ? `${bad ? '' : '⏳ '}${st.pending}` : '',
   ].filter(Boolean);
   pill.textContent = parts.length ? `${bad ? '⚠ ' : ''}${parts.join(' · ')}` : '✓ отправлено';
-  const ph = app.photos ? app.photos.status : {pending: 0};
-  if (ph.pending) {
-    pill.textContent += ` · фото ${ph.pending}`;
+  if (app.photos.status.pending) {
+    pill.textContent += ` · фото ${app.photos.status.pending}`;
   }
   const banner = $('banner');
   banner.textContent =
@@ -122,17 +121,17 @@ export function render() {
   }
 }
 
+function captioned(text, caption) {
+  const li = document.createElement('li');
+  li.textContent = text;
+  li.append(Object.assign(document.createElement('small'), {textContent: caption}));
+  return li;
+}
+
 export function renderMissing() {
   const list = app.session.missing();
   $('m-title').textContent = `Вопрос ${app.session.current}: нет карточек — ${list.length}`;
-  $('m-list').replaceChildren(
-    ...list.map((t) => {
-      const li = document.createElement('li');
-      li.textContent = t.name;
-      li.append(Object.assign(document.createElement('small'), {textContent: `ID ${t.team_id}`}));
-      return li;
-    }),
-  );
+  $('m-list').replaceChildren(...list.map((t) => captioned(t.name, `ID ${t.team_id}`)));
 }
 
 export function renderSync() {
@@ -149,11 +148,11 @@ export function renderSync() {
       : '';
   $('s-rejected').replaceChildren(
     ...app.queue.rejected.map(({event, error}) => {
-      const li = document.createElement('li');
       const team = app.session.byId.get(event.team_id);
-      li.textContent = `${team ? team.name : event.team_id} · вопрос ${event.question} · ${STATUS_LABEL[event.status] || event.status}`;
-      li.append(Object.assign(document.createElement('small'), {textContent: `Отклонено: ${error}`}));
-      return li;
+      return captioned(
+        `${team ? team.name : event.team_id} · вопрос ${event.question} · ${STATUS_LABEL[event.status] || event.status}`,
+        `Отклонено: ${error}`,
+      );
     }),
   );
   $('s-clear').hidden = app.queue.rejected.length === 0;

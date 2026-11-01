@@ -3,7 +3,12 @@
 // send is retried with growing pauses. Events are idempotent (scan_id), so a retry after
 // a lost reply never counts twice.
 
-export const BACKOFF_MS = [2000, 4000, 8000, 15000, 30000];
+const BACKOFF_MS = [2000, 4000, 8000, 15000, 30000];
+
+/** The pause after this many failures in a row; the marks and the photos use the same. */
+export const backoffMs = (failures) => BACKOFF_MS[Math.min(failures, BACKOFF_MS.length) - 1];
+
+export const errorText = (err) => String(err?.message ?? err);
 
 export class Queue {
   /**
@@ -74,8 +79,8 @@ export class Queue {
       this.failures += 1;
       this.stuck = err?.retry === false;
       this.lastRefused = err?.refused === true;
-      this.lastError = String(err && err.message ? err.message : err);
-      this.nextAttemptAt = this.now() + BACKOFF_MS[Math.min(this.failures, BACKOFF_MS.length) - 1];
+      this.lastError = errorText(err);
+      this.nextAttemptAt = this.now() + backoffMs(this.failures);
       return null;
     } finally {
       this.inFlight = false;
@@ -87,14 +92,11 @@ export class Queue {
     this.nextAttemptAt = 0;
     const acked = [];
     const rejected = [];
-    const sent = new Set();
     for (const event of batch) {
       const r = byId.get(event.scan_id);
-      // No answer for it: stays pending.
       if (!r) {
-        continue;
+        continue; // no answer for it: stays pending
       }
-      sent.add(event.scan_id);
       if (r.error) {
         this.rejected.push({event, error: r.error});
         rejected.push(event.scan_id);
@@ -102,7 +104,7 @@ export class Queue {
         acked.push(event.scan_id);
       }
     }
-    this.pending = this.pending.filter((e) => !sent.has(e.scan_id));
+    this.pending = this.pending.filter((e) => !byId.has(e.scan_id));
     this.save();
     return {acked, rejected};
   }

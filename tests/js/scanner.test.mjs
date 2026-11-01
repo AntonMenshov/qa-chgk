@@ -435,7 +435,7 @@ test('api: text/plain POST with the token; backend errors and network errors bec
 
   const refused = backend('u', 't', async () => ({
     status: 200,
-    json: async () => ({ok: false, error: 'forbidden: jury token required'}),
+    json: async () => ({ok: false, error: 'forbidden: jury token required', code: 'jury_token_refused'}),
   }));
   // A refused token says what to do (the link was replaced), and is retried rather than dropped.
   await assert.rejects(
@@ -779,7 +779,7 @@ test('offline: every file the service worker lists exists, the wasm is listed, o
 test('api: a refused token is told apart from being offline', async () => {
   const refused = async () => ({
     status: 200,
-    json: async () => ({ok: false, error: 'forbidden: jury token required', retry: true}),
+    json: async () => ({ok: false, error: 'forbidden: jury token required', code: 'jury_token_refused', retry: true}),
   });
   const err = await backend('u', 't', refused)('x').catch((e) => e);
   assert.equal(err.refused, true);
@@ -997,6 +997,7 @@ test('render: an unchanged screen is left alone; a change is drawn', async () =>
       state: {tournament: {name: 'T', round_sizes: [3]}, teams, marks: {}},
       uuid: () => 'x',
     });
+    app.photos = {status: {pending: 0}};
     app.queue = memoryQueue(async () => ({results: []}));
     render();
     assert.ok(writes.includes('t-name'));

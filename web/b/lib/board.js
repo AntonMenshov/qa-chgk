@@ -3,17 +3,17 @@
 // with shared places as "2-3". The place labels and the order are the Sheet's own
 // (apps_script/logic.js, served as ../../shared/logic.js).
 
-import {compareStandings, NOT_A_MARK, placeLabels} from '../../shared/logic.js';
+import {compareStandings, NOT_A_MARK, placeLabels, STATUS_VALUE, standings} from '../../shared/logic.js';
 
 /** "+" taken, "×" wrong, "•" no card yet (counts as not taken), "?" not decided yet («?», only received, or unreadable). */
 export function cellMark(value) {
-  if (value === 1) {
+  if (value === STATUS_VALUE.correct) {
     return '+';
   }
-  if (value === '?' || value === 'R' || value === NOT_A_MARK) {
+  if (value === STATUS_VALUE.disputed || value === STATUS_VALUE.received || value === NOT_A_MARK) {
     return '?';
   }
-  return value === 0 ? '×' : '•';
+  return value === STATUS_VALUE.incorrect ? '×' : '•';
 }
 
 /**
@@ -31,28 +31,31 @@ export function cellMark(value) {
 export function boardModel(data, revealed, {gridMax, view = null}) {
   const sizes = data.tournament.round_sizes;
   const shown = Math.min(Math.max(0, revealed), sizes.length);
-  const firstOf = (round) => sizes.slice(0, round - 1).reduce((a, b) => a + b, 1);
-  const questionsOf = (round) => Array.from({length: sizes[round - 1]}, (_, k) => firstOf(round) + k);
+  let next = 1;
+  const allQuestions = sizes.map((size) => Array.from({length: size}, () => next++));
   const chosen = view || (data.teams.length <= gridMax ? 'grid' : 'compact');
   const groupRounds = shown === 0 ? [] : chosen === 'grid' ? Array.from({length: shown}, (_, i) => i + 1) : [shown];
-  const groups = groupRounds.map((round) => ({round, questions: questionsOf(round)}));
+  const groups = groupRounds.map((round) => ({round, questions: allQuestions[round - 1]}));
 
-  const rows = data.teams.map((team) => {
+  // The same sums and places as the Sheet, over the revealed rounds only.
+  const revealedSizes = sizes.slice(0, shown);
+  const totals = standings(
+    revealedSizes,
+    data.teams.map((team) => team.team_id),
+    data.marks,
+  );
+  const rows = data.teams.map((team, i) => {
     const values = data.marks[team.team_id] || [];
-    const sums = [];
-    for (let r = 1; r <= shown; r++) {
-      sums.push(questionsOf(r).filter((q) => values[q - 1] === 1).length);
-    }
     const marks = {};
     for (const g of groups) {
       for (const q of g.questions) {
-        marks[q] = cellMark(values[q - 1] ?? '');
+        marks[q] = cellMark(values[q - 1]);
       }
     }
-    return {team_id: team.team_id, name: team.name, sums, total: sums.reduce((a, b) => a + b, 0), marks};
+    const {rounds, total} = totals[i];
+    return {team_id: team.team_id, name: team.name, rounds, sums: rounds, total, marks};
   });
-  // compareStandings (the backend's tie-break rule) reads the round sums as `rounds`.
-  rows.sort((a, b) => compareStandings({...a, rounds: a.sums}, {...b, rounds: b.sums}));
+  rows.sort(compareStandings); // the backend's tie-break rule
   const places = placeLabels(rows.map((r) => r.total));
   rows.forEach((r, i) => {
     r.place = places[i];

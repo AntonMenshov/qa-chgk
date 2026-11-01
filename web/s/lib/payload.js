@@ -8,8 +8,11 @@
 // Generated (5 readable characters) or given in config.py (1-8 digits or capital letters).
 const TID = '[0-9A-Z]{1,8}';
 const CARD_RE = new RegExp(`^(${TID})\\.([0-9A-Z]{1,8})\\.(?:([1-9][0-9]{0,2})|S([1-9][0-9]?))$`);
-const SETUP_RE = new RegExp(`^setup=(${TID})\\.([A-Za-z0-9_-]{16,})\\.([A-Za-z0-9_-]{10,})$`);
-const BOARD_RE = new RegExp(`^board=(${TID})\\.([A-Za-z0-9_-]{16,})\\.([A-Za-z0-9_-]{10,})$`);
+const ACCESS = `(${TID})\\.([A-Za-z0-9_-]{16,})\\.([A-Za-z0-9_-]{10,})`;
+const SETUP_RE = new RegExp(`^setup=${ACCESS}$`);
+const BOARD_RE = new RegExp(`^board=${ACCESS}$`);
+const BACKEND_RE = /^https:\/\/script\.google\.com\/macros\/s\/([A-Za-z0-9_-]{10,})\/exec$/;
+const backendUrl = (deployment) => `https://script.google.com/macros/s/${deployment}/exec`;
 
 const fragment = (text) => {
   const s = String(text || '');
@@ -37,7 +40,7 @@ export function decodeSetup(text) {
   if (!m) {
     return null;
   }
-  return {tid: m[1], juryToken: m[2], backendUrl: `https://script.google.com/macros/s/${m[3]}/exec`};
+  return {tid: m[1], juryToken: m[2], backendUrl: backendUrl(m[3])};
 }
 
 /**
@@ -53,7 +56,7 @@ export function sameAccess(a, b) {
  * the jury sheet (checked against the shared vectors), from the board page's own address.
  */
 export function encodeBoardLink(boardPageUrl, access, gridMax) {
-  const m = /\/macros\/s\/([A-Za-z0-9_-]+)\/exec$/.exec(access.backendUrl);
+  const m = BACKEND_RE.exec(access.backendUrl);
   if (!m) {
     throw new Error(`not an Apps Script web app URL: ${access.backendUrl}`);
   }
@@ -66,5 +69,9 @@ export function decodeBoard(text) {
   if (!m) {
     return null;
   }
-  return {tid: m[1], boardToken: m[2], backendUrl: `https://script.google.com/macros/s/${m[3]}/exec`};
+  return {tid: m[1], boardToken: m[2], backendUrl: backendUrl(m[3])};
+}
+
+export function sameBoardAccess(a, b) {
+  return Boolean(a && b) && a.tid === b.tid && a.boardToken === b.boardToken && a.backendUrl === b.backendUrl;
 }

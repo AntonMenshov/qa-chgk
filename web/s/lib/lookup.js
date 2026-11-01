@@ -30,24 +30,25 @@ export function identify(text, session = null) {
   if (!session) {
     return {tone: 'ok', title: `Команда ID ${c.teamId}`, details: [which, `Турнир ${c.tid}`]};
   }
-  if (c.tid !== session.tid) {
+  const known = session.classify(c);
+  if (known.kind === 'foreign') {
     return {
       tone: 'bad',
       title: 'Карточка другого турнира',
       details: [`Турнир ${c.tid} (здесь ${session.tid})`, `Команда ID ${c.teamId} · ${which}`],
     };
   }
-  const team = session.byId.get(c.teamId);
-  if (!team) {
+  if (known.kind === 'unknown_team') {
     return {tone: 'bad', title: `Команда ID ${c.teamId}`, details: ['Нет в списке команд этого турнира', which]};
   }
+  const {team} = known;
 
   const unnamed = team.reserve && !session.isPlaying(team);
   const id = `ID ${team.team_id}` + (unnamed ? ' · запасной комплект, команда ещё не названа' : '');
-  if (c.spare !== null) {
+  if (known.kind === 'spare') {
     return {tone: unnamed ? 'warn' : 'ok', title: team.name, details: [which, id]};
   }
-  if (c.question > session.total) {
+  if (known.kind === 'bad_question') {
     return {tone: 'bad', title: team.name, details: [`Вопрос ${c.question}, а в турнире всего ${session.total}`, id]};
   }
   const value = session.valueOf(team.team_id, c.question);

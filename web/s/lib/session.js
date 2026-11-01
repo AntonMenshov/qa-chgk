@@ -3,7 +3,7 @@
 // the events to record. ui/ wires it to the camera, the screen and the queue.
 
 import {decodeCard, decodeSetup} from './payload.js';
-import {NOT_A_MARK} from '../../shared/logic.js';
+import {questionCell, totalQuestions, NOT_A_MARK} from '../../shared/logic.js';
 import {overlay, statusOf, STATUS_LABEL} from './marks.js';
 
 export const WARN = {EARLIER: 'earlier', ALREADY: 'already', RESERVE: 'reserve'};
@@ -36,7 +36,7 @@ export class Session {
   setSnapshot(state, startedAt) {
     this.name = state.tournament.name;
     this.roundSizes = state.tournament.round_sizes;
-    this.total = this.roundSizes.reduce((a, b) => a + b, 0);
+    this.total = totalQuestions(this.roundSizes);
     if (this.current > this.total) {
       this.current = this.total;
     }
@@ -74,14 +74,7 @@ export class Session {
   }
 
   roundOf(question) {
-    let first = 1;
-    for (let r = 0; r < this.roundSizes.length; r++) {
-      if (question < first + this.roundSizes[r]) {
-        return r + 1;
-      }
-      first += this.roundSizes[r];
-    }
-    return null;
+    return questionCell(this.roundSizes, question)?.round ?? null;
   }
 
   // ---- the current question ----
@@ -113,6 +106,12 @@ export class Session {
     if (!c) {
       return {kind: 'other'};
     }
+    const kind = this.classify(c);
+    return kind.kind === 'numbered' ? this.card(kind.team.team_id, c.question, null) : kind;
+  }
+
+  /** What a decoded card is to this tournament, changing nothing: `numbered` is a card that can be marked. */
+  classify(c) {
     if (c.tid !== this.tid) {
       return {kind: 'foreign', tid: c.tid};
     }
@@ -127,7 +126,7 @@ export class Session {
       // Printed for a longer tournament than this Sheet: refused, it never becomes the current question.
       return {kind: 'bad_question', team, question: c.question, total: this.total};
     }
-    return this.card(team.team_id, c.question, null);
+    return {kind: 'numbered', team, question: c.question};
   }
 
   /**

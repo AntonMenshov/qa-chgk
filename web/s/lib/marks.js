@@ -8,12 +8,16 @@ export const STATUS_LABEL = {correct: 'верно', incorrect: 'неверно',
 // No prototype: a cell holding the text "constructor" is no status either.
 const VALUE_STATUS = Object.assign(
   Object.create(null),
-  Object.fromEntries(Object.entries(STATUS_VALUE).map(([status, value]) => [value, status])),
+  Object.fromEntries(
+    Object.entries(STATUS_VALUE)
+      .filter(([, value]) => value !== '')
+      .map(([status, value]) => [value, status]),
+  ),
 );
 
 /** Status name for a cell value (1 → "correct"), or null for an empty cell. */
 export function statusOf(value) {
-  return value === '' || value == null ? null : (VALUE_STATUS[value] ?? null);
+  return VALUE_STATUS[value] ?? null;
 }
 
 /** The card sheet's button that gives no verdict: a card already entered keeps its mark. */
@@ -27,18 +31,19 @@ export function noVerdictLabel(previous) {
  * server already had are only passed in while the snapshot may not include them yet.
  */
 export function overlay(snapshotMarks, events, totalQuestions) {
+  const row = (values) => Array.from({length: totalQuestions}, (_, q) => ({value: values[q] ?? '', ts: -Infinity}));
   const cells = {};
   for (const [teamId, values] of Object.entries(snapshotMarks || {})) {
-    cells[teamId] = Array.from({length: totalQuestions}, (_, q) => ({value: values[q] ?? '', ts: -Infinity}));
+    cells[teamId] = row(values);
   }
   const sorted = [...events].sort((a, b) => a.client_ts - b.client_ts);
   for (const ev of sorted) {
     if (ev.question < 1 || ev.question > totalQuestions) {
       continue;
     }
-    cells[ev.team_id] ??= Array.from({length: totalQuestions}, () => ({value: '', ts: -Infinity}));
-    const row = cells[ev.team_id];
-    row[ev.question - 1] = mergeCell(row[ev.question - 1], ev.status, ev.client_ts);
+    cells[ev.team_id] ??= row([]);
+    const teamCells = cells[ev.team_id];
+    teamCells[ev.question - 1] = mergeCell(teamCells[ev.question - 1], ev.status, ev.client_ts);
   }
-  return Object.fromEntries(Object.entries(cells).map(([id, row]) => [id, row.map((c) => c.value)]));
+  return Object.fromEntries(Object.entries(cells).map(([id, teamCells]) => [id, teamCells.map((c) => c.value)]));
 }

@@ -197,7 +197,7 @@ export class Camera {
     this.ctx.drawImage(v, 0, 0);
     const image = this.ctx.getImageData(0, 0, this.canvas.width, this.canvas.height);
     const results = await globalThis.ZXingWASM.readBarcodes(image, READER_OPTIONS);
-    const text = results.find((r) => r.isValid)?.text ?? null;
+    const text = results[0]?.text ?? null; // one symbol at most, and only valid ones (READER_OPTIONS)
     if (!text) {
       this.missed += 1;
     }
