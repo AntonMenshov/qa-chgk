@@ -2,7 +2,7 @@
 
 A clone has the code, docs and history; the deployed backend and GitHub Pages don't depend
 on any laptop. Not in the repo (git-ignored, private or generated), so set up by hand:
-- **Tools:** `uv` then `uv sync`; Node, the version in `.node-version` (Homebrew: `brew install node`), then `npm ci`; Google Chrome for the 4 browser tests
+- **Tools:** `uv` then `uv sync`; Node, the version in `.node-version` (Homebrew: `brew install node`), then `npm ci`; Google Chrome for the browser tests
   (skipped without it). git push with the AntonMenshov credentials (`gh` is optional); git `user.name` Anton Menshov,
   `user.email` anton.menshov@gmail.com (commits are authored only as the user).
 - **Backend profile:** copy `~/.config/chgk/backends.json`, or `uv run chgk backend add personal

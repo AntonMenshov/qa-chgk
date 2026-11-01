@@ -30,7 +30,7 @@ export function handleCode(text) {
       return toast(`Карточка другого турнира (${r.tid}) — не засчитана`, true);
     case 'unknown_team':
       toast(`Команда ${r.teamId} не найдена — обновляю список команд…`, true);
-      // The card isn't retried (user decision, code review 2026-10-31): scan it again after the refresh.
+      // The card isn't retried (docs/accepted-gaps.md): scan it again after the refresh.
       refresh();
       return;
     case 'bad_question':

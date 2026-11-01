@@ -3,7 +3,7 @@
 // returns false if the value still can't be saved.
 //
 // That can take the current tournament's offline copy too, and a reload offline then waits for the
-// network. Accepted (user decision, 2026-10-31): it needs about 5 MB of text, and marks stay safe.
+// network. Accepted (docs/accepted-gaps.md).
 
 function memoryStore() {
   const values = new Map();

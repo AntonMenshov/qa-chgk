@@ -1,9 +1,8 @@
-// The jury token is stored for the whole origin (<user>.github.io), so any other page published
-// there could read it. Accepted (user decision, code review 2026-10-31): the owner publishes those
-// pages too, and a leaked link can be replaced (`chgk replace-token`).
-//
 // The scanner's shared state: the tournament this phone works on, its queues and camera,
 // what is on screen. The ui/ modules read and change it through `app`.
+//
+// The jury token is stored for the whole origin (<user>.github.io), so any other page published
+// there could read it. Accepted (docs/accepted-gaps.md).
 
 import {storage} from '../lib/storage.js';
 

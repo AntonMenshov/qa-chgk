@@ -1,7 +1,7 @@
 // Photos waiting to upload, kept on the phone: IndexedDB, since localStorage is too small
 // for images. They survive a reload or a closed app. Without IndexedDB (private mode on
 // some browsers) they are kept in memory only.
-// Accepted (user decision, code review 2026-10-31): the connection is opened once. If iOS closes it
+// Accepted (docs/accepted-gaps.md): the connection is opened once. If iOS closes it
 // or a write fails, photos silently stay in memory, and a reload loses them; those cards count as
 // photographed and aren't retaken. Marks don't depend on any of this.
 

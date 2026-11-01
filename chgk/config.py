@@ -119,7 +119,7 @@ class Tournament:
     board_grid_max_teams: int = 5
     # The tournament ID printed in every card's QR code: None generates one (5 readable
     # characters); or give your own, e.g. the rating.chgk.info tournament number (1-8 digits
-    # or capital Latin letters). Set it before the first `chgk cards`, `test-page` or `new`:
+    # or capital Latin letters). Set it before the first `chgk cards`, `test-page`, `jury-sheet` or `new`:
     # from then on state.json keeps the ID.
     tid: str | None = None  # a number is accepted too, and kept as text
     card: CardFields = field(default_factory=CardFields)

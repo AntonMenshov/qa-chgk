@@ -35,17 +35,11 @@ the part they name. Rules for how to work are in [HANDOVER.md](../HANDOVER.md) �
   «Итоги» fell into ID order (totals and places were right). The fake now behaves the
   same, which reproduces it. Check sorting against a reference on the real Sheet after
   any change to it (`get_results` returns what Google computed).
-- **Phantom Micro QR:** a test failed about once in 100 runs. For some
-  tournament IDs (e.g. SP7EM) a real QR's corner plus its neighbouring modules form a
-  valid Micro QR, and zxing's "QRCode" format is the whole family (Model 1/2, Micro,
-  rMQR). The phone now asks for `QRCodeModel2` only (`READER_OPTIONS`, camera.js), the
-  tests read the same way (`read_qr` in conftest.py), and three tests guard it: a
-  Micro QR next to a card in the phone's real decoder (browser test), the options
-  themselves (Node), and every card's QR read back at 150 dpi for 12 tournament IDs in
-  every mode. Breaking the filter fails two of them.
-- **A request Google never answers** (seen once: a photo upload > 90 s; the same upload
-  then took 3.4 s). The phone now cuts every request at 45 s (`REQUEST_TIMEOUT_MS`, api.js)
-  and retries it like any failure; marks and photos carry IDs, so nothing counts twice.
+- **Phantom Micro QR:** a test failed about once in 100 runs. For some tournament IDs (e.g. SP7EM) a real
+  QR's corner plus its neighbouring modules form a valid Micro QR, and zxing's "QRCode" format is the whole
+  family. The phone and the tests now ask for `QRCodeModel2` only (`READER_OPTIONS`, camera.js; `read_qr`, conftest.py).
+- **A request Google never answers** (seen once: a photo upload > 90 s; the same upload then took 3.4 s): hence
+  the phone's 45 s limit and retry (`REQUEST_TIMEOUT_MS`, api.js).
 - **Profile before optimising:** the first guess (the sort) was not the main cost; the
   per-step `timing` showed Google's ~1 s per request, ~0.3 s for opening the spreadsheet,
   and many small reads and writes.

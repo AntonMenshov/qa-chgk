@@ -1,5 +1,5 @@
 // Every mark goes into this queue first, saved on the phone, and is sent from here in
-// batches: one request carries up to 200 pending events (a request costs ~1–4 s). A failed
+// batches: one request carries up to 200 pending events (a request costs ~1–2 s). A failed
 // send is retried with growing pauses. Events are idempotent (scan_id), so a retry after
 // a lost reply never counts twice.
 

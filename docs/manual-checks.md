@@ -2,13 +2,11 @@
 
 What the automated tests can't cover (SPEC §11). It opens Phase 7 (PLAN.md); after that,
 run the relevant parts after a release that touches them, and before a real game.
-Use a throwaway tournament for anything that records marks, and delete its Drive folder
-afterwards (`docs/google-account.md` §5).
+Use a throwaway tournament for anything that records marks, and `chgk delete` it afterwards.
 
 ## Backend (after every deployment)
 
-- [ ] `uv run chgk backend check` is clean: the expected version, no missing permission,
-      no "Google Sheets API service is off" warning.
+- [ ] `uv run python scripts/live_check.py` passes (it starts with `chgk backend check`).
 
 ## The Sheet's edit trigger (needs a person typing in Google Sheets)
 

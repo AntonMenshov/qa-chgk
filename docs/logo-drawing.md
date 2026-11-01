@@ -5,9 +5,7 @@ preview and accept: [SPEC.md §9.1](../SPEC.md). Not needed for Phases 7 and 8: 
 `ANTHROPIC_API_KEY` comes from the shell profile; a Claude Code session started before it was set doesn't see
 it, so run `zsh -ic 'uv run chgk logos … --draw'`.
 
-- **Claude-drawn drafts** (`--draw`): for registered teams whose own logo can't be used and
-  that have no draft yet; `--draw --team A01` draws (or redraws) those teams whatever
-  their logo. Always Claude Opus 5.5 (`claude-opus-5-5`) at **max effort** (user,
+- **The request:** always Claude Opus 5.5 (`claude-opus-5-5`) at **max effort** (user,
   2026-10-30), streamed, up to 128K output tokens, server-side `fallbacks: "default"` (a
   declined request is re-run on Anthropic's fallback model); 4 teams at a time. A task budget
   of 100k tokens (beta `task-budgets-2026-03-13`), which Claude sees and plans to finish within,

@@ -47,11 +47,11 @@ Full design: [SPEC.md](SPEC.md). What's left: [PLAN.md](PLAN.md).
 ### Repository layout
 ```
 chgk/                 Python package (at repo root, no src/ — user's preference)
-  __init__.py         PROJECT_DIR, the font files, out_dir(): every output under the repo's out/;
+  __init__.py         PROJECT_DIR, the font files, out_dir(): every output under the repo's out/; write_file, warn;
                       run_python_file: config.py and teams.py compiled from their current text
   cli/                typer app, one module per group: common.py (app, errors, version), cards.py
                       (cards, test-page, jury-sheet), profiles.py (backend add|use|list|check|remove|bundle),
-                      tournament.py (new, teams, board, view, replace-token), logos.py (logos)
+                      tournament.py (new, teams, board, view, results-copy, delete, replace-token), logos.py (logos)
   backend.py          backend profiles (~/.config/chgk/backends.json, CHGK_CONFIG_DIR), HTTP client, Code.gs bundler
   remote.py           new_tournament / sync_teams / replace_token (a tournament keeps its own backend)
   config.py           Tournament / CardFields / Layout / LogoMode dataclasses + load_config
@@ -130,6 +130,8 @@ README.md             organiser guide (end to end) and contributor commands
   `Co-Authored-By: Claude` or "Generated with Claude Code" lines.
 - **Keep this file current:** update it in the same commit as the work it describes. A new
   code-level lesson goes to [docs/lessons.md](docs/lessons.md).
+- **Commit in its own step:** run the checks, read each result, then commit and push; never chain them (`set -e`
+  doesn't stop a chain in this shell). After a push, read every workflow on the commit: `tests` and `pages`.
 - **Tokens never go through the chat:** the user runs `chgk backend add … --token …` in a separate
   terminal, not with Claude Code's `!` prefix, which puts the command into the conversation.
 - **Redeploying:** whenever a commit changes `apps_script/`, run `chgk backend bundle` and
@@ -164,8 +166,8 @@ One line each; SPEC has the details. Decisions recorded only here are written ou
   #2 cache for board/phone reads (Phase 9), #3 batched read/write and one-call sort (done),
   #4 one ARRAYFORMULA per column (rejected).
 - **Drive names are Latin** — SPEC §3.3.
-- **No upgrade code for older Sheets** (user, 2026-10-30): migrations and the pre-Phase-5
-  board-token upgrade were removed; a tournament made by an older version is created again.
+- **No upgrade code for older Sheets** (user, 2026-10-30): a tournament made by an older version is created
+  again. The one exception: `chgk results-copy` gives a tournament without a public copy one.
 - **Sheet tabs**, mark cells (blank / `R` / `1` `0` `?`, last write wins), «Спорные» — SPEC §5.
 - **QR and card identity** — SPEC §6: QR 0.85 in (user), moved 20% in from the top and right edges (user); the tournament
   ID from config.py (`tid=`, e.g. the rating number) or generated (5 characters); it and team IDs
@@ -193,7 +195,7 @@ One line each; SPEC has the details. Decisions recorded only here are written ou
 
 ## Next steps
 
-0. **Code review, 2026-10-31:** every finding closed: fixed, or won't fix with its reason in [docs/accepted-gaps.md](docs/accepted-gaps.md). The reviews of what came after `53b045a`, and of their fixes, are done and closed too. The final pass on `aeb627b` (2026-11-01, the user's choice) is closed too, with no further round on its fixes: a flush before every slow sort, the board keeps its picture and its error while drawing fails, the setup camera clears only its own message. That commit had also emptied docs/manual-checks.md by accident (restored). A round, if another is ever wanted: `/code-review high --max-findings all` on the range, at most 5 at a time (whole range, `apps_script`, `web/s`, `web/b`, `chgk scripts`); triage all, fix the obvious, reject what is decided, ask about the large or unclear.
+0. **Code review:** closed, no round open. Every finding ended as fixed, or won't fix with its reason in [docs/accepted-gaps.md](docs/accepted-gaps.md); the last was the final pass on `aeb627b` (2026-11-01), with no further round on its fixes (the user's choice). A round, if another is wanted: `/code-review high --max-findings all` on the range, at most 5 at a time (whole range, `apps_script`, `web/s`, `web/b`, `chgk scripts`); triage all, fix the obvious, reject what is decided, ask about the large or unclear.
 1. **Phase 7**, the rest: reprint `out/osenniy-salat/`, the fixes' own checks on an iPhone
    ([docs/manual-checks.md](docs/manual-checks.md)), the mock game, fixes, a docs/comments check.
    Then **Phase 8**, an external test at a tournament, with the same loop.
@@ -212,31 +214,7 @@ One line each; SPEC has the details. Decisions recorded only here are written ou
 
 ## Live checks
 
-All against the user's backend. Earlier versions (2026-10-29/30) covered marks,
-duplicates, stale scans, bad teams and tokens, sums, «2-3» places and tie-break order against
-the logic.js reference, reserve decks, the one-call sort, Latin Drive names, card photos in
-Drive, the board and its QR codes, the view-only link signed out, each token reaching
-exactly its level, replacing a leaked token, and a tid from config.py. Latest:
-- **2026-10-30, 44f8934ea10c (Осенний салат, 18376):** `backend check` clean; created; get_state,
-  get_results and get_board answer with the right name, date, teams and 36 empty marks (reserve
-  decks off the board and standings); the board token is refused on get_state, a wrong token on
-  get_board; jury.pdf's QR codes carry the jury token on page 1 and the board token on page 2.
+After every deploy: `uv run python scripts/live_check.py`. It runs against the user's backend, on throwaway tournaments it makes and deletes, and covers `backend check`, sorting, the clock cap, photos, the public copy and its timer, the private Sheet, reserve decks, refusals and `chgk delete`. Edits typed in the Sheet need a person ([docs/manual-checks.md](docs/manual-checks.md)). Earlier runs: git log of this file.
 
-- **2026-10-31, daff47713628 (throwaway, deleted):** `backend check` clean; marks with no phone or board polling
-  reached the public copy in 92 s (one-off timer); `chgk delete`, then `chgk new` under that ID refused.
-
-- **2026-10-31, 69bbce9b930e (throwaway, deleted):** `backend check` clean; marks reached the public copy in 113 s by the timer
-  and by a read after the pause; `chgk results-copy` on a tournament with a copy; real Sheet refuses anonymous reads; changed
-  `reserve_teams` and a deleted ID refused, leaving no state.json. Edits typed in the Sheet not tried: they need a person.
-
-- **2026-10-31, 4bd2573b7887 (throwaway, deleted):** the same again, the timer in 83 s; `set_teams` names a team off the Teams
-  tab; a repeated delete answers `unknown_tournament`; `chgk teams` runs. Then the full set: sorting (both calls on the Sheets API,
-  1-3 s a batch), fast clock capped, photo saved with a private link, public download holds only the results tabs, wrong token refused.
-
-- **2026-10-31, dafcc3d4bf4d (throwaways, deleted):** the full set again after the last cleanups: batches 0.8-2.2 s, the timer in 72 s.
-
-- **2026-10-31, bcb5d7fb01cf (throwaways, deleted):** `scripts/live_check.py` all passed; the timer in 93 s.
-
+Latest:
 - **2026-11-01, 7b6015416359 (throwaways, deleted):** `scripts/live_check.py` all passed; the timer in 94 s.
-
-After every deploy, run that full set: `uv run python scripts/live_check.py` (it makes and deletes throwaway tournaments). Throwaway tournaments: the user deletes them.

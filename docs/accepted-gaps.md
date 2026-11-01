@@ -1,6 +1,6 @@
 # Accepted gaps
 
-What the code reviews of 2026-10-31 found and the user decided not to fix, with the reason. A gap
+What the code reviews of 2026-10-31 and 2026-11-01 found and the user decided not to fix, with the reason. A gap
 here is closed: change it only if the reason stops holding.
 
 ## Rules that replace a fix
@@ -66,4 +66,3 @@ Judged not worth fixing, for these reasons:
 - **Small wording:** plural forms, status lines, error texts that name a less likely cause.
 
 Cleanups left on purpose, because the change costs more than it saves: saving the queue on each mark (that is what makes a mark safe); the service worker re-caching each file on a reload (how updates arrive); a photo re-encoded per retry (keeping it would hold memory); the board's own `$` (importing the scanner's would load its state); Meta read with every board poll (one batched read either way); a paste over names and marks reading twice, and reserve activation re-reading Teams (both rare); `formatSheets_` on every `chgk teams` (it keeps new rows formatted); the footer rebuilt per card; the decoders in `chgk/ids.py` used only by tests (they hold the JS mirror to the vectors).
-

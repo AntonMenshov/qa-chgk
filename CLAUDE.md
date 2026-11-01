@@ -3,8 +3,8 @@
 Read [HANDOVER.md](HANDOVER.md) first: current state, working conventions, key decisions
 (with links into [SPEC.md](SPEC.md)) and next steps. SPEC.md is the design, [PLAN.md](PLAN.md) what's
 left. When needed: [docs/lessons.md](docs/lessons.md) before changing the part a lesson names,
-[docs/new-machine.md](docs/new-machine.md) on a new machine, [docs/logo-drawing.md](docs/logo-drawing.md)
-for logo drawing.
+[docs/accepted-gaps.md](docs/accepted-gaps.md) before reopening a review finding, [docs/new-machine.md](docs/new-machine.md)
+on a new machine, [docs/logo-drawing.md](docs/logo-drawing.md) for logo drawing.
 
 Rules that override your defaults (details in HANDOVER «Working conventions»):
 

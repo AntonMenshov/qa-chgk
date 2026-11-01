@@ -1,6 +1,6 @@
 # ЧГК answer cards & jury scanning — Specification
 
-Status: v1, built in phases (updated 2026-10-30). What is built and deployed: [HANDOVER.md](HANDOVER.md).
+Status: v1, built in phases. What is built and deployed: [HANDOVER.md](HANDOVER.md).
 
 ## 1. Goal
 
@@ -259,7 +259,7 @@ instead of the card.
 
 ### 7.1 Flow (the only mode in v1)
 1. The **current question follows the scans** (user decision): the first numbered card of a later question makes it current, shown in big
-   digits at the top. The juror never has to set it; ◀ ▶ can still change it by hand. A spare card
+   digits at the top. The juror never has to set it; ‹ › can still change it by hand. A spare card
    never moves it (its number is handwritten, user decision).
    It is used only for spare cards, the "missing" list and the warnings below; every
    numbered card is marked for the question in its own QR code.
@@ -376,7 +376,7 @@ The app doesn't show it (decided).
 - The QR is drawn over the logo with its white quiet zone, so a logo never shows through it.
 - `CardFields(no_qr=True)` (user; default False): cards without the QR code, for a
   purely paper game with no scanning. Its corner stays empty; nothing else on the card moves.
-- Logo watermark default: **14% grey** (the user's choice from real cards), configurable: the ink of the logo's dark parts (its darkest 10%), not of a single darkest pixel; see §9.
+- Logo watermark: **14% grey** by default (the user's choice from real cards), configurable; see §9.
 
 ### 8.3 Imposition: all three modes are available, and the CLI **asks which one** before generating unless it's passed
 | Mode | Description |
@@ -556,15 +556,14 @@ Not unit-testable, so covered by a manual checklist per release
 - print scale and grey shades on real printers;
 - the deployed backend (quotas, CORS, the Sheet's edit trigger).
 
-CI (`.github/workflows/tests.yml`) runs on every push: `ruff check`, `ruff format --check`,
-`uv run pytest`; `npm run lint`, `npm run format:check`, `npm test`.
+CI (`.github/workflows/tests.yml`) runs all of this on every push, with the lint, format and type checks.
 
 ## 12. Tech stack
 
 - **Python ≥ 3.12, uv**:
   - `typer` (CLI), `reportlab` (PDF), `segno` (QR), `Pillow` (logos), `resvg-py` (SVG logos), `httpx`,
     `anthropic` (Claude-drawn logos);
-  - dev: `pytest`, `respx`, `pypdf`, `pypdfium2`, `zxing-cpp`, `playwright`, `ruff`.
+  - dev: `pytest`, `respx`, `pypdf`, `pypdfium2`, `zxing-cpp`, `playwright`, `ruff`, `mypy`.
 - **Apps Script** (`apps_script/`): deployed once as a web app ("execute as me",
   "anyone"). `chgk backend bundle` writes one `Code.gs` that is pasted into the script
   editor; the «Google Sheets API» advanced service is turned on there (§3.2).
@@ -589,7 +588,7 @@ uv run chgk test-page tournaments/<slug> [--out file.pdf]
 uv run chgk jury-sheet tournaments/<slug> [--out file.pdf]  # jury printout (also written by `cards`)
 uv run chgk board tournaments/<slug>        # projector board link
 uv run chgk view tournaments/<slug>         # public results link
-uv run chgk results-copy tournaments/<slug>  # older tournament: public copy, real Sheet private
+uv run chgk results-copy tournaments/<slug>  # publish the public copy now (§5)
 uv run chgk delete tournaments/<slug> [--yes]  # Drive folder to the bin, its trigger removed, state.json gone
 uv run chgk version
 ```

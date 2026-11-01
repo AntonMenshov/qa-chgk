@@ -1,4 +1,4 @@
-"""Tournament operations that talk to the Google backend: create, sync teams, replace a leaked token."""
+"""Tournament operations on the Google backend: create, sync teams, publish, delete, replace a leaked token."""
 
 from dataclasses import dataclass, replace
 from datetime import datetime
@@ -186,7 +186,7 @@ def delete_tournament(folder: Path, profiles: Profiles) -> State:
         client.delete_tournament(state.tid)
     except BackendError as err:
         # Else an earlier try did it, only its reply was lost. A backend reset under the same URL looks the same,
-        # and the Sheet then stays in Drive. Accepted (user decision, 2026-10-31): we never reset one.
+        # and the Sheet then stays in Drive. Accepted (docs/accepted-gaps.md): we never reset one.
         if err.code != "unknown_tournament":
             raise
     (folder / STATE_FILE).unlink()

@@ -5,9 +5,7 @@ you can have several, one per account. Each tournament remembers which one it wa
 created on (SPEC §3.1). Nothing in the repo names an account.
 
 Where the data goes: the account's Google Drive, folder `CHGK/<date> <name> (<TID>)`,
-which holds the results Sheet and a `Photos` folder for card photos. Drive names are
-Latin only: the tournament name is transliterated («Осенний кубок» → `Osenniy kubok`);
-the tabs inside the Sheet stay Russian.
+which holds the results Sheet and a `Photos` folder for card photos (Latin names, SPEC §3.3).
 
 ## 1. Deploy the script under an account (once per account)
 
@@ -84,11 +82,9 @@ code. To update:
 
 ## 5. Cleaning up Drive
 
-Each tournament lives in `CHGK/<date> <name> (<TID>)`. The TID is printed on the jury
-sheet (page 3), so you can tell which folder is current. Delete only folders of
-tournaments you no longer need: a running tournament's cards, jury link and phones all
-point to its own Sheet. If you trash the current one by mistake, restore it from the
-Drive Trash (right-click → Restore); everything keeps working.
+A tournament you no longer need: `uv run chgk delete tournaments/<slug>` (§2). A running tournament's cards, jury
+link and phones all point to its own Sheet; the TID on the jury sheet (page 3) tells which folder is current. A
+folder trashed by hand can be restored from the Drive Trash (right-click → Restore), and everything keeps working.
 
 ## 6. If a token leaks
 

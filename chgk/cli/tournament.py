@@ -1,4 +1,4 @@
-"""A tournament on its backend: create it, sync its teams, its board and view-only links, replace a leaked link."""
+"""A tournament on its backend: create, sync teams, board and view links, publish, delete, replace a leaked link."""
 
 from pathlib import Path
 
