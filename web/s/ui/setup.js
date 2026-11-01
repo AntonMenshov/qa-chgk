@@ -5,7 +5,7 @@ import {Camera} from '../lib/camera.js';
 import {identify} from '../lib/lookup.js';
 import {decodeCard, decodeSetup, sameAccess} from '../lib/payload.js';
 import {photoStore} from '../lib/photostore.js';
-import {$, offerReload, show, startSetupCamera, toast} from './dom.js';
+import {$, offerReload, saySetupCamera, show, startSetupCamera, toast} from './dom.js';
 import {app, K, store} from './state.js';
 import {startTournament} from './tournament.js';
 
@@ -93,11 +93,11 @@ function setupCameraTrouble(message, needsReload = false) {
   $('setup-start').hidden = false;
   if (needsReload) {
     if (!offerReload(message)) {
-      $('setup-msg').textContent = `${message}: без перезагрузки сканер не заработает. Кнопка предложит её снова.`;
+      saySetupCamera(`${message}: без перезагрузки сканер не заработает. Кнопка предложит её снова.`);
     }
     return;
   }
-  $('setup-msg').textContent = `${message}: нажмите кнопку ещё раз.`;
+  saySetupCamera(`${message}: нажмите кнопку ещё раз.`);
 }
 
 export function startSetupScreen(message = '') {

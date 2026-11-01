@@ -51,6 +51,11 @@ here is closed: change it only if the reason stops holding.
 | A trigger that can't get the lock (30 s) loses a name edit or a typed-over Место; a sort that fails after one loses its repair | Needs a backend under heavy load at that moment; retyping fixes it |
 | One typed-over formula repairs every tab, with phones waiting on the lock | Rare, and the repair is what matters |
 | Logo drawing: no `--draw` summary or failure exit code, Ctrl-C waits for running logos, `--accept` can stop halfway, a draft doesn't notice a renamed team, no cost prompt, near-miss APPROVED replies, unquoted paths in the brief, prompt caching and budgets | The user's own tool, worked around by hand |
+| A note typed in column A under a tab's table counts as a team: it is sorted in, gets formulas, and every later sort takes the slow way | Column A holds team IDs; notes elsewhere stay put (tested), and deleting the note repairs the tab |
+| If marking a hand edit for the public copy fails (Properties quota), the edit is applied but the copy waits for the next change, with only a log line | The edit matters more; needs a quota error at that moment, and any later edit or mark publishes it |
+| A malformed `get_board` reply makes the board's keys throw before drawing; after a failed draw, a good redraw can hide a connection message until the next poll | Only our own backend answers; the message returns within 15 s |
+| A decode begun before a camera restart can still reset the new loop's failure count or add a miss | It delays «Сканер не читает кадры» by a few seconds at most |
+| Cleanups in `aeb627b`: typer imported by the package root; «Итоги» named again in `computedColumnsAt`; a second `save_state` in `new_tournament`; an SVG parsed twice for its DOCTYPE check | The cost is tiny, no tab is being renamed, and none of it touches a game |
 
 ## Minor findings of the first pass, closed as a group
 Judged not worth fixing, for these reasons:

@@ -29,7 +29,7 @@ from PIL import Image
 from chgk.cards.build import build_cards
 from chgk.cards.geometry import PAGE_H, card_rects
 from chgk.cards.impose import Mode
-from chgk.ids import BoardAccess, JuryAccess, encode_board_link, encode_jury_link
+from chgk.ids import BoardAccess, CardId, JuryAccess, encode_board_link, encode_jury_link, encode_payload
 from chgk.state import load_or_create_state, save_state
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -611,6 +611,96 @@ def test_scanner_that_never_starts_offers_a_reload(web_server):
         page.clock.resume()
         page.click("#loading-retry")
         page.wait_for_selector("#setup-start")
+        browser.close()
+
+
+DENY_CAMERA_ON_REQUEST = """
+const realGetUserMedia = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+navigator.mediaDevices.getUserMedia = (c) =>
+  window.denyCamera ? Promise.reject(new Error('запрещено')) : realGetUserMedia(c);
+"""
+
+
+def test_starting_the_setup_camera_clears_only_what_the_camera_said(web_server):
+    card = CardId("K7M2Q", "A01", question=1)
+    with playwright.sync_playwright() as p:
+        browser = p.chromium.launch(
+            executable_path=CHROME,
+            headless=True,
+            args=["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream"],
+        )
+        page = browser.new_page()
+        page.add_init_script(DENY_CAMERA_ON_REQUEST)
+        page.goto(encode_payload(f"{web_server}/s/", card))
+        page.wait_for_selector("text=Сначала настройте телефон")
+        page.click("#setup-start")
+        page.wait_for_selector("#setup-start", state="hidden")
+        assert "Сначала настройте телефон" in page.inner_text("#setup-msg")
+
+        page = browser.new_page()
+        page.add_init_script(DENY_CAMERA_ON_REQUEST)
+        page.goto(f"{web_server}/s/")
+        page.wait_for_selector("#setup-start")
+        page.evaluate("window.denyCamera = true")
+        page.click("#setup-start")
+        page.wait_for_selector("text=Камера недоступна")
+        page.evaluate("window.denyCamera = false")
+        page.click("#setup-start")
+        page.wait_for_selector("#setup-start", state="hidden")
+        assert page.inner_text("#setup-msg") == ""
+        browser.close()
+
+
+def test_board_keeps_its_picture_and_its_error_while_drawing_fails(backend_server, web_server):
+    tid, backend_url, _ = backend_server
+    link = encode_board_link(f"{web_server}/s/", BoardAccess(tid, BOARD_TOKEN, BACKEND), 5)
+    with playwright.sync_playwright() as p:
+        browser = p.chromium.launch(executable_path=CHROME, headless=True)
+        page = browser.new_page(viewport={"width": 1280, "height": 800})
+        page.clock.install()
+        # Only a bug can make a draw fail: here, the call that puts the picture on the stage.
+        page.add_init_script("""
+const realReplace = Element.prototype.replaceChildren;
+Element.prototype.replaceChildren = function (...nodes) {
+  if (window.breakDraw && this.id === 'stage') {
+    throw new Error('сломано');
+  }
+  return realReplace.apply(this, nodes);
+};
+""")
+
+        def to_backend(route):
+            with urllib.request.urlopen(
+                urllib.request.Request(backend_url, data=route.request.post_data.encode(), method="POST")
+            ) as r:
+                route.fulfill(
+                    status=200,
+                    body=r.read(),
+                    headers={"Content-Type": "application/json", "Access-Control-Allow-Origin": "*"},
+                )
+
+        def next_poll():
+            with page.expect_response("https://script.google.com/**"):
+                page.clock.fast_forward(16000)
+            page.wait_for_timeout(200)
+
+        page.route("https://script.google.com/**", to_backend)
+        page.goto(link)
+        page.wait_for_selector("#next:not([disabled])")
+        picture = page.inner_text("#stage")
+
+        page.evaluate("window.breakDraw = true")
+        page.keyboard.press("ArrowRight")
+        for _ in range(3):  # the unchanged reply doesn't hide the error, and repeated failures keep the picture
+            assert "Не удалось показать данные: сломано" in page.inner_text("#status")
+            assert page.inner_text("#stage") == picture
+            assert page.is_enabled("#next")
+            next_poll()
+
+        page.evaluate("window.breakDraw = false")
+        next_poll()  # the next poll draws what the key asked for
+        assert page.is_hidden("#status")
+        assert page.inner_text("#stage") != picture
         browser.close()
 
 

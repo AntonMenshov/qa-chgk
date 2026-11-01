@@ -58,11 +58,21 @@ export async function startCamera(camera, button, onFail) {
   }
 }
 
-/** The setup screen's camera; a failure says what to do, a success clears an earlier failure. */
+let setupCameraMessage = '';
+
+/** What the setup screen's camera has to say; the next start clears it, and only it. */
+export function saySetupCamera(text) {
+  setupCameraMessage = text;
+  $('setup-msg').textContent = text;
+}
+
+/** The setup screen's camera; a failure says what to do. Other messages (scan the jury QR) stay. */
 export async function startSetupCamera() {
-  $('setup-msg').textContent = '';
+  if ($('setup-msg').textContent === setupCameraMessage) {
+    $('setup-msg').textContent = '';
+  }
   await startCamera(app.setupCamera, $('setup-start'), (err) => {
-    $('setup-msg').textContent = `Камера недоступна: ${err.message}. Разрешите доступ к камере в настройках Safari.`;
+    saySetupCamera(`Камера недоступна: ${err.message}. Разрешите доступ к камере в настройках Safari.`);
   });
 }
 

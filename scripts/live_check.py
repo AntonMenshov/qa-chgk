@@ -86,13 +86,15 @@ class Throwaway:
             # It may exist all the same: never leave one behind. After a lost reply a retry with the saved
             # tokens is recognised by the backend, and tells us what it holds.
             state = load_state(self.folder)
+            retry = ""
             if state and not state.spreadsheet_id:
-                chgk("new", self.folder)
+                retry = chgk("new", self.folder)[1]
                 state = load_state(self.folder)
             if state and state.spreadsheet_id:
                 self.delete()
             else:
                 shutil.rmtree(out_dir(slug), ignore_errors=True)
+                print(f"{slug} may still exist on the backend: look for it in Drive. {retry[-400:]}")
             sys.exit(f"{failures} failed: stopping here.")
         self.state = load_state(self.folder)
         self.tid = self.state.tid

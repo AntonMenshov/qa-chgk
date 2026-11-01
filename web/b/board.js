@@ -195,6 +195,7 @@ function fit() {
 function render() {
   try {
     draw();
+    drawnOnce = true;
     if (drawFailed) {
       drawFailed = false;
       $('status').hidden = true;
@@ -205,7 +206,7 @@ function render() {
     drawFailed = true;
     $('status').hidden = false;
     $('status').textContent = `Не удалось показать данные: ${err.message}`;
-    if (!lastReply) {
+    if (!drawnOnce) {
       loadError = $('status').textContent; // nothing drawn yet: not «Загрузка…» for ever
       data = null;
       draw();
@@ -276,6 +277,7 @@ let loading = false;
 let lastReply = null;
 let loadError = null; // why the first load failed: said in place of «Загрузка…»
 let drawFailed = false;
+let drawnOnce = false; // there is a picture to keep
 
 async function load() {
   // One at a time, so an older reply can't replace a newer one; a hidden page asks when shown again.
@@ -291,7 +293,7 @@ async function load() {
     $('status').hidden = true;
     const {timing, ...shown} = reply; // eslint-disable-line no-unused-vars
     text = JSON.stringify(shown);
-    if (text === lastReply) {
+    if (text === lastReply && !drawFailed) {
       return; // polled every 15 s, mostly unchanged: nothing to redraw
     }
     data = reply;

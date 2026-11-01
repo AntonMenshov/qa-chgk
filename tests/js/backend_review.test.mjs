@@ -520,6 +520,22 @@ test('the slow sort leaves a note under the table where it is', () => {
   assert.equal(round.getRange(below, sumCol).getValues()[0][0], 'проверить');
 });
 
+test('the slow sort calculates what the tab before it wrote: every sort comes right after a flush', () => {
+  const {b, ss} = world();
+  vm.runInContext(
+    `globalThis.order = [];
+     const realFlush = SpreadsheetApp.flush;
+     SpreadsheetApp.flush = () => { order.push('flush'); return realFlush(); };
+     const realTimed = timed_;
+     timed_ = (name, run) => { order.push(name); return realTimed(name, run); };`,
+    b,
+  );
+  b.sortTabs_(ss, [3, 3], [1, 2], null, null);
+  const order = [...vm.runInContext('order', b)];
+  const sorts = order.flatMap((step, i) => (step === 'sort_range' ? [order[i - 1]] : []));
+  assert.deepEqual(sorts, ['flush', 'flush', 'flush']); // two rounds and «Итоги»
+});
+
 test('onSheetEdit: a failing mark for the public copy does not stop the edit', () => {
   const {b, tab} = world();
   const round = tab('Тур 1');

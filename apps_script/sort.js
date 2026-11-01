@@ -63,9 +63,9 @@ function sortTabs_(ss, sizes, changedRounds, m, reg, formulaTypedOver = false) {
   // The slow way: per tab, read the formulas and fix the wrong ones, sort, fix them again.
   tabs.forEach((tab) => {
     const sheet = tabOf_(ss, tab.name);
-    if (timed_('sort_formulas', () => refreshFormulas_(sheet, tab.firstFormulaCol, tab.formulasFor))) {
-      SpreadsheetApp.flush(); // seen live (sortWithApi_): a sort before a new formula is calculated sees a blank key
-    }
+    timed_('sort_formulas', () => refreshFormulas_(sheet, tab.firstFormulaCol, tab.formulasFor));
+    // Always, even if this tab wrote nothing: «Итоги» reads the formulas a round tab just rewrote.
+    SpreadsheetApp.flush(); // seen live (sortWithApi_): a sort before a new formula is calculated sees a blank key
     timed_('sort_range', () => {
       // Down to the last team, not the last row: a note typed under the table stays there.
       const teams = teamRowsOf_(sheet);
@@ -165,21 +165,19 @@ function sheetIds_(ss, reg, names) {
 
 /**
  * Rewrite the formula cells from `firstCol` on every team row where they differ from `want(row)`, a run
- * of rows at once. Returns whether it wrote anything.
+ * of rows at once.
  */
 function refreshFormulas_(sheet, firstCol, want) {
   const teams = teamRowsOf_(sheet);
   if (!teams.length) {
-    return false;
+    return;
   }
   const width = want(teams[0].row).length;
   const last = teams[teams.length - 1].row;
   const formulas = sheet.getRange(2, firstCol, last - 1, width).getFormulas();
   let run = [];
-  let wrote = false;
   const writeRun = () => {
     if (run.length) {
-      wrote = true;
       sheet.getRange(run[0], firstCol, run.length, width).setValues(run.map(want));
       run = [];
     }
@@ -196,5 +194,4 @@ function refreshFormulas_(sheet, firstCol, want) {
     }
   });
   writeRun();
-  return wrote;
 }
