@@ -26,7 +26,7 @@ Full design: [SPEC.md](SPEC.md). What's left: [PLAN.md](PLAN.md).
 | 8 — External test at a tournament | not started: the same loop with real teams |
 | 9 — Next version | the deferred list in PLAN.md |
 
-- **Deployed backend:** version **bcb5d7fb01cf** (2026-10-31; full live check passed: sorting, clock cap, photos, public copy, private Sheet, the one-off timer, refusals, `chgk delete`) under the user's Gmail (local
+- **Deployed backend:** version **7b6015416359** (2026-11-01; full live check passed: sorting, clock cap, photos, public copy, private Sheet, the one-off timer, refusals, `chgk delete`) under the user's Gmail (local
   profile `personal`), with the «Google Sheets API» service on. `uv run chgk backend check`
   compares it with the local code, and says when `out/apps_script/Code.gs` is an old bundle.
 - **Phase 7 tournament:** `tournaments/osenniy-salat/` «Осенний салат», 2026-11-20, TID **18376**,
@@ -236,5 +236,7 @@ exactly its level, replacing a leaked token, and a tid from config.py. Latest:
 - **2026-10-31, dafcc3d4bf4d (throwaways, deleted):** the full set again after the last cleanups: batches 0.8-2.2 s, the timer in 72 s.
 
 - **2026-10-31, bcb5d7fb01cf (throwaways, deleted):** `scripts/live_check.py` all passed; the timer in 93 s.
+
+- **2026-11-01, 7b6015416359 (throwaways, deleted):** `scripts/live_check.py` all passed; the timer in 94 s.
 
 After every deploy, run that full set: `uv run python scripts/live_check.py` (it makes and deletes throwaway tournaments). Throwaway tournaments: the user deletes them.
