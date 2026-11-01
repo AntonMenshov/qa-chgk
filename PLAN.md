@@ -31,4 +31,4 @@ Phases 0-6 are built; their task lists are in the git history.
 The one list of deferred work (HANDOVER points here): logos from image-generation
 services (OpenAI, Google, …; user decision), closing the known gaps in the SVG checks first, since such
 files come from outside (chgk/svg.py) · rating.chgk.info export · multi-juror UI ·
-cache for board/phone reads (backend speed proposal #2).
+cache for board/phone reads (backend speed proposal #2) · the logo drawing checks in docs/manual-checks.md (`--draw` with `ANTHROPIC_API_KEY`, the brief without it, the printed preview).

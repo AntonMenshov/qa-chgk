@@ -39,7 +39,7 @@ Full design: [SPEC.md](SPEC.md). What's left: [PLAN.md](PLAN.md).
   card's top and right edges (~0.4 mm); logo shade 14% by default, `logo_grey=` per team in teams.py.
   Earlier printouts still scan, but have the old shade and QR position. Screen rotation can't be locked from a web page on an iPhone: use its Portrait Orientation Lock.
 - **`ANTHROPIC_API_KEY`:** not set on the current machine, and not needed for now: the `--draw`
-  checks are out of scope for Phases 7 and 8 (user).
+  checks are in Phase 9 (user).
 - **Example:** `tournaments/example/` is only a reference to copy (the user's four teams 645 «42»,
   58746 Фиаско, 40400 Совхоз Победа, A01 Звезды сошлись). It is never run and never has a `state.json`
   (user, 2026-10-30); `load_config` refuses it.
