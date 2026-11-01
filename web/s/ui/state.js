@@ -46,7 +46,8 @@ export function forgetLocalData(tid) {
   if (!tid) {
     return;
   }
-  [K.state(tid), K.current(tid), K.photographed(tid)].forEach((key) => store.remove(key));
+  // The juror's name too: the phone may pass to someone else, whose marks must not carry it.
+  [K.state(tid), K.current(tid), K.photographed(tid), K.juror].forEach((key) => store.remove(key));
   const queue = store.get(K.queue(tid));
   if (!queue?.pending?.length && !queue?.rejected?.length) {
     store.remove(K.queue(tid));

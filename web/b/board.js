@@ -78,6 +78,9 @@ function titleScreen(m) {
   );
 }
 
+/** board.css stripes nine rounds; a longer tournament starts over. */
+const stripe = (round) => `r${((round - 1) % 9) + 1}`;
+
 function table(m) {
   const grid = m.view === 'grid';
   const head1 = el('tr', {className: 'rounds'}, el('th'), el('th'));
@@ -88,12 +91,12 @@ function table(m) {
   }
   for (const g of m.groups) {
     head1.append(
-      el('th', {colSpan: g.questions.length + 1, className: `r${g.round} edge`, textContent: `Тур ${g.round}`}),
+      el('th', {colSpan: g.questions.length + 1, className: `${stripe(g.round)} edge`, textContent: `Тур ${g.round}`}),
     );
     g.questions.forEach((q, i) =>
-      head2.append(el('th', {className: `r${g.round}${i === 0 ? ' edge' : ''}`, textContent: q})),
+      head2.append(el('th', {className: `${stripe(g.round)}${i === 0 ? ' edge' : ''}`, textContent: q})),
     );
-    head2.append(el('th', {className: `r${g.round}`, textContent: 'Σ'}));
+    head2.append(el('th', {className: `${stripe(g.round)}`, textContent: 'Σ'}));
   }
   if (grid) {
     head1.append(el('th'));
@@ -114,9 +117,9 @@ function table(m) {
       g.questions.forEach((q, i) => {
         const mark = r.marks[q];
         const kind = {'+': 'plus', '×': 'wrong', '?': 'maybe', '•': 'no-card'}[mark];
-        tr.append(el('td', {className: `q ${kind} r${g.round}${i === 0 ? ' edge' : ''}`, textContent: mark}));
+        tr.append(el('td', {className: `q ${kind} ${stripe(g.round)}${i === 0 ? ' edge' : ''}`, textContent: mark}));
       });
-      tr.append(el('td', {className: `sum r${g.round}`, textContent: r.sums[g.round - 1]}));
+      tr.append(el('td', {className: `sum ${stripe(g.round)}`, textContent: r.sums[g.round - 1]}));
     }
     if (grid) {
       tr.append(total);
@@ -129,9 +132,9 @@ function table(m) {
   }
   for (const g of m.groups) {
     g.questions.forEach((q, i) =>
-      foot.append(el('td', {className: `r${g.round}${i === 0 ? ' edge' : ''}`, textContent: m.took[q]})),
+      foot.append(el('td', {className: `${stripe(g.round)}${i === 0 ? ' edge' : ''}`, textContent: m.took[q]})),
     );
-    foot.append(el('td', {className: `r${g.round}`}));
+    foot.append(el('td', {className: `${stripe(g.round)}`}));
   }
   if (grid) {
     foot.append(el('td'));
@@ -252,6 +255,14 @@ async function load() {
       : lastOk
         ? `Нет связи — данные на ${lastOk.toLocaleTimeString('ru-RU', {hour: '2-digit', minute: '2-digit'})}`
         : `Не удалось загрузить: ${err.message}`;
+    if (!data) {
+      // Nothing to show yet: the reason goes where the hall would read «Загрузка…» for ever.
+      $('stage').replaceChildren(
+        el('section', {className: 'title'}, el('div', {className: 'wait', textContent: $('status').textContent})),
+      );
+      $('next').textContent = 'Нет данных';
+      fit();
+    }
     return;
   } finally {
     loading = false;

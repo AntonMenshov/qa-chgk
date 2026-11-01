@@ -47,6 +47,8 @@ def first_logo(fields: CardFields, team_id: str, logos: dict[str, Any]) -> str |
 
 
 def resolve_logo(name: str, folder: Path) -> Path | None:
+    if Path(name).name != name:  # a file name, and it can come from the shared Sheet: nothing outside these folders
+        return None
     for base in (Path(folder), LOGO_LIBRARY):
         path = base / name
         if path.is_file():

@@ -6,6 +6,7 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
+from chgk import out_dir
 from chgk.backend import BackendClient, BackendError, Profile, Profiles
 from chgk.config import load_config
 from chgk.ids import generate_jury_token
@@ -16,6 +17,7 @@ from chgk.state import (
     check_tid,
     load_or_create_state,
     load_state,
+    new_id_warning,
     remember_team_ids,
     save_state,
 )
@@ -27,6 +29,7 @@ class NewResult:
     state: State
     created: bool  # False if the tournament already existed on its backend
     teams: list[Team] | None = None  # the teams and reserve decks it was created with; None if nothing was read
+    warnings: tuple[str, ...] = ()
 
 
 def _team_dicts(teams: list[Team]) -> list[dict[str, Any]]:
@@ -46,7 +49,10 @@ def new_tournament(folder: Path, profile: Profile, client: BackendClient | None 
         return NewResult(state, created=False)
     # teams.py first: without it nothing is created (the jury sheet needs the teams too).
     teams = read_teams(folder / TEAMS_FILE)
+    is_new = state is None
     state = load_or_create_state(folder, tournament.tid)
+    printed = is_new and not tournament.tid and any(out_dir(tournament.slug).glob("*.pdf"))
+    warnings = (new_id_warning(folder, tournament.slug, state),) if printed else ()
     remember_team_ids(folder, [t.team_id for t in teams])
     state = load_or_create_state(folder, tournament.tid)
 
@@ -84,7 +90,7 @@ def new_tournament(folder: Path, profile: Profile, client: BackendClient | None 
         public_id=reply.get("public_id"),
     )
     save_state(folder, state)
-    return NewResult(state, not reply.get("existed", False), [*teams, *reserve])
+    return NewResult(state, not reply.get("existed", False), [*teams, *reserve], warnings)
 
 
 def tournament_client(folder: Path, profiles: Profiles) -> tuple[State, BackendClient]:

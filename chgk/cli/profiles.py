@@ -120,3 +120,4 @@ def backend_check(name: str | None = typer.Argument(None, help="Profile (default
             f"Local code is version {local}: {step}, then Deploy → Manage deployments → edit → New version.",
             fg="yellow",
         )
+        raise typer.Exit(1)

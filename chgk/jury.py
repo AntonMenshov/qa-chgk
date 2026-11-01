@@ -520,7 +520,10 @@ def render_jury_sheet(tournament: Tournament, state: State, teams: list[Team], o
         def draw(canvas: Any, doc: Any) -> None:
             canvas.setFont(FONT, 7.5)
             canvas.setFillGray(0.4)
-            canvas.drawString(MARGIN, 0.3 * INCH, f"{printable(tournament.name, [])} · {day} · {label}{edition}")
+            tail = f" · {day} · {label}{edition}"
+            room = PAGE_W - 2 * MARGIN - pdfmetrics.stringWidth(f"{tail}  стр. 999", FONT, 7.5)
+            name = fit_text(printable(tournament.name, []), FONT, 7.5, room, 7.5)[0]
+            canvas.drawString(MARGIN, 0.3 * INCH, name + tail)
             canvas.drawRightString(PAGE_W - MARGIN, 0.3 * INCH, f"стр. {doc.page}")
 
         return draw

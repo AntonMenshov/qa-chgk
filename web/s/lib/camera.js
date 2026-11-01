@@ -23,11 +23,16 @@ const DECODE_PAUSED_EVERY_MS = 200;
 const MISSED_FRAMES = 5;
 const FAILURES_TO_REPORT = 30; // frames in a row that the decoder failed on
 
+export const DECODER_TROUBLE = 'Сканер не читает кадры';
+
 let prepared = false;
 
 export function prepareReader() {
   if (prepared) {
     return;
+  }
+  if (!globalThis.ZXingWASM) {
+    return; // its script failed to load: frames then fail to decode, and DECODER_TROUBLE offers the reload
   }
   prepared = true;
   // Load the .wasm from our own folder instead of the CDN the library defaults to.
@@ -100,7 +105,7 @@ export class Camera {
       this.release(); // or the camera stays on behind the «Камера недоступна» message
       throw err;
     }
-    if (!this.running) {
+    if (!this.running && this.wanted) {
       this.running = true;
       this.loop();
     }
@@ -211,7 +216,7 @@ export class Camera {
         text = null;
         this.failures += 1;
         if (this.failures === FAILURES_TO_REPORT) {
-          this.onTrouble('Сканер не читает кадры');
+          this.onTrouble(DECODER_TROUBLE);
         }
       }
       if (text && this.running) {

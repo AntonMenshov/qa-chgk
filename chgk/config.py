@@ -64,6 +64,7 @@ class CardFields:
 
 # One row covers the test page, one column has room for one sample; past the maximum, too small to write on.
 MAX_ROUNDS, MAX_ROUND_SIZE = 20, 100
+MIN_MARGIN = 0.15
 MIN_COLS, MAX_COLS = 2, 4
 MIN_ROWS, MAX_ROWS = 2, 6
 
@@ -93,8 +94,9 @@ class Layout:
             )
         if not 0.4 <= self.qr_size <= 2.0:
             raise ConfigError(f"qr_size must be 0.4–2.0 in, got {self.qr_size}")
-        if not 0 <= self.margin <= 1:
-            raise ConfigError(f"margin must be 0–1 in, got {self.margin}")
+        if not MIN_MARGIN <= self.margin <= 1:
+            # Below it printers clip the cards' edges, and no cut guides fit in the margin.
+            raise ConfigError(f"margin must be {MIN_MARGIN}–1 in, got {self.margin}")
 
     @property
     def per_page(self) -> int:
@@ -124,9 +126,11 @@ class Tournament:
     layout: Layout = field(default_factory=Layout)
 
     def __post_init__(self) -> None:
+        if not isinstance(self.card, CardFields) or not isinstance(self.layout, Layout):
+            raise ConfigError("card must be CardFields(…) and layout must be Layout(…)")
         if self.tid is not None:
-            tid = str(self.tid).strip().upper()
-            if not TID_RE.fullmatch(tid):
+            tid = str(self.tid).strip().upper() if isinstance(self.tid, str | int) else ""
+            if isinstance(self.tid, bool) or not TID_RE.fullmatch(tid):
                 raise ConfigError(f"tid must be 1-8 digits or Latin letters, e.g. 11234 or OSEN26, got {self.tid!r}")
             object.__setattr__(self, "tid", tid)
         if not SLUG_RE.fullmatch(self.slug):

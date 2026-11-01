@@ -13,7 +13,17 @@ from reportlab.pdfgen.canvas import Canvas
 
 from chgk.cards.geometry import INCH, PAGE_H, PAGE_W, Rect, card_rects
 from chgk.cards.model import team_deck
-from chgk.cards.render import FONT, FONT_BOLD, GUIDE_GREY, draw_cards, draw_qr, placed_parts, printable, register_fonts
+from chgk.cards.render import (
+    FONT,
+    FONT_BOLD,
+    GUIDE_GREY,
+    draw_cards,
+    draw_qr,
+    fit_text,
+    placed_parts,
+    printable,
+    register_fonts,
+)
 from chgk.config import Tournament
 from chgk.ids import CardId, encode_payload
 from chgk.logos import first_logo, pale
@@ -21,6 +31,7 @@ from chgk.teams import Team
 
 QR_SIZES = [0.55, 0.65, 0.75, 0.85, 0.95]
 GREYS = [0.05, 0.08, 0.10, 0.12, 0.14, 0.18]
+TITLE_SUFFIX_W = 130  # pt: «: тестовая страница» in bold 13
 
 
 def _ruler(c: Canvas, x: float, y: float, vertical: bool) -> None:
@@ -54,7 +65,8 @@ def render_test_page(
     c.setTitle(f"{tournament.name} — тестовая страница")
 
     c.setFont(FONT_BOLD, 13)
-    c.drawString(0.5 * INCH, 10.35 * INCH, f"{printable(tournament.name, warnings)}: тестовая страница")
+    title = fit_text(f"{printable(tournament.name, warnings)}", FONT_BOLD, 13, PAGE_W - INCH - TITLE_SUFFIX_W, 13)[0]
+    c.drawString(0.5 * INCH, 10.35 * INCH, f"{title}: тестовая страница")
     c.setFont(FONT, 9)
     c.drawString(
         0.5 * INCH, 10.15 * INCH, "Print on Letter at 100% / Actual size. Both rulers must measure exactly 2 in."

@@ -1105,7 +1105,9 @@ test('forgetLocalData: cached data goes, unsent marks stay', async () => {
   store.set(K.current('Z'), 3);
   store.set(K.photographed('Z'), ['a']);
   store.set(K.queue('Z'), {pending: [{scan_id: 'a'}], rejected: []});
+  store.set(K.juror, 'Анна');
   forgetLocalData('Z');
+  assert.equal(store.get(K.juror), null); // the next person's marks must not carry it
   assert.equal(store.get(K.state('Z')), null);
   assert.equal(store.get(K.photographed('Z')), null);
   assert.equal(store.get(K.queue('Z')).pending.length, 1);
@@ -1126,4 +1128,41 @@ test('camera: a restart counts decoder failures afresh, and a first start that f
   camera.wanted = true; // it ran: an interruption is worth another try when the juror comes back
   await assert.rejects(camera.start());
   assert.equal(camera.wanted, true);
+});
+
+test('camera: stopped while it was starting, it does not come on', async () => {
+  let granted;
+  const track = {readyState: 'live', stop() {}};
+  globalThis.navigator ??= {};
+  const devices = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+  Object.defineProperty(globalThis, 'navigator', {
+    configurable: true,
+    value: {
+      mediaDevices: {
+        getUserMedia: () =>
+          new Promise((resolve) => {
+            granted = () => resolve({getTracks: () => [track]});
+          }),
+      },
+    },
+  });
+  const camera = Object.create(Camera.prototype);
+  Object.assign(camera, {
+    wanted: false,
+    starting: null,
+    running: false,
+    failures: 0,
+    last: {text: null, seenAt: 0},
+    video: {},
+  });
+  camera.loop = () => assert.fail('it must not scan');
+  const starting = camera.start();
+  await new Promise((r) => setTimeout(r, 0));
+  camera.stop();
+  granted();
+  await starting;
+  if (devices) {
+    Object.defineProperty(globalThis, 'navigator', devices);
+  }
+  assert.equal(camera.running, false);
 });

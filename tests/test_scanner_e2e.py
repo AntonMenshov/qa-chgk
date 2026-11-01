@@ -606,3 +606,52 @@ def test_scanner_that_never_starts_offers_a_reload(web_server):
         page.click("#loading-retry")
         page.wait_for_selector("#setup-start")
         browser.close()
+
+
+def test_board_refused_at_its_first_load_says_why_in_big_letters(web_server):
+    link = encode_board_link(f"{web_server}/s/", BoardAccess("K7M2Q", BOARD_TOKEN, BACKEND), 5)
+    with playwright.sync_playwright() as p:
+        browser = p.chromium.launch(executable_path=CHROME, headless=True)
+        page = browser.new_page(viewport={"width": 1280, "height": 800})
+        reply = json.dumps({"ok": False, "error": "forbidden: board token required", "retry": True})
+        page.route(
+            "https://script.google.com/**",
+            lambda route: route.fulfill(
+                status=200,
+                body=reply,
+                headers={"Content-Type": "application/json", "Access-Control-Allow-Origin": "*"},
+            ),
+        )
+        page.goto(link)
+        page.wait_for_function("document.getElementById('next').textContent === 'Нет данных'")
+        assert "Загрузка" not in page.inner_text("#stage")
+        assert page.inner_text("#stage").strip() == page.inner_text("#status").strip()
+        browser.close()
+
+
+@pytest.mark.parametrize("width", [320, 360])
+def test_board_buttons_fit_a_narrow_phone(backend_server, web_server, width):
+    tid, backend_url, _ = backend_server
+    link = encode_board_link(f"{web_server}/s/", BoardAccess(tid, BOARD_TOKEN, BACKEND), 5)
+    with playwright.sync_playwright() as p:
+        browser = p.chromium.launch(executable_path=CHROME, headless=True)
+        context = browser.new_context(viewport={"width": width, "height": 640}, is_mobile=True, has_touch=True)
+        page = context.new_page()
+
+        def to_backend(route):
+            with urllib.request.urlopen(
+                urllib.request.Request(backend_url, data=route.request.post_data.encode(), method="POST")
+            ) as r:
+                route.fulfill(
+                    status=200,
+                    body=r.read(),
+                    headers={"Content-Type": "application/json", "Access-Control-Allow-Origin": "*"},
+                )
+
+        page.route("https://script.google.com/**", to_backend)
+        page.goto(link)
+        page.wait_for_selector("#next:not([disabled])")
+        for selector in ("#prev", "#next", "#view", "#qr"):
+            box = page.locator(selector).bounding_box()
+            assert box["x"] >= 0 and box["x"] + box["width"] <= width, selector
+        browser.close()

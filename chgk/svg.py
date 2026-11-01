@@ -47,8 +47,9 @@ def check_svg(text: str) -> ET.Element:
     """The SVG's root element; ValueError if it is not plain drawing (see the module docstring)."""
     if len(text.encode("utf-8")) > MAX_BYTES:
         raise ValueError(f"SVG larger than {MAX_BYTES // 1_000_000} MB")
-    if re.search(r"<!DOCTYPE|<!ENTITY", text, re.IGNORECASE):
-        raise ValueError("SVG with a DOCTYPE or entities is refused")
+    # The standard DOCTYPE line many exporters write is harmless; defining anything in it is not.
+    if re.search(r"<!DOCTYPE[^>]*\[|<!ENTITY", text, re.IGNORECASE):
+        raise ValueError("SVG with entities defined in its DOCTYPE is refused")
     try:
         root = ET.fromstring(text)
     except ET.ParseError as err:

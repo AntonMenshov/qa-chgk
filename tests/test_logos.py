@@ -3,7 +3,7 @@ from conftest import TEAM_ROWS, write_teams_file
 from PIL import Image, ImageDraw
 
 from chgk.config import CardFields, LogoMode
-from chgk.logos import FALLBACK_KEY, TOURNAMENT_KEY, first_logo, load_logos, logo_chain, open_logo, pale
+from chgk.logos import FALLBACK_KEY, TOURNAMENT_KEY, first_logo, load_logos, logo_chain, open_logo, pale, resolve_logo
 from chgk.teams import Team
 
 
@@ -223,3 +223,11 @@ def test_a_transparent_colour_leaves_no_halo_when_shrunk(tmp_path):
     ImageDraw.Draw(image).ellipse((100, 100, 1100, 1100), fill=(128, 128, 128))
     image.save(path, transparency=(0, 0, 0))
     assert open_logo(path).mode == "RGBA"
+
+
+def test_a_logo_name_cant_reach_outside_its_folders(tmp_path):
+    (tmp_path / "secret.png").write_bytes(b"x")
+    inner = tmp_path / "t"
+    inner.mkdir()
+    assert resolve_logo("../secret.png", inner) is None
+    assert resolve_logo(str(tmp_path / "secret.png"), inner) is None

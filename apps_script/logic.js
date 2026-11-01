@@ -180,7 +180,7 @@ const CYRILLIC_TO_LATIN = {
  * . , _ - ( ) is left out. Never empty.
  */
 export function latinName(text) {
-  const out = [...String(text || '')]
+  const out = [...String(text || '').normalize('NFC')] // a Mac's «й» can be two characters
     .map((ch) => {
       const lower = ch.toLowerCase();
       if (lower in CYRILLIC_TO_LATIN) {

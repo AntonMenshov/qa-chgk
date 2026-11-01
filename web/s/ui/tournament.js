@@ -1,12 +1,12 @@
 // Loading the tournament: its data (or the last saved copy offline), the queues, the camera.
 
 import {backend} from '../lib/api.js';
-import {Camera} from '../lib/camera.js';
+import {Camera, DECODER_TROUBLE} from '../lib/camera.js';
 import {blobToBase64, PhotoQueue} from '../lib/photos.js';
 import {photoStore} from '../lib/photostore.js';
 import {Queue} from '../lib/queue.js';
 import {Session} from '../lib/session.js';
-import {$, show, startCamera, toast} from './dom.js';
+import {$, offerReload, show, startCamera, toast} from './dom.js';
 import {handleCode} from './scan.js';
 import {app, deviceId, K, store} from './state.js';
 import {render} from './sync.js';
@@ -14,6 +14,9 @@ import {render} from './sync.js';
 /** The camera stopped by itself, or its decoder keeps failing: the juror can start it again. */
 export function cameraTrouble(message) {
   $('start').hidden = false;
+  if (message === DECODER_TROUBLE) {
+    return offerReload(message);
+  }
   toast(`${message}: нажмите «Начать проверку»`, true);
 }
 

@@ -94,6 +94,14 @@ def check_reserve(state: State, count: int) -> None:
         )
 
 
+def new_id_warning(folder: Path, slug: str, state: State) -> str:
+    """Printouts exist, but state.json was missing: the ID just made isn't the one on those cards."""
+    return (
+        f"no state.json in {folder}: this is a new tournament ID ({state.tid}), so cards printed "
+        f"earlier (out/{slug}/) won't scan into it. Restore state.json if you have it."
+    )
+
+
 def load_or_create_state(folder: Path, tid: str | None = None) -> State:
     """The tournament's state; a new one if it has none yet, with `tid` (from config.py) or a fresh ID."""
     state = load_state(folder)

@@ -185,6 +185,16 @@ tfoot td.label {
   gap: 8px;
   transition: opacity 0.4s;
 }
+@media (max-width: 400px) {
+  .controls {
+    left: 14px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  .controls button {
+    padding: 10px;
+  }
+}
 .controls.idle:not(:focus-within) {
   pointer-events: none; /* unseen buttons must not take a stray click */
   opacity: 0;

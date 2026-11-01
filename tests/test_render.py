@@ -518,3 +518,30 @@ def test_a_test_page_without_qr_codes_has_none(folder, tmp_path):
     path, _ = build_test_page(folder, tmp_path / "test.pdf")
     image = pypdfium2.PdfDocument(str(path))[0].render(scale=3).to_pil().convert("RGB")
     assert read_qr(image) == []
+
+
+def test_three_digit_numbers_fit_beside_the_qr_code(folder, tmp_path):
+    config = folder / "config.py"
+    text = re.sub(r"Layout\([^)]*\)", "Layout(cols=4, rows=6, qr_size=0.95)", config.read_text(encoding="utf-8"))
+    config.write_text(text.replace("questions_per_round=3", "questions_per_round=100"), encoding="utf-8")
+    result = build_cards(folder, Mode.TEAM_PAGES, tmp_path / "cards.pdf", ["A01"])
+    assert not any("wider" in w for w in result.warnings)
+    text = "\n".join(page.extract_text() for page in PdfReader(result.path).pages)
+    assert "\n200\n" in text  # whole, not cut with an ellipsis
+
+
+def test_a_long_tournament_name_is_shortened_on_the_test_page(folder, tmp_path):
+    config = folder / "config.py"
+    long_name = "Очень длинное название турнира " * 6
+    text = config.read_text(encoding="utf-8")
+    config.write_text(re.sub(r'name="[^"]*"', f'name="{long_name}"', text, count=1), encoding="utf-8")
+    path, _ = build_test_page(folder, tmp_path / "test.pdf")
+    title = PdfReader(path).pages[0].extract_text().splitlines()[0]
+    assert title.endswith("…: тестовая страница")
+
+
+def test_a_logo_size_the_card_cant_hold_is_reported(folder, tmp_path):
+    config = folder / "config.py"
+    text = config.read_text(encoding="utf-8")
+    config.write_text(text.replace("card=CardFields(", "card=CardFields(logo_size=8, "), encoding="utf-8")
+    assert any("logo_size" in w for w in build_cards(folder, Mode.TEAM_PAGES, tmp_path / "c.pdf").warnings)

@@ -27,8 +27,10 @@ def run_python_file(path: Path) -> dict[str, Any]:
     names = {"__name__": f"chgk_{path.parent.name}_{path.stem}", "__file__": str(path)}
     try:
         exec(compile(path.read_text(encoding="utf-8"), str(path), "exec"), names)  # the organiser's own file
-    except ValueError:
-        raise  # our own checks already say what is wrong
+    except ValueError as err:
+        if str(path) in str(err):
+            raise
+        raise ValueError(f"{path}: {err}") from err  # our own checks say what is wrong, not in which file
     except Exception as err:
         raise ValueError(f"{path}: {type(err).__name__}: {err}") from err
     return names

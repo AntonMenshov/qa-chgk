@@ -248,3 +248,22 @@ def test_what_the_backend_or_the_qr_codes_would_refuse_is_refused_on_loading(ove
 def test_a_fractional_grid_is_refused():
     with pytest.raises(ConfigError, match="grid must be"):
         Layout(cols=2.5)
+
+
+@pytest.mark.parametrize("overrides", [{"tid": True}, {"tid": 1.5}, {"card": None}, {"layout": None}])
+def test_values_of_the_wrong_kind_are_refused_clearly(overrides):
+    with pytest.raises(ConfigError):
+        make(**overrides)
+
+
+def test_a_margin_too_small_to_print_is_refused():
+    with pytest.raises(ConfigError, match="margin must be"):
+        Layout(margin=0)
+
+
+def test_an_error_in_the_config_names_the_file(tmp_path):
+    folder = tmp_path / "x"
+    folder.mkdir()
+    (folder / "config.py").write_text("from datetime import date\ndate(2026, 13, 1)\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="month must be"):
+        load_config(folder)

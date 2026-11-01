@@ -4,11 +4,14 @@ import {identify} from '../lib/lookup.js';
 import {$, lookingUp, sheet, startCamera, toast} from './dom.js';
 import {app} from './state.js';
 
+let startedHere = false; // the lookup, not «Начать проверку», asked for the camera
+
 export async function openLookup() {
   $('lookup').className = 'sheet lookup';
   $('lk-title').textContent = 'Наведите камеру на карточку';
   $('lk-details').replaceChildren();
   sheet('lookup');
+  startedHere = !app.camera.wanted;
   app.camera.forgetLast(); // the card already in front of the camera counts too
   await startCamera((err) => {
     if (lookingUp()) {
@@ -20,6 +23,9 @@ export async function openLookup() {
 }
 
 export function closeLookup() {
+  if (startedHere && !app.camera.running) {
+    app.camera.stop(); // still starting: it must not come on after this and record the card in view
+  }
   app.camera.restoreLast(); // a card still in view counts only after it leaves the frame and returns
   sheet(null);
 }

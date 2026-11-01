@@ -18,7 +18,6 @@ from chgk.cards.geometry import (
     INCH,
     INFO_SIZE,
     NUMBER_SIZE,
-    PAD,
     PAGE_H,
     PAGE_W,
     ROUND_SIZE,
@@ -81,6 +80,8 @@ def fit_text(text: str, font: str, size: float, max_width: float, min_size: floa
         text = text[:-1]
     return text.rstrip() + ELLIPSIS, size
 
+
+MIN_NUMBER_SIZE = 14  # pt: three digits fit in the 0.45 in that card_parts guarantees
 
 # Card QR codes have been checked at this version (33 modules) on paper and on the iPhone;
 # a longer payload (an 8-character tid and team ID) needs a denser code.
@@ -184,8 +185,10 @@ def draw_card(
         c.setStrokeGray(0)
         c.setFillGray(0)
     else:
-        c.setFont(FONT_BOLD, NUMBER_SIZE)
-        c.drawString(nr.x, nr.top - pdfmetrics.getAscent(FONT_BOLD, NUMBER_SIZE), str(card.id.question))
+        # Three digits may not fit beside the QR code at full size.
+        number, size = fit_text(str(card.id.question), FONT_BOLD, NUMBER_SIZE, nr.w, MIN_NUMBER_SIZE)
+        c.setFont(FONT_BOLD, size)
+        c.drawString(nr.x, nr.top - pdfmetrics.getAscent(FONT_BOLD, size), number)
         c.setFont(FONT, ROUND_SIZE)
         c.drawString(nr.x, nr.y + 1, f"Тур {card.round}")
 
@@ -261,17 +264,19 @@ def render_cards(
     readers = {key: ImageReader(image) for key, image in (logos or {}).items()}
 
     rects = card_rects(tournament.layout)
-    no_qr = tournament.card.no_qr
     all_parts = [placed_parts(r, tournament) for r in rects]
-    number_w = pdfmetrics.stringWidth(str(tournament.total_questions), FONT_BOLD, NUMBER_SIZE)
 
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     c = Canvas(str(out_path), pagesize=(PAGE_W, PAGE_H))
     c.setTitle(f"{tournament.name} — карточки ({mode.value})")
     warnings: list[str] = []
-    if not no_qr and number_w > all_parts[0].number.w + PAD:
-        warnings.append(f"question {tournament.total_questions} is wider than its place: it can reach the QR code")
+    logo_pt = (tournament.card.logo_size or 0) * INCH
+    if logo_pt and all_parts[0].logo.w < logo_pt - 0.5:
+        warnings.append(
+            f"logo_size {tournament.card.logo_size} in is larger than a card has room for: "
+            f"it prints at {all_parts[0].logo.w / INCH:.2f} in"
+        )
     for page in pages:
         draw_cards(c, page, all_parts, tournament, readers, warnings)
         # Guides last: the QR's white quiet zone would otherwise hide them at the corners.

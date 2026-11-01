@@ -51,9 +51,16 @@ export function hideToast() {
 export async function startCamera(onFail) {
   try {
     await app.camera.start();
-    $('start').hidden = true;
+    $('start').hidden = app.camera.wanted; // stopped while it was starting: it is not on
   } catch (err) {
     $('start').hidden = false;
     onFail(err);
+  }
+}
+
+/** Only a reload fetches the decoder again, and an installed app has no reload button. */
+export function offerReload(message) {
+  if (confirm(`${message}. Перезагрузить приложение? Неотправленные отметки сохранятся.`)) {
+    location.reload();
   }
 }

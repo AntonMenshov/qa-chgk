@@ -9,6 +9,7 @@ from conftest import LONG_NAME, runner, write_teams_file
 from node_backend import NODE, NodeBackend
 from pypdf import PdfReader
 
+from chgk import out_dir
 from chgk.backend import (
     APPS_SCRIPT_DIR,
     BackendClient,
@@ -250,6 +251,17 @@ def test_a_config_tid_other_than_the_tournaments_stops_every_backend_command(fol
         delete_tournament(folder, Profiles())
 
 
+def test_new_warns_when_printouts_exist_but_state_json_is_gone(folder, backends):
+    out_dir("test-cup").mkdir(parents=True, exist_ok=True)
+    pdf = out_dir("test-cup", "cards.pdf")
+    pdf.write_bytes(b"%PDF")
+    try:
+        result = new_tournament(folder, Profile("personal", URL_A, "tokA"))
+    finally:
+        pdf.unlink()
+    assert any("won't scan" in w for w in result.warnings)
+
+
 def test_new_tournament_is_idempotent(folder, backends):
     a, _ = backends
     first = new_tournament(folder, Profile("personal", URL_A, "tokA")).state
@@ -410,7 +422,7 @@ def test_cli_backend_add_list_use_check(backends):
     assert "* club" in listing and "  personal" in listing
     assert runner.invoke(app, ["backend", "use", "personal"]).exit_code == 0
     check = runner.invoke(app, ["backend", "check"])
-    assert check.exit_code == 0 and "account a@gmail.com" in check.output
+    assert check.exit_code == 1 and "account a@gmail.com" in check.output  # out of date: a failure
     assert "Local code is version" in check.output  # the test backend runs the unbundled code: version 'dev'
 
 
@@ -444,7 +456,7 @@ def test_cli_backend_check_warns_when_the_sheets_api_service_is_off(backends):
     assert "Google Sheets API" not in runner.invoke(app, ["backend", "check"]).output
     a.options(sheetsApi=False)
     check = runner.invoke(app, ["backend", "check"])
-    assert check.exit_code == 0 and "Services (+) → Google Sheets API → Add" in check.output
+    assert "Services (+) → Google Sheets API → Add" in check.output
 
 
 def test_cli_backend_add_rejects_unreachable():

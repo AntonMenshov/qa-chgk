@@ -800,3 +800,7 @@ test('roundOrder / summaryOrder agree with the tabs after many random batches', 
     }
   }
 });
+
+test('latinName: a decomposed «й», as a Mac may type it, is still «y»', () => {
+  assert.equal(L.latinName('Майский'.normalize('NFD')), L.latinName('Майский'));
+});
