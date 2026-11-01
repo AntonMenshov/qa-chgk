@@ -6,9 +6,9 @@ jobs:
   python:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
-      - uses: actions/setup-node@v4 # the CLI tests run the real backend code in Node
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.3 # no major tag since v8: exact versions only
+      - uses: actions/setup-node@v7 # the CLI tests run the real backend code in Node
         with:
           node-version-file: .node-version
       - run: uv run ruff check .
@@ -19,8 +19,8 @@ jobs:
   js:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .node-version
       - run: npm ci

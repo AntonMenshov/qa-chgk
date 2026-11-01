@@ -205,6 +205,7 @@ One line each; SPEC has the details. Decisions recorded only here are written ou
   on pushes touching `web/` or `apps_script/logic.js` (web/shared/logic.js links to it). The
   scanner URL printed in QR codes is `https://antonmenshov.github.io/qa-chgk/s/`.
 - Push after each commit: `git push`.
+- Actions in the workflows run on Node 24 (`setup-uv` has no major tag since v8: it is pinned to an exact version).
 - The repo is public: never commit a Google account, deployment URL or token. The Gmail
   account behind the backend must stay switchable (named local profiles, SPEC §3.1).
 
