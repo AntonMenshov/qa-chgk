@@ -5,7 +5,7 @@ another person (CLAUDE.md points here). It is updated at the end of every work s
 every phase. On another laptop: [docs/new-machine.md](docs/new-machine.md). Why the code is the
 way it is: [docs/lessons.md](docs/lessons.md).
 
-Last updated: 2026-10-31
+Last updated: 2026-11-01
 
 ## What this project is
 
@@ -193,7 +193,7 @@ One line each; SPEC has the details. Decisions recorded only here are written ou
 
 ## Next steps
 
-0. **Code review, 2026-10-31:** every finding closed: fixed, or won't fix with its reason in [docs/accepted-gaps.md](docs/accepted-gaps.md). The reviews of what came after `53b045a`, and of their fixes, are done and closed too. Only `aeb627b`, the last round of fixes, is unreviewed: the user decides whether to review it before Phase 7. A round: `/code-review high --max-findings all` on the range, at most 5 at a time (whole range, `apps_script`, `web/s`, `web/b`, `chgk scripts`); triage all, fix the obvious, reject what is decided, ask about the large or unclear.
+0. **Code review, 2026-10-31:** every finding closed: fixed, or won't fix with its reason in [docs/accepted-gaps.md](docs/accepted-gaps.md). The reviews of what came after `53b045a`, and of their fixes, are done and closed too. Only `aeb627b`, the last round of fixes, is unreviewed: the user chose one final pass on it before Phase 7, fixing what could break the game, with no further round on those fixes. That commit also emptied docs/manual-checks.md by accident (restored 2026-11-01). A round: `/code-review high --max-findings all` on the range, at most 5 at a time (whole range, `apps_script`, `web/s`, `web/b`, `chgk scripts`); triage all, fix the obvious, reject what is decided, ask about the large or unclear.
 1. **Phase 7**, the rest: reprint `out/osenniy-salat/`, the fixes' own checks on an iPhone
    ([docs/manual-checks.md](docs/manual-checks.md)), the mock game, fixes, a docs/comments check.
    Then **Phase 8**, an external test at a tournament, with the same loop.
