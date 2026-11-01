@@ -24,6 +24,14 @@ here is closed: change it only if the reason stops holding.
 | One toast slot: a newer message can replace a red one | Lasting problems have their own banner on the main screen |
 | A «Чья карточка?» result is a snapshot: it stays after the card leaves, and misses a later mark | One juror in v1; reading the card again is current |
 | The test page labels «(chosen)» only among its samples, and ignores a team's own shade there | Only the label is missing; the sample cards show the real result |
+| A card opened by a link (not by the camera): if the camera is running, its photo shows the current frame; with a sheet open, or before setup, the link is dropped | Jurors scan in the app; a link is a rare way in |
+| A card of a team not yet on the phone: the list refreshes, but the card must leave the frame and return to count | The juror sees «обновляю список команд» and rescans |
+| A photo the backend refuses for good is dropped, shown only as a count, and doesn't affect the pill | The answer is on paper; marks have their own state |
+| A photo can be lost on a crash or a dead IndexedDB connection before it is stored | The user accepted the loss: the card itself is kept |
+| A retried upload can leave an extra photo file in Drive | Harmless: the Log has one entry per `photo_id` |
+| A photo's Drive link opens only for its owner | The owner shares the folder when needed |
+| Two tabs of the scanner overwrite each other's unsent marks | They get a warning; a merge isn't worth its code |
+| The jury token is readable by any page on the same origin | The owner publishes those pages too; a leaked link can be replaced (`chgk replace-token`) |
 | Logo drawing: no `--draw` summary or failure exit code, Ctrl-C waits for running logos, `--accept` can stop halfway, a draft doesn't notice a renamed team, no cost prompt, near-miss APPROVED replies, unquoted paths in the brief, prompt caching and budgets | The user's own tool, worked around by hand |
 
 ## Not reviewed yet
