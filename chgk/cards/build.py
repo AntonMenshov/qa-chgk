@@ -53,12 +53,12 @@ def load_teams(folder: Path, tournament: Tournament) -> list[Team]:
     return teams + reserve_teams(tournament.reserve_teams, teams)
 
 
-def _state(folder: Path, tournament: Tournament) -> tuple[State, list[str]]:
+def _state(folder: Path, tournament: Tournament, teams: list[Team]) -> tuple[State, list[str]]:
     """The tournament's state, plus a warning if a new ID was just made though printouts exist."""
     is_new = load_state(folder) is None
     state = load_or_create_state(folder, tournament.tid)
     check_reserve(state, tournament.reserve_teams)
-    remember_team_ids(folder, [t.team_id for t in read_teams(folder / TEAMS_FILE)])
+    remember_team_ids(folder, [t.team_id for t in teams if not t.reserve])  # the state may be new only now
     warnings = []
     if state.pending_token:
         which = state.pending_token.get("which")
@@ -87,7 +87,7 @@ def build_cards(folder: Path, mode: Mode, out: Path | None = None, team_ids: lis
         if unknown:
             raise ValueError(f"unknown team_id(s): {', '.join(sorted(unknown))}")
         teams = [t for t in teams if t.team_id in team_ids]
-    state, warnings = _state(folder, tournament)
+    state, warnings = _state(folder, tournament, all_teams)
     sources, logo_warnings = load_logos(folder, tournament.card, teams)
     decks = [team_deck(tournament, state.tid, team) for team in teams]
     pages = impose(mode, decks, tournament.layout.per_page)
@@ -110,12 +110,12 @@ def build_cards(folder: Path, mode: Mode, out: Path | None = None, team_ids: lis
     return BuildResult(out, jury_out, len(teams) - n_reserve, n_reserve, n_cards, len(pages), sorted(set(warnings)))
 
 
-def build_jury_sheet(folder: Path, out: Path | None = None) -> tuple[Path, list[str]]:
-    """Jury sheet on its own (also written by build_cards)."""
+def build_jury_sheet(folder: Path, out: Path | None = None, teams: list[Team] | None = None) -> tuple[Path, list[str]]:
+    """Jury sheet on its own (also written by build_cards). `teams`: with reserve decks, if already read."""
     folder = Path(folder)
     tournament = load_config(folder)
-    teams = load_teams(folder, tournament)
-    state, warnings = _state(folder, tournament)
+    teams = load_teams(folder, tournament) if teams is None else teams
+    state, warnings = _state(folder, tournament, teams)
     out = Path(out) if out else out_dir(tournament.slug, "jury.pdf")
     return out, warnings + render_jury_sheet(tournament, state, teams, out)
 
@@ -125,7 +125,7 @@ def build_test_page(folder: Path, out: Path | None = None) -> tuple[Path, list[s
     folder = Path(folder)
     tournament = load_config(folder)
     teams = read_teams(folder / TEAMS_FILE)  # a registered team: the page shows a real one
-    state, warnings = _state(folder, tournament)
+    state, warnings = _state(folder, tournament, teams)
     sources, logo_warnings = load_logos(folder, tournament.card, teams)
     team = next((t for t in teams if t.team_id in sources), teams[0])
     key = first_logo(tournament.card, team.team_id, sources)
@@ -141,16 +141,16 @@ def build_test_page(folder: Path, out: Path | None = None) -> tuple[Path, list[s
     return out, sorted(set(warnings))
 
 
-def build_logo_preview(folder: Path, drafts: dict[str, Path], out: Path | None = None) -> tuple[Path | None, list[str]]:
+def build_logo_preview(
+    folder: Path, tournament: Tournament, all_teams: list[Team], drafts: dict[str, Path], out: Path | None = None
+) -> tuple[Path | None, list[str]]:
     """One real card per drafted team, the draft at the tournament's shade and size; plus warnings.
 
     Drawn on the tournament's own card layout whatever its logo mode, so a draft can be
     judged before it is accepted. A draft that can't be drawn is a warning and left out; with
     none left, no PDF is written (None).
     """
-    folder = Path(folder)
-    tournament = load_config(folder)
-    teams = [t for t in read_teams(folder / TEAMS_FILE) if t.team_id in drafts]
+    teams = [t for t in all_teams if t.team_id in drafts]
     images, warnings = {}, []
     for t in teams:
         try:

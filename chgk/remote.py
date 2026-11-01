@@ -26,6 +26,7 @@ from chgk.teams import TEAMS_FILE, Team, normalize_teams, read_teams, reserve_te
 class NewResult:
     state: State
     created: bool  # False if the tournament already existed on its backend
+    teams: list[Team] | None = None  # the teams and reserve decks it was created with; None if nothing was read
 
 
 def _team_dicts(teams: list[Team]) -> list[dict[str, Any]]:
@@ -83,7 +84,7 @@ def new_tournament(folder: Path, profile: Profile, client: BackendClient | None 
         public_id=reply.get("public_id"),
     )
     save_state(folder, state)
-    return NewResult(state, created=not reply.get("existed", False))
+    return NewResult(state, not reply.get("existed", False), [*teams, *reserve])
 
 
 def tournament_client(folder: Path, profiles: Profiles) -> tuple[State, BackendClient]:
@@ -150,18 +151,15 @@ def sync_teams(
         if t.team_id not in kept and (t.logo_file or t.logo_grey is not None):
             what = f"its logo {t.logo_file!r}" if t.logo_file else "its logo_grey"
             warnings.append(f"{t.team_id} {t.name!r} is no longer on the Teams tab: {what} left teams.py")
-    listed = {t.team_id for t in teams}
-    on_tabs = client.get_state(state.tid).get("teams", [])
-    gone = [t["team_id"] for t in on_tabs if not t.get("reserve") and t["team_id"] not in listed]
-    if gone:
-        warnings.append(
-            f"still on the tabs but not on Teams: {', '.join(gone)}. If they withdrew, delete their rows on «Итоги» "
-            "and the round tabs by hand, then run `chgk results-copy` to update the public copy; their marks stay "
-            "in the Log."
-        )
     reserve_teams(config.reserve_teams, teams)  # R1, R2, … are printed on the reserve decks
-    client.set_teams(state.tid, _team_dicts(teams))  # writes assigned IDs back and adds rows on every tab
+    done = client.set_teams(state.tid, _team_dicts(teams))  # writes assigned IDs back and adds rows on every tab
     write_teams(folder / TEAMS_FILE, teams)  # only once the Sheet has the same IDs
+    if done.get("off_teams"):
+        warnings.append(
+            f"still on the tabs but not on Teams: {', '.join(done['off_teams'])}. If they withdrew, delete their rows "
+            "on «Итоги» and the round tabs by hand, then run `chgk results-copy` to update the public copy; their "
+            "marks stay in the Log."
+        )
     remember_team_ids(folder, [t.team_id for t in teams])
     return teams
 

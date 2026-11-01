@@ -1,3 +1,4 @@
+import pytest
 from conftest import runner
 
 from chgk import __version__, out_dir
@@ -66,3 +67,24 @@ def test_cards_warn_when_a_lost_state_json_makes_a_new_tournament_id(folder):
     result = runner.invoke(app, ["cards", str(folder), "--mode", "team-pages"])
     assert result.exit_code == 0
     assert "new tournament ID" in result.output
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        ["cards", "{folder}", "--mode", "team-pages"],
+        ["test-page", "{folder}"],
+        ["jury-sheet", "{folder}"],
+        ["logos", "{folder}"],
+    ],
+)
+def test_a_command_runs_teams_py_once(folder, args):
+    teams_py = folder / "teams.py"
+    runs = folder / "runs.txt"
+    text = teams_py.read_text(encoding="utf-8")
+    add = "p.write_text((p.read_text() if p.exists() else '') + 'x')"
+    count = f"from pathlib import Path\np = Path({str(runs)!r})\n{add}\n"
+    teams_py.write_text(count + text, encoding="utf-8")
+    result = runner.invoke(app, [a.format(folder=folder) for a in args])
+    assert result.exit_code == 0, result.output
+    assert runs.read_text() == "x"

@@ -240,5 +240,9 @@ function setTeams_(ss, reg, teams) {
   const counts = syncTeamRows_(ss, reg.round_sizes, teams);
   refreshDisputed_(ss, reg.round_sizes); // names may have changed
   markUnpublished_(PropertiesService.getScriptProperties(), reg);
-  return {ok: true, appended: counts.appended, renamed: counts.renamed};
+  const listed = new Set(readTeams_(ss).map((t) => t.team_id));
+  const offTeams = teamRowsOf_(summaryOf_(ss))
+    .map((t) => t.team_id)
+    .filter((id) => !listed.has(id));
+  return {ok: true, appended: counts.appended, renamed: counts.renamed, off_teams: offTeams};
 }

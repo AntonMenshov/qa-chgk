@@ -93,3 +93,6 @@ The three drawing checks below are not needed for Phases 7 and 8 (user): no new 
       following it writes drafts that `chgk logos` accepts.
 - [ ] `out/<slug>/logo-preview.pdf` printed: the drafts are pale enough to write over and
       the names readable.
+
+## Projector QR codes after a change to how they are drawn
+- [ ] Scan both board QR codes with a phone from the back of the hall.

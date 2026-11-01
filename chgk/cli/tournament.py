@@ -24,7 +24,7 @@ def new(
     try:
         profile = profiles.get(backend) if backend else profiles.active()
         result = new_tournament(folder, profile)
-        jury_path, warnings = build_jury_sheet(folder)
+        jury_path, warnings = build_jury_sheet(folder, teams=result.teams)
     except (ValueError, BackendError) as err:
         raise fail(err) from err
     for warning in warnings:
@@ -128,7 +128,7 @@ def replace_token_cmd(
     # All that the new sheet needs comes first: once the backend switches, the old link is dead.
     try:
         tournament = load_config(folder)
-        load_teams(folder, tournament)
+        teams = load_teams(folder, tournament)
         current = load_state(folder)
         if current is not None:
             check_tid(current, tournament.tid)
@@ -152,7 +152,7 @@ def replace_token_cmd(
     except ValueError as err:
         raise fail(err) from err
     try:
-        path, warnings = build_jury_sheet(folder, out_dir(tournament.slug, f"jury-v{sheet_version(state)}.pdf"))
+        path, warnings = build_jury_sheet(folder, out_dir(tournament.slug, f"jury-v{sheet_version(state)}.pdf"), teams)
     except (ValueError, OSError) as err:
         typer.secho(
             f"The new token is live, but the sheet failed: fix this, then `chgk jury-sheet {folder}`.",

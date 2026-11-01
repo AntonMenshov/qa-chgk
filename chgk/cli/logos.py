@@ -64,7 +64,7 @@ def _report(folder: Path, tournament: Tournament, teams: list[Team]) -> None:
     key = "set" if drafts.api_key_set() else "not set (`--draw` writes a brief for Claude Code instead)"
     typer.echo(f"{drafts.API_KEY_ENV}: {key}.")
     if have:
-        path, warnings = build_logo_preview(folder, have)
+        path, warnings = build_logo_preview(folder, tournament, teams, have)
         for warning in warnings:
             typer.secho(f"Warning: {warning}", fg="yellow", err=True)
         if path:
@@ -91,9 +91,11 @@ def logos_cmd(
         which = None if accept.strip().lower() == "all" else team_ids(accept)
         if which == []:
             raise ValueError("--accept gives no team IDs")
-        for t in drafts.accept_drafts(teams_path, tournament.slug, teams, which):
+        accepted = drafts.accept_drafts(teams_path, tournament.slug, teams, which)
+        for t in accepted:
             typer.echo(f"  {t.team_id} «{t.name}»: logo={t.logo_file!r} (in {LOGO_LIBRARY})")
-        teams = read_teams(teams_path)
+        new = {t.team_id: t for t in accepted}
+        teams = [new.get(t.team_id, t) for t in teams]
     if draw:
         if not shows_team_logos(tournament.card):
             raise ValueError("this tournament's cards don't show team logos: drawing them would be paid for nothing")

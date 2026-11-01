@@ -20,7 +20,7 @@ import chgk.logos as logos
 from chgk import logo_drafts as drafts
 from chgk.cards.build import build_logo_preview
 from chgk.cli import app
-from chgk.config import CardFields, Layout
+from chgk.config import CardFields, Layout, load_config
 from chgk.teams import read_teams
 
 SECRET = "sk-ant-test-SECRET-never-printed"
@@ -382,13 +382,14 @@ def test_preview_shows_one_real_card_per_draft(folder, tmp_path):
         for t in teams
     }
     (paths["A03"]).write_text("<svg", encoding="utf-8")  # broken: a warning, left out
-    out, warnings = build_logo_preview(folder, paths, tmp_path / "preview.pdf")
+    tournament = load_config(folder)
+    out, warnings = build_logo_preview(folder, tournament, teams, paths, tmp_path / "preview.pdf")
     pages = PdfReader(out).pages
     assert len(pages) == 1
     assert len(pages[0].images) == 2  # A01 and A02 with their drafts
     assert len(warnings) == 1 and "A03.svg" in warnings[0]
     assert not (folder / "state.json").exists()  # a preview is not a tournament
-    assert build_logo_preview(folder, {"A03": paths["A03"]}, tmp_path / "none.pdf")[0] is None
+    assert build_logo_preview(folder, tournament, teams, {"A03": paths["A03"]}, tmp_path / "none.pdf")[0] is None
 
 
 def test_accept_moves_drafts_into_the_library_and_teams_py(folder, library):

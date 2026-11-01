@@ -345,17 +345,12 @@ def draw_logo(
         label = "drawing" if round_no == 0 else f"review {round_no}"
         try:
             message, note = _ask(client, messages, system_prompt(look), log, label)
-        except CutOffError as err:
-            if svg is None and retries:
+        except Exception as err:  # a dropped stream raises the SDK's own transport errors, unwrapped
+            if isinstance(err, CutOffError) and svg is None and retries:
                 retries -= 1
                 round_no -= 1  # the same request again: a retry is not a review
                 log(f"{label}: {err}; asking again")
                 continue
-            if svg is None:
-                raise
-            log(f"{label}: {err}; keeping the previous drawing")
-            break
-        except Exception as err:  # a dropped stream raises the SDK's own transport errors, unwrapped
             if svg is None:
                 raise
             log(f"{label}: {err}; keeping the previous drawing")  # it is paid for
@@ -577,7 +572,7 @@ def accept_drafts(teams_path: Path, slug: str, teams: list[Team], team_ids: list
     drafts = existing_drafts(slug, teams)
     if team_ids is not None:
         team_ids = list(dict.fromkeys(team_ids))  # A01,A01 means A01 once
-    if team_ids is None:
+    else:
         team_ids = [t.team_id for t in teams if t.team_id in drafts]
         if not team_ids:
             raise ValueError(f"no drafts in {drafts_dir(slug)}")

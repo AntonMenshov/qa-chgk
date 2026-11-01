@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 import {decodeBoard, decodeSetup, encodeBoardLink} from '../../web/s/lib/payload.js';
-import {qrSvg} from '../../web/b/lib/qr.js';
+import {qrNode, qrSvg} from '../../web/b/lib/qr.js';
 import {boardModel, cellMark} from '../../web/b/lib/board.js';
 import * as L from '../../apps_script/logic.js';
 
@@ -171,31 +171,43 @@ test("qrSvg draws the vendored generator's matrix with a 4-module white quiet zo
       dark += qr.isDark(r, c) ? 1 : 0;
     }
   }
-  assert.equal(
-    [...svg.matchAll(/h(\d+)v1h-\d+z/g)].reduce((sum, m) => sum + Number(m[1]), 0),
-    dark,
-  );
-  assert.ok(!/M[0-3] |M\d+ [0-3]h/.test(svg)); // nothing drawn in the quiet zone
+  assert.equal([...svg.matchAll(/M\d+,\d+l/g)].length, dark);
+  assert.ok(!/M[0-3],|M\d+,[0-3]l/.test(svg)); // nothing drawn in the quiet zone
 });
 
 test('a cell that is not a mark shows as undecided, not as «no card»', () => {
   assert.equal(cellMark('!'), '?');
 });
 
-test('qrSvg: dark modules sit where the matrix says; text goes in as UTF-8; a repeat comes from the cache', () => {
-  const added = [];
+test('qrSvg: text goes in as UTF-8, the same code as its bytes written by hand', () => {
+  const source = readFileSync(new URL('../../web/b/vendor/qrcode-generator-1.4.4/qrcode.js', import.meta.url), 'utf8');
+  const qrcode = vm.runInNewContext(`${source}\n;qrcode`, {});
+  const svg = qrSvg('Осенний салат é', qrcode);
+  qrcode.stringToBytes = qrcode.stringToBytesFuncs.default; // keeps only each character's low byte
+  const qr = qrcode(0, 'M');
+  qr.addData(String.fromCharCode(...new TextEncoder().encode('Осенний салат é')), 'Byte');
+  qr.make();
+  assert.equal(svg, qr.createSvgTag({cellSize: 1, margin: 4, scalable: true}));
+});
+
+test('qrNode: each code is generated once, each call gets its own copy, and the cache stays small', () => {
   let makes = 0;
   const fake = () => ({
-    addData: (text) => added.push(text),
-    make: () => {
+    addData() {},
+    make() {
       makes += 1;
     },
-    getModuleCount: () => 2,
-    isDark: (r, c) => r === 0 && c === 1,
+    createSvgTag: () => '<svg/>',
   });
-  const svg = qrSvg('qr-position-test-é', fake);
-  assert.match(svg, /d="M5 4h1v1h-1z"/); // column 1, row 0, past the 4-module quiet zone
-  assert.equal(added[0], 'qr-position-test-Ã©');
-  qrSvg('qr-position-test-é', fake);
+  fake.stringToBytesFuncs = {'UTF-8': () => []};
+  const parse = (svg) => ({svg, cloneNode: () => ({copy: svg})});
+  assert.deepEqual(qrNode('a', fake, parse), {copy: '<svg/>'});
+  qrNode('a', fake, parse);
   assert.equal(makes, 1);
+  for (let i = 0; i < 20; i++) {
+    qrNode(`link-${i}`, fake, parse);
+  }
+  assert.equal(makes, 21);
+  qrNode('a', fake, parse); // pushed out by then
+  assert.equal(makes, 22);
 });

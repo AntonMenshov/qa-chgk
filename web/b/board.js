@@ -6,7 +6,7 @@ import {decodeBoard, encodeBoardLink} from '../s/lib/payload.js';
 import {backend} from '../s/lib/api.js';
 import {storage} from '../s/lib/storage.js';
 import {boardModel} from './lib/board.js';
-import {qrSvg} from './lib/qr.js';
+import {qrNode} from './lib/qr.js';
 
 const REFRESH_EVERY_MS = 15000;
 /** @type {(id: string) => any} */
@@ -53,7 +53,7 @@ function qrCodes(big) {
     ...codes.map(([caption, link]) => {
       const box = el('div', {className: 'code'});
       try {
-        box.innerHTML = qrSvg(link);
+        box.replaceChildren(qrNode(link));
       } catch (err) {
         console.error(err); // the codes are extras: the results still go up
       }

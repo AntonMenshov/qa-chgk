@@ -24,7 +24,6 @@ here is closed: change it only if the reason stops holding.
 | One toast slot: a newer message can replace a red one | Lasting problems have their own banner on the main screen |
 | A «Чья карточка?» result is a snapshot: it stays after the card leaves, and misses a later mark | One juror in v1; reading the card again is current |
 | The test page labels «(chosen)» only among its samples, and ignores a team's own shade there | Only the label is missing; the sample cards show the real result |
-| Projector QR modules can differ slightly in width | Checked by the user: scans fine |
 | Logo drawing: no `--draw` summary or failure exit code, Ctrl-C waits for running logos, `--accept` can stop halfway, a draft doesn't notice a renamed team, no cost prompt, near-miss APPROVED replies, unquoted paths in the brief, prompt caching and budgets | The user's own tool, worked around by hand |
 
 ## Not reviewed yet
