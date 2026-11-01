@@ -16,6 +16,11 @@ export function cellMark(value) {
   return value === STATUS_VALUE.incorrect ? '×' : '•';
 }
 
+/** Rounds shown: 0 to all of them, and 0 for a stored value that is no number. */
+export function clampRevealed(n, rounds) {
+  return Number.isFinite(n) ? Math.min(Math.max(0, n), rounds) : 0;
+}
+
 /** The view shown: the one forced with the G key, else by team count. */
 export function chosenView(data, gridMax, view) {
   return view || (data.teams.length <= gridMax ? 'grid' : 'compact');
@@ -35,7 +40,7 @@ export function chosenView(data, gridMax, view) {
  */
 export function boardModel(data, revealed, {gridMax, view = null}) {
   const sizes = data.tournament.round_sizes;
-  const shown = Math.min(Math.max(0, revealed), sizes.length);
+  const shown = clampRevealed(revealed, sizes.length);
   let next = 1;
   const allQuestions = sizes.map((size) => Array.from({length: size}, () => next++));
   const chosen = chosenView(data, gridMax, view);

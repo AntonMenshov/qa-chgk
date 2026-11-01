@@ -25,11 +25,12 @@ TID_LENGTH = 5
 # 1-8 digits or capital Latin letters, like a team ID.
 TID_PATTERN = "[0-9A-Z]{1,8}"
 TID_RE = re.compile(rf"^{TID_PATTERN}$")
-TEAM_ID_RE = re.compile(r"^[0-9A-Z]{1,8}$")
+TEAM_ID_PATTERN = "[0-9A-Z]{1,8}"  # e.g. a rating.chgk.info number (58746) or A07
+TEAM_ID_RE = re.compile(rf"^{TEAM_ID_PATTERN}$")
 MAX_QUESTION = 999  # the payload holds questions 1–999 …
 MAX_SPARE = 99  # … and spare cards S1–S99 (_FRAGMENT_RE, and payload.js on the phone)
 _FRAGMENT_RE = re.compile(
-    rf"^(?P<tid>{TID_PATTERN})\.(?P<team>[0-9A-Z]{{1,8}})\.(?:(?P<q>[1-9][0-9]{{0,2}})|S(?P<s>[1-9][0-9]{{0,1}}))$"
+    rf"^(?P<tid>{TID_PATTERN})\.(?P<team>{TEAM_ID_PATTERN})\.(?:(?P<q>[1-9][0-9]{{0,2}})|S(?P<s>[1-9][0-9]{{0,1}}))$"
 )
 
 

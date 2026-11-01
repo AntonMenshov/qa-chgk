@@ -83,7 +83,7 @@ function deleteTournament_(props, reg) {
 }
 
 function hideServiceTabs_(ss) {
-  HIDDEN_TABS.forEach((name) => ss.getSheetByName(name).hideSheet());
+  HIDDEN_TABS.forEach((name) => tabOf_(ss, name).hideSheet());
 }
 
 function buildTabs_(ss, req) {

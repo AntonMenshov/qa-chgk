@@ -4,9 +4,9 @@
  * Re-sort round tabs (by «Сумма») and «Итоги» (by Итого, then the last round, …), then
  * rewrite any per-row formula that the move left pointing at another row.
  */
-function sortTabs_(ss, sizes, changedRounds, m, reg) {
-  // Computed keys that disagree with the marks: a formula typed over. Every tab gets its formulas back.
-  const repair = Boolean(m) && !m.sortKeysOk;
+function sortTabs_(ss, sizes, changedRounds, m, reg, formulaTypedOver = false) {
+  // A formula typed over, known from the edit or from keys that disagree with the marks: every tab gets its formulas back.
+  const repair = formulaTypedOver || (Boolean(m) && !m.sortKeysOk);
   const rounds = repair ? sizes.map((_, i) => i + 1) : changedRounds;
   // With the marks at hand (`m` from readMarks_), a tab already in the right order is left
   // alone: most batches don't change the order.
@@ -57,13 +57,14 @@ function sortTabs_(ss, sizes, changedRounds, m, reg) {
     return;
   }
   SpreadsheetApp.flush(); // queued writes use today's row numbers: they must land before rows move
-  if (m && m.sortKeysOk && reg && sheetsApi_() && sortWithApi_(ss, reg, tabs)) {
+  if (m && !repair && reg && sheetsApi_() && sortWithApi_(ss, reg, tabs)) {
     return;
   }
   // The slow way: per tab, read the formulas and fix the wrong ones, sort, fix them again.
   tabs.forEach((tab) => {
     const sheet = tabOf_(ss, tab.name);
     timed_('sort_formulas', () => refreshFormulas_(sheet, tab.firstFormulaCol, tab.formulasFor));
+    SpreadsheetApp.flush(); // seen live (sortWithApi_): a sort before a new formula is calculated sees a blank key
     timed_('sort_range', () => {
       if (sheet.getLastRow() > 2) {
         sheet.getRange(2, 1, sheet.getLastRow() - 1, tab.width).sort(tab.spec);

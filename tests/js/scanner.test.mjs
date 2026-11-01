@@ -646,6 +646,7 @@ test('the same tournament with a new jury token (a replaced link) is a new acces
   const a = {tid: TID, juryToken: 'old-jury-token-0123456', backendUrl: 'https://script.google.com/macros/s/X/exec'};
   assert.equal(sameAccess(a, {...a}), true);
   assert.equal(sameAccess(a, {...a, juryToken: 'new-jury-token-0123456'}), false);
+  assert.equal(sameAccess({...a, boardToken: 'x'}, {...a, boardToken: 'y'}), false); // the board's replaced link
   assert.equal(sameAccess(a, {...a, backendUrl: 'https://script.google.com/macros/s/Y/exec'}), false);
   assert.equal(sameAccess(a, {...a, tid: 'QHZJ8'}), false);
   assert.equal(sameAccess(a, null), false);
@@ -1119,7 +1120,7 @@ test('forgetLocalData: cached data goes, unsent marks stay', async () => {
 
 test('camera: a restart counts decoder failures afresh, and a first start that fails is not wanted', async () => {
   const camera = Object.create(Camera.prototype);
-  Object.assign(camera, {wanted: false, starting: null, failures: 40});
+  Object.assign(camera, {wanted: false, starting: null, failures: 40, attempt: 0});
   camera.open = async () => {
     throw new Error('denied');
   };
@@ -1208,10 +1209,52 @@ test('queue: a reply naming an event outside the batch does not drop it', async 
 
 test('camera: a failure after a deliberate stop is no failure', async () => {
   const camera = Object.create(Camera.prototype);
-  Object.assign(camera, {wanted: false, starting: null, failures: 0});
+  Object.assign(camera, {wanted: false, starting: null, failures: 0, attempt: 0});
   camera.open = async () => {
-    camera.wanted = false;
+    camera.attempt += 1;
     throw new Error('The play() request was interrupted');
   };
   await camera.start();
+});
+
+test('camera: a start right after a stop is a new start, and the old one is not its failure', async () => {
+  const camera = Object.create(Camera.prototype);
+  Object.assign(camera, {wanted: false, starting: null, running: false, attempt: 0, failures: 0, last: {}, video: {}});
+  camera.release = () => {};
+  const interrupts = [];
+  let opens = 0;
+  camera.open = (attempt) => {
+    opens += 1;
+    return attempt === 0
+      ? new Promise((_, reject) => interrupts.push(() => reject(new Error('interrupted'))))
+      : Promise.resolve();
+  };
+  const first = camera.start();
+  camera.stop();
+  const second = camera.start();
+  interrupts[0]();
+  await first;
+  await second;
+  assert.equal(opens, 2);
+  assert.equal(camera.wanted, true);
+});
+
+test('camera: a stop ends a loop that is waiting for a frame, so a new start has only one', async () => {
+  const camera = Object.create(Camera.prototype);
+  Object.assign(camera, {running: true, paused: false, failures: 0, attempt: 0, last: {text: null, seenAt: 0}});
+  camera.release = () => {};
+  globalThis.requestAnimationFrame = (f) => setTimeout(f, 0);
+  let frame;
+  camera.seen = () => assert.fail('a frame from before the stop must not count');
+  camera.decodeFrame = () =>
+    new Promise((resolve) => {
+      frame = resolve;
+    });
+  const loop = camera.loop();
+  await new Promise((r) => setTimeout(r, 0));
+  camera.stop();
+  camera.running = true; // what a new start does
+  frame('x#T.A01.1');
+  await loop;
+  delete globalThis.requestAnimationFrame;
 });

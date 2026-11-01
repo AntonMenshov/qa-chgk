@@ -261,7 +261,7 @@ class QrPage(Flowable):
             below = max(b for _, b in texts)
             size = min(inner, row_h - 2 * self.PAD - above - below - 0.35 * INCH, self.MAX_QR)
             for k, panel in enumerate(row):
-                out.append(PanelBox(panel, k * (w + self.GAP), y, w, row_h, size, above, below))
+                out.append(PanelBox(panel, k * (w + self.GAP), y, w, row_h, size, above, texts[k][1]))
         return out
 
     def draw(self) -> None:

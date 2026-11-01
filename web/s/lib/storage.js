@@ -44,7 +44,7 @@ export function storage(backing = localStore(), cached = () => false) {
       try {
         text = JSON.stringify(value);
       } catch {
-        return false;
+        // a value that can't be saved: below
       }
       if (text === undefined) {
         return false;

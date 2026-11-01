@@ -27,8 +27,10 @@ function onSheetEdit(e) {
   const touchesNames = first <= 2 && last >= 2;
   const columns = Array.from({length: last - first + 1}, (_, i) => first + i);
   const touchesMarks = isRound && columns.some((c) => questionAt(sizes, name, 2, c) !== null);
-  // A computed cell typed over («Сумма», «Итого», …): the same pass below finds and repairs it.
-  const touchesFormulas = name !== TABS.teams && last > 2 && !touchesMarks;
+  // A computed cell typed over («Сумма», «Итого», «Место»), alone or in a paste; a note beside the table is not one.
+  const computed = isRound ? roundLayout(sizes, Number(name.slice(4))).sumCol : summaryLayout(sizes).firstRound;
+  const lastColumn = isRound ? computed : summaryLayout(sizes).width;
+  const touchesFormulas = name !== TABS.teams && first <= lastColumn && last >= computed;
   if (!touchesNames && !touchesMarks && !touchesFormulas) {
     return;
   }
@@ -42,8 +44,11 @@ function onSheetEdit(e) {
       // a Sheet the backend doesn't know (copied?): sort the slow way, nothing to publish to
     }
     // Not published here: a column of hand edits would publish once per cell, with phones waiting on the
-    // lock. Marked as soon as the edit is written, as in recordEvents_: a failed sort must not leave it unpublished.
-    const markChanged = () => current && markUnpublished_(PropertiesService.getScriptProperties(), current);
+    // lock. Marked before anything is written (nothing can publish while this holds the lock): whatever
+    // fails below, what did get written still reaches the public copy.
+    if (current) {
+      markUnpublished_(PropertiesService.getScriptProperties(), current);
+    }
     if (touchesNames) {
       propagateNames_(ss, sizes, name);
       refreshDisputed_(ss, sizes);
@@ -55,14 +60,10 @@ function onSheetEdit(e) {
       const rounds = applySheetEdits_(ss, m, user);
       updateDisputed_(m, disputedBefore);
       m.w.flush();
-      markChanged();
-      // A computed cell typed over may still hold the right number, or be «Место», which isn't read:
-      // the sort puts every formula back.
-      m.sortKeysOk = m.sortKeysOk && !touchesFormulas;
-      if (rounds.size || !m.sortKeysOk) {
-        sortTabs_(ss, sizes, [...rounds], m, current);
+      // A computed cell typed over may still hold the right number, or be «Место», which isn't read.
+      if (rounds.size || !m.sortKeysOk || touchesFormulas) {
+        sortTabs_(ss, sizes, [...rounds], m, current, touchesFormulas);
       }
     }
-    markChanged();
   });
 }

@@ -26,12 +26,19 @@ def run_python_file(path: Path) -> dict[str, Any]:
     path = Path(path)
     names = {"__name__": f"chgk_{path.parent.name}_{path.stem}", "__file__": str(path)}
     try:
-        exec(compile(path.read_text(encoding="utf-8"), str(path), "exec"), names)  # the organiser's own file
+        text = path.read_text(encoding="utf-8")
     except UnicodeDecodeError as err:
         raise ValueError(f"{path}: not UTF-8 ({err})") from err
+    try:
+        exec(compile(text, str(path), "exec"), names)  # the organiser's own file
     except ValueError as err:
-        if str(path) not in str(err):
-            err.args = (f"{path}: {err}",)  # our own checks say what is wrong, not in which file
+        if str(path) in str(err):
+            raise
+        # Our own checks say what is wrong, not in which file. Their type stays (ConfigError).
+        message = f"{path}: {err}"
+        err.args = (message,)
+        if str(err) != message:
+            raise ValueError(message) from err  # a type whose text ignores its args
         raise
     except Exception as err:
         raise ValueError(f"{path}: {type(err).__name__}: {err}") from err

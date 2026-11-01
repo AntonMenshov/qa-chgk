@@ -5,7 +5,7 @@
 import {decodeBoard, encodeBoardLink, sameAccess} from '../s/lib/payload.js';
 import {backend} from '../s/lib/api.js';
 import {storage} from '../s/lib/storage.js';
-import {boardModel, chosenView} from './lib/board.js';
+import {boardModel, chosenView, clampRevealed} from './lib/board.js';
 import {qrNode} from './lib/qr.js';
 
 const REFRESH_EVERY_MS = 15000;
@@ -178,6 +178,8 @@ function table(m) {
 function fit() {
   const stage = $('stage');
   stage.style.transform = 'translate(-50%, -50%)';
+  // Above the buttons where they stay on screen; two rows of them on a narrow phone.
+  $('status').style.bottom = touch ? `${$('controls').offsetHeight + 16}px` : '';
   const w = stage.offsetWidth;
   const h = stage.offsetHeight;
   if (!w || !h) {
@@ -233,7 +235,7 @@ function setRevealed(n) {
   if (!data) {
     return;
   }
-  revealed = Math.min(Math.max(0, n), data.tournament.round_sizes.length);
+  revealed = clampRevealed(n, data.tournament.round_sizes.length);
   store.set(key('revealed'), revealed);
   render();
 }
@@ -286,8 +288,14 @@ async function load() {
   } finally {
     loading = false;
   }
-  render(); // outside the try: a drawing error is not a connection problem
-  lastReply = text; // only now: a drawing error is tried again at the next poll
+  try {
+    render(); // outside the try above: a drawing error is not a connection problem
+    lastReply = text; // only now: a drawing error is tried again at the next poll
+  } catch (err) {
+    console.error(err);
+    $('status').hidden = false;
+    $('status').textContent = `Не удалось показать данные: ${err.message}`;
+  }
 }
 
 function toggleQr() {

@@ -40,14 +40,17 @@ def check(name, passed, detail=""):
 
 
 def chgk(*args):
-    done = subprocess.run(
-        ["uv", "run", "chgk", *map(str, args)],
-        capture_output=True,
-        text=True,
-        input="\n",
-        cwd=ROOT,
-        timeout=COMMAND_LIMIT_S,
-    )
+    try:
+        done = subprocess.run(
+            ["uv", "run", "chgk", *map(str, args)],
+            capture_output=True,
+            text=True,
+            input="\n",
+            cwd=ROOT,
+            timeout=COMMAND_LIMIT_S,
+        )
+    except subprocess.TimeoutExpired:
+        return 1, f"timed out after {COMMAND_LIMIT_S} s: {args[0]}"
     return done.returncode, done.stdout + done.stderr
 
 
@@ -80,7 +83,12 @@ class Throwaway:
         code, output = chgk("new", self.folder)
         check(f"{slug}: created", code == 0, "" if code == 0 else output[-400:])
         if code != 0:
-            sys.exit(f"{failures} failed: stopping here, there is no tournament to check.")
+            # It may exist all the same (the jury sheet failed after it was made): never leave one behind.
+            state = load_state(self.folder)
+            if state and state.spreadsheet_id:
+                self.delete()
+            shutil.rmtree(out_dir(slug), ignore_errors=True)
+            sys.exit(f"{failures} failed: stopping here. If the output above shows a lost reply, check Drive by hand.")
         self.state = load_state(self.folder)
         self.tid = self.state.tid
         self.jury = BackendClient(self.state.backend_url, self.state.jury_token)
@@ -252,7 +260,7 @@ def main():
     print(output.strip())
     check("backend check is clean", code == 0)
     if code != 0:
-        sys.exit("Deploy the current code first: nothing below would test it.")
+        sys.exit("The backend check failed (see above): nothing below would test the current code.")
     with tempfile.TemporaryDirectory() as parent:
         t = Throwaway(parent, "check-live", [("A01", "Альфа"), ("A02", "Бета"), ("007", "Гамма")])
         try:

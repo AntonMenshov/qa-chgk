@@ -119,6 +119,14 @@ def _read_logo(path: Path) -> Image.Image:
         raise ValueError(f"not a readable image ({err})") from err
 
 
+def _open(path: Path) -> tuple[Image.Image | None, str | None]:
+    """A logo file, or None and why it can't be used: what the report and the cards both go by."""
+    try:
+        return open_logo(path), None
+    except ValueError as err:
+        return None, str(err)
+
+
 def load_logos(folder: Path, fields: CardFields, teams: "list[Team]") -> tuple[dict[str, Image.Image], list[str]]:
     """The logos these teams' cards can use, keyed as in logo_chain, plus warnings.
 
@@ -137,12 +145,12 @@ def load_logos(folder: Path, fields: CardFields, teams: "list[Team]") -> tuple[d
         if path is None:
             warnings.append(f"{what}: logo {name!r} not found in {folder} or {LOGO_LIBRARY}; using the next fallback")
             continue
-        try:
-            images[key] = open_logo(path)
-        except ValueError as err:
-            warnings.append(f"{what}: logo {name!r}: {err}; using the next fallback")
+        image, problem = _open(path)
+        if image is None:
+            warnings.append(f"{what}: logo {name!r}: {problem}; using the next fallback")
             continue
-        if CUT_FROM in images[key].info:
+        images[key] = image
+        if CUT_FROM in image.info:
             warnings.append(f"{what}: logo {name!r} is not square; cut to a square around its drawing")
     return images, warnings
 
@@ -166,11 +174,7 @@ def own_logo_problem(team: "Team", folder: Path) -> str | None:
     path = resolve_logo(team.logo_file, folder)
     if path is None:
         return "not found"
-    try:
-        open_logo(path)
-    except ValueError as err:
-        return str(err)
-    return None
+    return _open(path)[1]
 
 
 def logo_report(folder: Path, fields: CardFields, teams: "list[Team]") -> tuple[list[LogoStatus], list[str]]:

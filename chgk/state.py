@@ -5,6 +5,7 @@ so a tournament stays on the Google account it was created on.
 """
 
 import json
+import sys
 from dataclasses import asdict, dataclass, field, fields, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -12,10 +13,10 @@ from typing import TYPE_CHECKING, Any
 from chgk import out_dir, write_file
 from chgk.ids import TID_RE, BoardAccess, JuryAccess, generate_tid
 
-SHEETS_URL = "https://docs.google.com/spreadsheets/d/"
 if TYPE_CHECKING:
     from chgk.config import Tournament
 
+SHEETS_URL = "https://docs.google.com/spreadsheets/d/"
 STATE_FILE = "state.json"
 
 
@@ -98,14 +99,18 @@ def check_reserve(state: State, count: int) -> None:
         )
 
 
-def new_id_warning(folder: Path, tournament: "Tournament", state: State) -> str | None:
-    """For a state.json just made: printouts exist, so the new ID isn't the one on those cards."""
-    if tournament.tid or not any(out_dir(tournament.slug).glob("*.pdf")):
-        return None
-    return (
-        f"no state.json in {folder}: this is a new tournament ID ({state.tid}), so cards printed "
-        f"earlier (out/{tournament.slug}/) won't scan into it. Restore state.json if you have it."
-    )
+def warn_new_id(folder: Path, tournament: "Tournament", state: State) -> None:
+    """For a state.json just made: printouts exist, so the new ID isn't the one on those cards.
+
+    Printed here and now: it holds only for this run (the next finds a state.json), and a failure later
+    in the command would lose a warning handed back with the result.
+    """
+    if not tournament.tid and any(out_dir(tournament.slug).glob("*.pdf")):
+        print(
+            f"Warning: no state.json in {folder}: this is a new tournament ID ({state.tid}), so cards printed "
+            f"earlier (out/{tournament.slug}/) won't scan into it. Restore state.json if you have it.",
+            file=sys.stderr,
+        )
 
 
 def load_or_create_state(folder: Path, tid: str | None = None) -> State:
@@ -119,13 +124,11 @@ def load_or_create_state(folder: Path, tid: str | None = None) -> State:
     return state
 
 
-def remember_team_ids(folder: Path, team_ids: list[str]) -> State | None:
-    """Note these IDs as used, if this tournament has a state yet (before that nothing is printed); the state."""
+def remember_team_ids(folder: Path, team_ids: list[str]) -> None:
+    """Note these IDs as used, if this tournament has a state yet (before that nothing is printed)."""
     state = load_state(folder)
     if state is not None and not set(team_ids) <= set(state.used_team_ids):
-        state = replace(state, used_team_ids=sorted({*state.used_team_ids, *team_ids}))
-        save_state(folder, state)
-    return state
+        save_state(folder, replace(state, used_team_ids=sorted({*state.used_team_ids, *team_ids})))
 
 
 def save_state(folder: Path, state: State) -> None:

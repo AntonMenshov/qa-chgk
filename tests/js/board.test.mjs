@@ -5,7 +5,7 @@ import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 import {decodeBoard, decodeSetup, encodeBoardLink} from '../../web/s/lib/payload.js';
 import {qrNode, qrSvg} from '../../web/b/lib/qr.js';
-import {boardModel, cellMark} from '../../web/b/lib/board.js';
+import {boardModel, cellMark, clampRevealed} from '../../web/b/lib/board.js';
 import * as L from '../../apps_script/logic.js';
 
 const vectors = JSON.parse(readFileSync(new URL('../vectors/board_links.json', import.meta.url), 'utf8'));
@@ -210,4 +210,10 @@ test('qrNode: each code is generated once, each call gets its own copy, and the 
   assert.equal(makes, 21);
   qrNode('a', fake, parse); // pushed out by then
   assert.equal(makes, 22);
+});
+
+test('a stored round that is no number starts from the title screen', () => {
+  assert.equal(clampRevealed(NaN, 3), 0);
+  assert.equal(clampRevealed(5, 3), 3);
+  assert.equal(clampRevealed(-1, 3), 0);
 });

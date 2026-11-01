@@ -251,16 +251,15 @@ def test_a_config_tid_other_than_the_tournaments_stops_every_backend_command(fol
         delete_tournament(folder, Profiles())
 
 
-def test_new_warns_when_printouts_exist_but_state_json_is_gone(folder, backends):
+def test_new_warns_when_printouts_exist_but_state_json_is_gone(folder, backends, capsys):
     out_dir("test-cup").mkdir(parents=True, exist_ok=True)
     pdf = out_dir("test-cup", "cards.pdf")
     pdf.write_bytes(b"%PDF")
     try:
-        warnings = []
-        new_tournament(folder, Profile("personal", URL_A, "tokA"), warnings=warnings)
+        new_tournament(folder, Profile("personal", URL_A, "tokA"))
     finally:
         pdf.unlink()
-    assert any("won't scan" in w for w in warnings)
+    assert "won't scan" in capsys.readouterr().err
 
 
 def test_new_tournament_is_idempotent(folder, backends):

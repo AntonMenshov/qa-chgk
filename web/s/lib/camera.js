@@ -60,6 +60,7 @@ export class Camera {
     this.failures = 0;
     this.missed = 0; // frames decoded without any code since the last one with a code
     this.starting = null;
+    this.attempt = 0; // goes up at each stop: what a start or a scanning loop was begun for is over
     this.wanted = false; // started, and not stopped on purpose: worth restarting after an interruption
   }
 
@@ -68,21 +69,28 @@ export class Camera {
     const before = this.wanted;
     this.wanted = true;
     this.failures = 0;
-    this.starting ??= this.open()
+    if (this.starting) {
+      return this.starting;
+    }
+    const attempt = this.attempt;
+    const starting = this.open(attempt)
       .catch((err) => {
-        if (!this.wanted) {
+        if (attempt !== this.attempt) {
           return; // stopped while it was starting: that is why it failed
         }
         this.wanted = before; // never got going: a return to the app must not ask for the camera by itself
         throw err;
       })
       .finally(() => {
-        this.starting = null;
+        if (this.starting === starting) {
+          this.starting = null;
+        }
       });
-    return this.starting;
+    this.starting = starting;
+    return starting;
   }
 
-  async open() {
+  async open(attempt) {
     prepareReader();
     if (!this.stream?.getTracks().some((t) => t.readyState === 'live')) {
       this.release();
@@ -90,7 +98,7 @@ export class Camera {
         video: {facingMode: 'environment', width: {ideal: 1920}, height: {ideal: 1080}},
         audio: false,
       });
-      if (!this.wanted) {
+      if (attempt !== this.attempt) {
         stream.getTracks().forEach((t) => t.stop()); // stopped while waiting for the camera
         return;
       }
@@ -106,13 +114,15 @@ export class Camera {
       this.release(); // or the camera stays on behind the «Камера недоступна» message
       throw err;
     }
-    if (!this.running && this.wanted) {
+    if (!this.running && attempt === this.attempt) {
       this.running = true;
       this.loop();
     }
   }
 
   stop() {
+    this.attempt += 1;
+    this.starting = null; // a start after this is a new one, not a wait for the one just stopped
     this.wanted = false;
     this.running = false;
     this.release();
@@ -205,8 +215,8 @@ export class Camera {
     return text;
   }
 
-  async loop() {
-    while (this.running) {
+  async loop(attempt = this.attempt) {
+    while (this.running && attempt === this.attempt) {
       // Decode even while paused (a card is on screen): the card still lying in front of
       // the camera then counts as "still in view" and isn't reported again on resume.
       let text;
@@ -220,7 +230,7 @@ export class Camera {
           this.onTrouble('Сканер не читает кадры', true);
         }
       }
-      if (text && this.running) {
+      if (text && this.running && attempt === this.attempt) {
         try {
           this.seen(text, performance.now());
         } catch (err) {

@@ -2,7 +2,7 @@
 // 3 s (so updates arrive at once) and from this cache when not (a venue's slow Wi-Fi). Requests to other sites (the
 // Apps Script backend) are never touched.
 
-const CACHE = 'chgk-scanner-v15';
+const CACHE = 'chgk-scanner-v16';
 const NETWORK_LIMIT_MS = 3000;
 const FILES = [
   './',

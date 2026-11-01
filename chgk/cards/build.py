@@ -14,7 +14,7 @@ from chgk.config import LogoMode, Tournament, load_config
 from chgk.ids import encode_payload, generate_tid
 from chgk.jury import render_jury_sheet
 from chgk.logos import first_logo, load_logos, open_logo, pale
-from chgk.state import State, check_reserve, load_or_create_state, load_state, new_id_warning, remember_team_ids
+from chgk.state import State, check_reserve, load_or_create_state, load_state, remember_team_ids, warn_new_id
 from chgk.svg import CUT_FROM
 from chgk.teams import TEAMS_FILE, Team, only_teams, read_teams, reserve_teams
 
@@ -66,8 +66,8 @@ def _state(folder: Path, tournament: Tournament, teams: list[Team]) -> tuple[Sta
             f"a replacement of the {which} token never finished: the jury sheet may carry a dead one. "
             f"Run `chgk replace-token {folder} {which}` again."
         )
-    if is_new and (warning := new_id_warning(folder, tournament, state)):
-        warnings.append(warning)
+    if is_new:
+        warn_new_id(folder, tournament, state)
     return state, warnings
 
 

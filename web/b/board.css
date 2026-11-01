@@ -143,17 +143,10 @@ td.q.maybe {
   color: #111;
   background: var(--maybe);
 }
-.r1,
-.r3,
-.r5,
-.r7,
-.r9 {
+.r1 {
   background: var(--round-a);
 }
-.r2,
-.r4,
-.r6,
-.r8 {
+.r2 {
   background: var(--round-b);
 }
 .edge {
@@ -321,12 +314,16 @@ table.dense td.total {
   }
 }
 
-/* Last: over the rules above. Narrow phones: the buttons wrap to two rows, the status line stays above them. */
+/* Last: over the rules above. Narrow screens: the buttons wrap to two rows. */
 @media (max-width: 400px) {
   .controls {
-    left: 14px;
     flex-wrap: wrap;
     justify-content: flex-end;
+  }
+}
+@media (max-width: 400px) and (hover: hover) {
+  .controls {
+    left: 14px;
   }
   .controls button {
     padding: 10px;

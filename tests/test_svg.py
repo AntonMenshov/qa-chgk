@@ -1,3 +1,5 @@
+import tracemalloc
+
 import pytest
 
 from chgk.logos import open_logo, pale
@@ -159,3 +161,12 @@ def test_the_standard_doctype_is_accepted_but_nothing_defined_in_it():
     for bad in ('<!DOCTYPE svg [<!ENTITY x "y">]>', """<!DOCTYPE svg SYSTEM "a>b" [<!ELEMENT svg ANY>]>"""):
         with pytest.raises(ValueError, match="DOCTYPE"):
             render_svg(bad + svg(SQUARE), 100)
+
+
+def test_a_long_doctype_costs_no_memory_to_check():
+    tracemalloc.start()
+    with pytest.raises(ValueError):
+        check_svg("<!DOCTYPE " + "a" * 1_900_000)
+    peak = tracemalloc.get_traced_memory()[1]
+    tracemalloc.stop()
+    assert peak < 50_000_000

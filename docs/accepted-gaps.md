@@ -47,6 +47,7 @@ here is closed: change it only if the reason stops holding.
 | Phones and CLI read refusals from the backend's reason codes, so they need a backend of the same version | One backend, and `chgk backend check` fails when it differs |
 | `chgk teams` makes two extra reads to name teams off the Teams tab | It runs rarely, not during scanning |
 | Projector QR codes have no crisp-edges setting since the library draws them | The user's choice: `docs/manual-checks.md` scans them from the back of the hall |
+| With site data blocked, the reload offer promises that unsent marks survive | Jury phones are set up with storage on; the marks are on paper too |
 | Logo drawing: no `--draw` summary or failure exit code, Ctrl-C waits for running logos, `--accept` can stop halfway, a draft doesn't notice a renamed team, no cost prompt, near-miss APPROVED replies, unquoted paths in the brief, prompt caching and budgets | The user's own tool, worked around by hand |
 
 ## Minor findings of the first pass, closed as a group

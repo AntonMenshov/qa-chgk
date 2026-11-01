@@ -88,3 +88,8 @@ def test_a_command_runs_teams_py_once(folder, args):
     result = runner.invoke(app, [a.format(folder=folder) for a in args])
     assert result.exit_code == 0, result.output
     assert runs.read_text() == "x"
+
+
+def test_view_says_when_a_folder_is_no_tournament(tmp_path):
+    result = runner.invoke(app, ["view", str(tmp_path)])
+    assert result.exit_code == 1 and "not a tournament folder" in result.output

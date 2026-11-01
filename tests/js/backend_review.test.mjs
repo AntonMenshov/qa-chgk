@@ -462,3 +462,38 @@ test('onSheetEdit: an edit stays marked for the public copy even if the sort fai
   b.sortTabs_ = sort;
   assert.equal(b.$.props.has(`dirty:${TID}`), true);
 });
+
+test('onSheetEdit: a note beside the table sorts and repairs nothing', () => {
+  const {b, tab} = world();
+  const round = tab('Тур 1');
+  const beyond = L.roundLayout([3, 3], 1).sumCol + 2;
+  round.getRange(2, beyond).setValue('заметка');
+  const sort = b.sortTabs_;
+  b.sortTabs_ = () => assert.fail('nothing to sort');
+  b.onSheetEdit({range: round.getRange(2, beyond)});
+  b.sortTabs_ = sort;
+});
+
+test('onSheetEdit: a paste over marks and «Сумма» gets its formula back, even when the number is right', () => {
+  const {b, tab} = world();
+  const round = tab('Тур 1');
+  const lay = L.roundLayout([3, 3], 1);
+  const row = rowOf(round, 'A01');
+  round.getRange(row, lay.sumCol).setValue(0);
+  b.onSheetEdit({range: round.getRange(row, lay.firstCol, 1, lay.size + 1)});
+  const now = rowOf(round, 'A01');
+  assert.match(String(round.getRange(now, lay.sumCol).getFormulas()[0][0]), /^=COUNTIF/);
+});
+
+test('onSheetEdit: a name edit stays marked for the public copy even if a later step fails', () => {
+  const {b, tab} = world();
+  const summary = tab('Итоги');
+  summary.getRange(rowOf(summary, 'A01'), 2).setValue('Новое имя');
+  const refresh = b.refreshDisputed_;
+  b.refreshDisputed_ = () => {
+    throw new Error('quota');
+  };
+  assert.throws(() => b.onSheetEdit({range: summary.getRange(rowOf(summary, 'A01'), 2)}));
+  b.refreshDisputed_ = refresh;
+  assert.equal(b.$.props.has(`dirty:${TID}`), true);
+});

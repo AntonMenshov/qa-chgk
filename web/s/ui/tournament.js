@@ -14,7 +14,10 @@ import {render} from './sync.js';
 /** The camera stopped by itself, or its decoder keeps failing: the juror can start it again. */
 export function cameraTrouble(message, needsReload = false) {
   $('start').hidden = false;
-  if (needsReload && offerReload(message)) {
+  if (needsReload) {
+    if (!offerReload(message)) {
+      toast(`${message}: чтобы сканировать, перезагрузите приложение`, true);
+    }
     return;
   }
   toast(`${message}: нажмите «Начать проверку»`, true);
@@ -23,8 +26,8 @@ export function cameraTrouble(message, needsReload = false) {
 /** Back in the app after a phone lock, a call or another app: iOS may have stopped the camera. */
 export async function resumeCamera() {
   if (app.setupCamera?.wanted) {
-    app.setupCamera.start().catch(() => {
-      $('setup-start').hidden = false;
+    startCamera(app.setupCamera, $('setup-start'), (err) => {
+      $('setup-msg').textContent = `Камера недоступна: ${err.message}`;
     });
   }
   if (!app.camera?.wanted) {

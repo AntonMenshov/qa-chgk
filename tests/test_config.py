@@ -256,3 +256,37 @@ def test_an_error_in_the_config_names_the_file(tmp_path):
     (folder / "config.py").write_text("from datetime import date\ndate(2026, 13, 1)\n", encoding="utf-8")
     with pytest.raises(ValueError, match="month must be"):
         load_config(folder)
+
+
+def test_a_decoding_error_in_the_config_code_is_not_called_a_bad_file(tmp_path):
+    folder = tmp_path / "x"
+    folder.mkdir()
+    (folder / "config.py").write_text("b'\\xff'.decode('ascii')\n", encoding="utf-8")
+    with pytest.raises(ValueError) as err:
+        load_config(folder)
+    assert "not UTF-8" not in str(err.value) and "config.py" in str(err.value)
+
+
+def test_a_config_that_is_not_utf8_says_so(tmp_path):
+    folder = tmp_path / "x"
+    folder.mkdir()
+    (folder / "config.py").write_bytes(b"# \xff\n")
+    with pytest.raises(ValueError, match="not UTF-8"):
+        load_config(folder)
+
+
+def test_a_config_error_keeps_its_type_and_gets_the_file_name(tmp_path):
+    folder = tmp_path / "x"
+    folder.mkdir()
+    (folder / "config.py").write_text("from chgk.config import Layout\nLayout(margin=0)\n", encoding="utf-8")
+    with pytest.raises(ConfigError) as err:
+        load_config(folder)
+    assert "config.py" in str(err.value) and "margin" in str(err.value)
+
+
+def test_an_encoding_error_still_names_the_file(tmp_path):
+    folder = tmp_path / "x"
+    folder.mkdir()
+    (folder / "config.py").write_text("'é'.encode('ascii')\n", encoding="utf-8")
+    with pytest.raises(ValueError, match=r"config\.py"):
+        load_config(folder)

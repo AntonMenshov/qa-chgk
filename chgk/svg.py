@@ -47,8 +47,9 @@ def check_svg(text: str) -> ET.Element:
     """The SVG's root element; ValueError if it is not plain drawing (see the module docstring)."""
     if len(text.encode("utf-8")) > MAX_BYTES:
         raise ValueError(f"SVG larger than {MAX_BYTES // 1_000_000} MB")
-    # The standard DOCTYPE line many exporters write is harmless; defining anything in it is not.
-    if re.search(r"""<!DOCTYPE(?:[^>"'\[]|"[^"]*"|'[^']*')*\[|<!ENTITY""", text, re.IGNORECASE):
+    # The standard DOCTYPE line many exporters write is harmless; defining anything in it is not. Possessive:
+    # a plain repeat keeps memory per character (731 MB on a 2 MB file, measured).
+    if re.search(r"""<!DOCTYPE(?:[^>"'\[]++|"[^"]*+"|'[^']*+')*+\[|<!ENTITY""", text, re.IGNORECASE):
         raise ValueError("SVG with anything defined in its DOCTYPE is refused")
     try:
         root = ET.fromstring(text)

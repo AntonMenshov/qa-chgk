@@ -192,7 +192,7 @@ One line each; SPEC has the details. Decisions recorded only here are written ou
 
 ## Next steps
 
-0. **Code review, 2026-10-31:** every finding closed: fixed, or won't fix with its reason in [docs/accepted-gaps.md](docs/accepted-gaps.md). The review of what came after `53b045a` is done and closed too. Backend `5ce47dc79505` waits for the user's redeploy, then `scripts/live_check.py`.
+0. **Code review, 2026-10-31:** every finding closed: fixed, or won't fix with its reason in [docs/accepted-gaps.md](docs/accepted-gaps.md). The reviews of what came after `53b045a`, and of their fixes, are done and closed too. Backend `46c18db1c15b` waits for the user's redeploy, then `scripts/live_check.py`.
 1. **Phase 7**, the rest: reprint `out/osenniy-salat/`, the fixes' own checks on an iPhone
    ([docs/manual-checks.md](docs/manual-checks.md)), the mock game, fixes, a docs/comments check.
    Then **Phase 8**, an external test at a tournament, with the same loop.

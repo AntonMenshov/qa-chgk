@@ -16,9 +16,9 @@ from chgk.state import (
     check_tid,
     load_or_create_state,
     load_state,
-    new_id_warning,
     remember_team_ids,
     save_state,
+    warn_new_id,
 )
 from chgk.teams import TEAMS_FILE, Team, normalize_teams, read_teams, reserve_teams, write_teams
 
@@ -34,9 +34,7 @@ def _team_dicts(teams: list[Team]) -> list[dict[str, Any]]:
     return [{"team_id": t.team_id, "name": t.name, "city": t.city, "logo_file": t.logo_file} for t in teams]
 
 
-def new_tournament(
-    folder: Path, profile: Profile, client: BackendClient | None = None, warnings: list[str] | None = None
-) -> NewResult:
+def new_tournament(folder: Path, profile: Profile, client: BackendClient | None = None) -> NewResult:
     """Create the tournament's Sheet and Drive folder on `profile`'s backend and record it in state.json.
 
     Idempotent: a tournament that already has a spreadsheet is left on its own backend.
@@ -51,9 +49,9 @@ def new_tournament(
     teams = read_teams(folder / TEAMS_FILE)
     is_new = state is None
     state = load_or_create_state(folder, tournament.tid)
-    if is_new and warnings is not None and (warning := new_id_warning(folder, tournament, state)):
-        warnings.append(warning)  # now: a failure below would lose it, and the next try has a state.json
-    state = remember_team_ids(folder, [t.team_id for t in teams]) or state
+    if is_new:
+        warn_new_id(folder, tournament, state)
+    state = replace(state, used_team_ids=sorted({*state.used_team_ids, *(t.team_id for t in teams)}))
 
     client = client or BackendClient(profile.url, profile.admin_token)
     account = profile.account or client.ping().get("account", "")

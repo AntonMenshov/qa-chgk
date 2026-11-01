@@ -22,7 +22,7 @@ function createPublicCopy_(ss, reg, name) {
   file.moveTo(DriveApp.getFolderById(reg.folder_id));
   const blank = copy.getSheets()[0];
   publicTabs_(reg.round_sizes).forEach((tab) => {
-    ss.getSheetByName(tab.name).copyTo(copy).setName(tab.name);
+    tabOf_(ss, tab.name).copyTo(copy).setName(tab.name);
   });
   copy.deleteSheet(blank);
   file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);

@@ -104,7 +104,7 @@ export class Queue {
         acked.push(event.scan_id);
       }
     }
-    const answered = new Set(batch.filter((e) => byId.has(e.scan_id)).map((e) => e.scan_id));
+    const answered = new Set([...acked, ...rejected]);
     this.pending = this.pending.filter((e) => !answered.has(e.scan_id));
     this.save();
     return {acked, rejected};

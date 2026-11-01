@@ -88,7 +88,10 @@ export async function useSetup(s) {
 
 function setupCameraTrouble(message, needsReload = false) {
   $('setup-start').hidden = false;
-  if (needsReload && offerReload(message)) {
+  if (needsReload) {
+    if (!offerReload(message)) {
+      $('setup-msg').textContent = `${message}: чтобы сканировать, перезагрузите приложение.`;
+    }
     return;
   }
   $('setup-msg').textContent = `${message}: нажмите кнопку ещё раз.`;
@@ -110,6 +113,7 @@ export function startSetupScreen(message = '') {
         return;
       }
       cam.stop();
+      $('setup-start').hidden = false; // if this QR isn't taken, the screen stays and needs its camera back
       useSetup(s);
     },
     setupCameraTrouble,
