@@ -230,6 +230,7 @@ exactly its level, replacing a leaked token, and a tid from config.py. Latest:
   `reserve_teams` and a deleted ID refused, leaving no state.json. Edits typed in the Sheet not tried: they need a person.
 
 - **2026-10-31, 4bd2573b7887 (throwaway, deleted):** the same again, the timer in 83 s; `set_teams` names a team off the Teams
-  tab; a repeated delete answers `unknown_tournament`; `chgk teams` runs. Edits typed in the Sheet not tried: they need a person.
+  tab; a repeated delete answers `unknown_tournament`; `chgk teams` runs. Then the full set: sorting (both calls on the Sheets API,
+  1-3 s a batch), fast clock capped, photo saved with a private link, public download holds only the results tabs, wrong token refused.
 
-Throwaway tournaments: the user deletes them.
+After every deploy, run that full set. Throwaway tournaments: the user deletes them.
