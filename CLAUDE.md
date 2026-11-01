@@ -16,7 +16,7 @@ Rules that override your defaults (details in HANDOVER «Working conventions»):
   with a recommended option.
 - A change under `apps_script/` needs a redeploy by the user: run `uv run chgk backend bundle`
   and `pbcopy < out/apps_script/Code.gs` first, then give the version and the steps. After
-  "deployed": `uv run chgk backend check`, a live check, HANDOVER's version line.
+  "deployed": `uv run python scripts/live_check.py`, HANDOVER's version line.
 - After a change to how cards or the jury sheet are drawn, regenerate the current tournament's
   cards and jury sheet (now `out/osenniy-salat/`) in the mode already used, without asking.
 - `logos/drafts/` holds the user's logo test drafts: never delete, overwrite or accept them.

@@ -83,6 +83,7 @@ tournaments/osenniy-salat/  the Phase 7 test game
 tests/                pytest (tests/test_*.py) and node:test (tests/js/*.test.mjs). node_backend.py and
                       js/fake_apps_script.mjs run the real backend in Node on fake Google services;
                       test_scanner_e2e.py is headless Chrome; vectors/ holds the shared JSON test vectors
+scripts/live_check.py  the live check after a backend deploy (throwaway tournaments on the real backend)
 docs/google-account.md  deploying the backend under any Gmail account; switching; updating
 docs/manual-checks.md   what the tests can't cover: iPhone, printing, the Sheet's edit trigger
 docs/accepted-gaps.md   review findings closed as won't fix, with the reason
@@ -135,7 +136,7 @@ README.md             organiser guide (end to end) and contributor commands
   `pbcopy < out/apps_script/Code.gs` *before* asking the user to redeploy, and give the version
   and the steps (paste, save, Deploy → Manage deployments → edit → New version). A stale
   `Code.gs` was pasted once and the backend stayed old (`chgk backend check` now says so).
-  After "deployed": `chgk backend check`, a live check, this file's version line.
+  After "deployed": `uv run python scripts/live_check.py` (it runs `chgk backend check` first), this file's version line.
 - After a change to how cards or the jury sheet are drawn, regenerate the current tournament's
   output in the mode already used; don't ask (user feedback).
 - **Questions:** ask the user through the question interface (AskUserQuestion), a
@@ -192,7 +193,7 @@ One line each; SPEC has the details. Decisions recorded only here are written ou
 
 ## Next steps
 
-0. **Code review, 2026-10-31:** every finding closed: fixed, or won't fix with its reason in [docs/accepted-gaps.md](docs/accepted-gaps.md). The reviews of what came after `53b045a`, and of their fixes, are done and closed too.
+0. **Code review, 2026-10-31:** every finding closed: fixed, or won't fix with its reason in [docs/accepted-gaps.md](docs/accepted-gaps.md). The reviews of what came after `53b045a`, and of their fixes, are done and closed too. Only `aeb627b`, the last round of fixes, is unreviewed: the user decides whether to review it before Phase 7. A round: `/code-review high --max-findings all` on the range, at most 5 at a time (whole range, `apps_script`, `web/s`, `web/b`, `chgk scripts`); triage all, fix the obvious, reject what is decided, ask about the large or unclear.
 1. **Phase 7**, the rest: reprint `out/osenniy-salat/`, the fixes' own checks on an iPhone
    ([docs/manual-checks.md](docs/manual-checks.md)), the mock game, fixes, a docs/comments check.
    Then **Phase 8**, an external test at a tournament, with the same loop.
