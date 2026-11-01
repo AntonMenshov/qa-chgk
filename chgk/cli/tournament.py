@@ -63,7 +63,7 @@ def view_cmd(folder: Path = typer.Argument(..., help="Tournament folder")) -> No
     state = load_state(folder)
     if state is None or not state.view_url:
         raise ValueError("this tournament has no Sheet yet: run `chgk new` first")
-    typer.echo("Results, view-only for anyone with the link (marks appear as the jury enters them):")
+    typer.echo("Results, view-only for anyone with the link (marks appear about a minute after the jury enters them):")
     typer.echo(state.view_url)
     typer.echo("Its QR code is on page 2 of the jury sheet and on the projector board.")
 

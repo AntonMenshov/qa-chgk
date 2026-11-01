@@ -70,7 +70,7 @@ afterwards (`docs/google-account.md` §5).
 - [ ] Open the results QR (page 2) in a private window, signed out of Google: only
       «Итоги», the round tabs and «Статистика» are visible, and nothing can be edited.
 - [ ] File → Download there holds only those tabs, and the real Sheet's link (`chgk new` output) asks for access.
-- [ ] A mark from the phone shows there within about a minute; an edit in the Sheet within seconds.
+- [ ] A mark from the phone shows there within about a minute; an edit in the Sheet within about 90 s.
 
 ## Printing
 
@@ -93,6 +93,3 @@ The three drawing checks below are not needed for Phases 7 and 8 (user): no new 
       following it writes drafts that `chgk logos` accepts.
 - [ ] `out/<slug>/logo-preview.pdf` printed: the drafts are pale enough to write over and
       the names readable.
-
-## Projector QR codes after a change to how they are drawn
-- [ ] Scan both board QR codes with a phone from the back of the hall.

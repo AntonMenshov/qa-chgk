@@ -233,4 +233,4 @@ exactly its level, replacing a leaked token, and a tid from config.py. Latest:
 
 - **2026-10-31, dafcc3d4bf4d (throwaways, deleted):** the full set again after the last cleanups: batches 0.8-2.2 s, the timer in 72 s.
 
-After every deploy, run that full set. Throwaway tournaments: the user deletes them.
+After every deploy, run that full set: `uv run python scripts/live_check.py` (it makes and deletes throwaway tournaments). Throwaway tournaments: the user deletes them.
