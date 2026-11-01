@@ -48,8 +48,8 @@ def check_svg(text: str) -> ET.Element:
     if len(text.encode("utf-8")) > MAX_BYTES:
         raise ValueError(f"SVG larger than {MAX_BYTES // 1_000_000} MB")
     # The standard DOCTYPE line many exporters write is harmless; defining anything in it is not.
-    if re.search(r"<!DOCTYPE[^>]*\[|<!ENTITY", text, re.IGNORECASE):
-        raise ValueError("SVG with entities defined in its DOCTYPE is refused")
+    if re.search(r"""<!DOCTYPE(?:[^>"'\[]|"[^"]*"|'[^']*')*\[|<!ENTITY""", text, re.IGNORECASE):
+        raise ValueError("SVG with anything defined in its DOCTYPE is refused")
     try:
         root = ET.fromstring(text)
     except ET.ParseError as err:

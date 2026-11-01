@@ -47,20 +47,25 @@ export function hideToast() {
   $('toast').hidden = true;
 }
 
-/** Start scanning; `onFail` says why not. A failed start released the camera, so «Начать проверку» comes back. */
-export async function startCamera(onFail) {
+/** Start a camera; `onFail` says why not. A failed start released it, so its start button comes back. */
+export async function startCamera(camera, button, onFail) {
   try {
-    await app.camera.start();
-    $('start').hidden = app.camera.wanted; // stopped while it was starting: it is not on
+    await camera.start();
+    button.hidden = camera.wanted; // stopped while it was starting: it is not on
   } catch (err) {
-    $('start').hidden = false;
+    button.hidden = false;
     onFail(err);
   }
 }
 
-/** Only a reload fetches the decoder again, and an installed app has no reload button. */
+/** Only a reload fetches the decoder again, and an installed app has no reload button. Reloading, if accepted. */
 export function offerReload(message) {
-  if (confirm(`${message}. Перезагрузить приложение? Неотправленные отметки сохранятся.`)) {
-    location.reload();
+  const marks = app.queue?.status.unsaved
+    ? 'Отметки, которые телефон не смог сохранить, пропадут.'
+    : 'Неотправленные отметки сохранятся.';
+  if (!confirm(`${message}. Перезагрузить приложение? ${marks}`)) {
+    return false;
   }
+  location.reload();
+  return true;
 }

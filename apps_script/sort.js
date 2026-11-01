@@ -31,7 +31,7 @@ function sortTabs_(ss, sizes, changedRounds, m, reg) {
       width: lay.width,
       spec: roundSortSpec(lay),
       firstFormulaCol: lay.sumCol,
-      formulasFor: (row) => roundRow(lay, {team_id: '', name: ''}, row).slice(lay.sumCol - 1),
+      formulasFor: (row) => roundFormulas(lay, row),
       rows,
     });
   });
@@ -42,7 +42,7 @@ function sortTabs_(ss, sizes, changedRounds, m, reg) {
     width: sl.width,
     spec: summarySortSpec(sizes),
     firstFormulaCol: sl.firstRound,
-    formulasFor: (row) => summaryRow(sizes, {team_id: '', name: ''}, row).slice(sl.firstRound - 1),
+    formulasFor: (row) => summaryFormulas(sizes, row),
     rows: null,
   };
   if (m) {
@@ -60,14 +60,10 @@ function sortTabs_(ss, sizes, changedRounds, m, reg) {
   if (m && m.sortKeysOk && reg && sheetsApi_() && sortWithApi_(ss, reg, tabs)) {
     return;
   }
-  // The slow way: per tab, sort, then fix the formulas the move left wrong. Fixed first too when the
-  // sort keys can't be trusted: without `m` they weren't checked, or a formula was typed over.
-  const keysGood = Boolean(m) && m.sortKeysOk;
+  // The slow way: per tab, read the formulas and fix the wrong ones, sort, fix them again.
   tabs.forEach((tab) => {
     const sheet = tabOf_(ss, tab.name);
-    if (!keysGood) {
-      timed_('sort_formulas', () => refreshFormulas_(sheet, tab.firstFormulaCol, tab.formulasFor));
-    }
+    timed_('sort_formulas', () => refreshFormulas_(sheet, tab.firstFormulaCol, tab.formulasFor));
     timed_('sort_range', () => {
       if (sheet.getLastRow() > 2) {
         sheet.getRange(2, 1, sheet.getLastRow() - 1, tab.width).sort(tab.spec);
@@ -182,7 +178,8 @@ function refreshFormulas_(sheet, firstCol, want) {
     if (run.length && t.row !== run[run.length - 1] + 1) {
       writeRun();
     }
-    if (formulas[t.row - 2].some((f, i) => f !== want(t.row)[i])) {
+    const w = want(t.row);
+    if (formulas[t.row - 2].some((f, i) => f !== w[i])) {
       run.push(t.row);
     } else {
       writeRun();

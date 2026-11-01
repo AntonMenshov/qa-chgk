@@ -15,7 +15,8 @@ const FLUSH_EVERY_MS = 1000;
 const REFRESH_EVERY_MS = 20000;
 
 function wire() {
-  $('start').onclick = () => startCamera((err) => toast(`Камера недоступна: ${err.message}`, true));
+  $('start').onclick = () =>
+    startCamera(app.camera, $('start'), (err) => toast(`Камера недоступна: ${err.message}`, true));
   const stepQuestion = (step) => {
     app.session.setQuestion(app.session.current + step);
     store.set(K.current(app.setup.tid), app.session.current);

@@ -31,7 +31,6 @@ function readMarks_(ss, reg, with_) {
   const summary = blocks[0]
     .map((r, j) => ({team_id: String(r[0]).trim(), name: String(r[1]), row: j + 2, values: r}))
     .filter((t) => t.team_id !== '');
-  const summaryRows = summary.map((t) => ({team_id: t.team_id, row: t.row}));
   // ID order (the order of the cards), not the standings order of «Итоги».
   const teams = summary
     .map((t) => ({team_id: t.team_id, name: t.name}))
@@ -88,7 +87,7 @@ function readMarks_(ss, reg, with_) {
   });
   const meta = {ml, rows, next: Math.max(metaBlock.length, 1) + 1};
 
-  const m = {sizes, n, teams, summaryRows, cells, where, known, meta, w, sortKeysOk};
+  const m = {sizes, n, teams, summaryRows: summary, cells, where, known, meta, w, sortKeysOk};
   const extra = blocks.slice(2 + lays.length); // the optional blocks, in the order requested
   if (opts.teams) {
     m.teamsTab = teamsFromRows_(extra.shift());
@@ -176,7 +175,7 @@ function applySheetEdits_(ss, m, user) {
   sheetEdits(current, m.known).forEach((edit) => {
     const at = m.where[edit.key];
     // Notes are not values: these go through SpreadsheetApp (jury edits are rare).
-    const range = ss.getSheetByName(at.name).getRange(at.row, at.col);
+    const range = tabOf_(ss, at.name).getRange(at.row, at.col);
     const [teamId, q] = edit.key.split(':');
     if (edit.status === null) {
       timed_('notes', () => range.setNote('Непонятное значение: используйте 1, 0, ? или R'));

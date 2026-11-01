@@ -3,7 +3,7 @@
 // with shared places as "2-3". The place labels and the order are the Sheet's own
 // (apps_script/logic.js, served as ../../shared/logic.js).
 
-import {compareStandings, NOT_A_MARK, placeLabels, STATUS_VALUE, standings} from '../../shared/logic.js';
+import {compareStandings, NOT_A_MARK, STATUS_VALUE, standings} from '../../shared/logic.js';
 
 /** "+" taken, "×" wrong, "•" no card yet (counts as not taken), "?" not decided yet («?», only received, or unreadable). */
 export function cellMark(value) {
@@ -16,6 +16,11 @@ export function cellMark(value) {
   return value === STATUS_VALUE.incorrect ? '×' : '•';
 }
 
+/** The view shown: the one forced with the G key, else by team count. */
+export function chosenView(data, gridMax, view) {
+  return view || (data.teams.length <= gridMax ? 'grid' : 'compact');
+}
+
 /**
  * The board after `revealed` rounds.
  * @param {any} data      get_board reply: {tournament: {name, date, round_sizes}, teams, marks, view_url}
@@ -25,7 +30,7 @@ export function cellMark(value) {
  * @param {"grid"|"compact"|null} [o.view]  forced view (the G key), else by team count
  * @returns {{name, date, rounds, revealed, view, groups, rows, took}}
  *   groups: the question columns shown, [{round, questions: [q, …]}]
- *   rows:   [{team_id, name, place, total, sums: [per revealed round], marks: {q: "+"|"×"|"•"|"?"}}]
+ *   rows:   [{team_id, name, place, total, rounds: [per revealed round], marks: {q: "+"|"×"|"•"|"?"}}]
  *   took:   {q: number of teams that took it}
  */
 export function boardModel(data, revealed, {gridMax, view = null}) {
@@ -33,7 +38,7 @@ export function boardModel(data, revealed, {gridMax, view = null}) {
   const shown = Math.min(Math.max(0, revealed), sizes.length);
   let next = 1;
   const allQuestions = sizes.map((size) => Array.from({length: size}, () => next++));
-  const chosen = view || (data.teams.length <= gridMax ? 'grid' : 'compact');
+  const chosen = chosenView(data, gridMax, view);
   const groupRounds = shown === 0 ? [] : chosen === 'grid' ? Array.from({length: shown}, (_, i) => i + 1) : [shown];
   const groups = groupRounds.map((round) => ({round, questions: allQuestions[round - 1]}));
 
@@ -52,14 +57,10 @@ export function boardModel(data, revealed, {gridMax, view = null}) {
         marks[q] = cellMark(values[q - 1]);
       }
     }
-    const {rounds, total} = totals[i];
-    return {team_id: team.team_id, name: team.name, rounds, sums: rounds, total, marks};
+    const {rounds, total, place} = totals[i];
+    return {team_id: team.team_id, name: team.name, rounds, total, place, marks};
   });
   rows.sort(compareStandings); // the backend's tie-break rule
-  const places = placeLabels(rows.map((r) => r.total));
-  rows.forEach((r, i) => {
-    r.place = places[i];
-  });
 
   const took = {};
   for (const g of groups) {

@@ -185,16 +185,6 @@ tfoot td.label {
   gap: 8px;
   transition: opacity 0.4s;
 }
-@media (max-width: 400px) {
-  .controls {
-    left: 14px;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-  }
-  .controls button {
-    padding: 10px;
-  }
-}
 .controls.idle:not(:focus-within) {
   pointer-events: none; /* unseen buttons must not take a stray click */
   opacity: 0;
@@ -328,5 +318,20 @@ table.dense td.total {
     flex-direction: column;
     align-items: center;
     gap: 24px;
+  }
+}
+
+/* Last: over the rules above. Narrow phones: the buttons wrap to two rows, the status line stays above them. */
+@media (max-width: 400px) {
+  .controls {
+    left: 14px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  .controls button {
+    padding: 10px;
+  }
+  .status {
+    bottom: 110px;
   }
 }

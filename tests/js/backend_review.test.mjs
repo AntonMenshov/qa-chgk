@@ -438,3 +438,27 @@ test('the reserve mark is read in any case', () => {
   assert.equal(b.teamsFromRows_([['R1', 'x', '', '', 'Да']])[0].reserve, true);
   assert.equal(b.teamsFromRows_([['A1', 'x', '', '', '']])[0].reserve, false);
 });
+
+test('onSheetEdit: a typed-over Место is put back, though the sort keys look right', () => {
+  const {b, tab} = world();
+  const summary = tab('Итоги');
+  const lay = L.summaryLayout([3, 3]);
+  const row = rowOf(summary, 'A01');
+  summary.getRange(row, lay.placeCol).setValue(5);
+  b.onSheetEdit({range: summary.getRange(row, lay.placeCol)});
+  assert.match(String(summary.getRange(row, lay.placeCol).getFormulas()[0][0]), /^=/);
+});
+
+test('onSheetEdit: an edit stays marked for the public copy even if the sort fails', () => {
+  const {b, tab} = world();
+  const round = tab('Тур 1');
+  const col = L.questionCell([3, 3], 1).col;
+  round.getRange(rowOf(round, 'A01'), col).setValue('+');
+  const sort = b.sortTabs_;
+  b.sortTabs_ = () => {
+    throw new Error('quota');
+  };
+  assert.throws(() => b.onSheetEdit({range: round.getRange(rowOf(round, 'A01'), col)}));
+  b.sortTabs_ = sort;
+  assert.equal(b.$.props.has(`dirty:${TID}`), true);
+});

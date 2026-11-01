@@ -156,5 +156,6 @@ def test_import_in_capitals_is_refused():
 def test_the_standard_doctype_is_accepted_but_nothing_defined_in_it():
     head = '<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">'
     assert render_svg(head + svg(SQUARE, "0 0 100 100"), 100).size == (100, 100)
-    with pytest.raises(ValueError, match="entities"):
-        render_svg('<!DOCTYPE svg [<!ENTITY x "y">]>' + svg(SQUARE), 100)
+    for bad in ('<!DOCTYPE svg [<!ENTITY x "y">]>', """<!DOCTYPE svg SYSTEM "a>b" [<!ELEMENT svg ANY>]>"""):
+        with pytest.raises(ValueError, match="DOCTYPE"):
+            render_svg(bad + svg(SQUARE), 100)

@@ -17,12 +17,6 @@ const DISPUTED_SPACER = ['', ''];
 const DISPUTED_COUNTS = ['', ''];
 const DISPUTED_COUNTS_COL = DISPUTED_LIST.length + DISPUTED_SPACER.length + 1;
 
-function newDisputedTab_(ss) {
-  const sheet = ss.insertSheet(TABS.disputed, ss.getSheets().length);
-  formatDisputedTab_(sheet);
-  return sheet;
-}
-
 /** Column widths and formats of «Спорные». */
 function formatDisputedTab_(sheet) {
   ensureSize_(sheet, 1, DISPUTED_WIDTH);
@@ -71,15 +65,15 @@ function disputedBefore_(m) {
 }
 
 /** Queue «Спорные» with the request's other writes; padded to its old length, so rows that went away are cleared. */
-function queueDisputed_(m, before) {
-  const oldRows = disputedBlock_(m, before.known, {}, 0).length;
+function queueDisputed_(m, shownKnown) {
+  const oldRows = disputedBlock_(m, shownKnown, {}, 0).length;
   m.w.set(TABS.disputed, 1, 1, disputedBlock_(m, markValues_(m), m.log.photos, oldRows));
 }
 
 /** Queue a rewrite only when the set of «?» marks changed: most requests leave it alone. */
 function updateDisputed_(m, before) {
   if (disputedKeys(markValues_(m)).join() !== before.keys) {
-    queueDisputed_(m, before);
+    queueDisputed_(m, before.known);
   }
 }
 

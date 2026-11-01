@@ -186,17 +186,6 @@ class Tournament:
     def total_questions(self) -> int:
         return sum(self.round_sizes)
 
-    def round_of(self, question: int) -> int:
-        """Round (1-based) of a continuously numbered question."""
-        if not 1 <= question <= self.total_questions:
-            raise ValueError(f"question {question} is outside 1–{self.total_questions}")
-        last = 0
-        for round_no, size in enumerate(self.round_sizes, start=1):
-            last += size
-            if question <= last:
-                return round_no
-        raise AssertionError("unreachable")
-
 
 def load_config(folder: Path) -> Tournament:
     """Execute `<folder>/config.py` and return its `tournament` object."""

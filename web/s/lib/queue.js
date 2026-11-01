@@ -8,7 +8,7 @@ const BACKOFF_MS = [2000, 4000, 8000, 15000, 30000];
 /** The pause after this many failures in a row; the marks and the photos use the same. */
 export const backoffMs = (failures) => BACKOFF_MS[Math.min(failures, BACKOFF_MS.length) - 1];
 
-export const errorText = (err) => String(err?.message ?? err);
+export const errorText = (err) => String(err?.message || err);
 
 export class Queue {
   /**
@@ -104,7 +104,8 @@ export class Queue {
         acked.push(event.scan_id);
       }
     }
-    this.pending = this.pending.filter((e) => !byId.has(e.scan_id));
+    const answered = new Set(batch.filter((e) => byId.has(e.scan_id)).map((e) => e.scan_id));
+    this.pending = this.pending.filter((e) => !answered.has(e.scan_id));
     this.save();
     return {acked, rejected};
   }

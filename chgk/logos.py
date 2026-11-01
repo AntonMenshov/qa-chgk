@@ -119,36 +119,30 @@ def _read_logo(path: Path) -> Image.Image:
         raise ValueError(f"not a readable image ({err})") from err
 
 
-def _load(name: str, folder: Path) -> tuple[Image.Image | None, str | None]:
-    """A logo by name, or None and why it can't be used."""
-    path = resolve_logo(name, folder)
-    if path is None:
-        return None, f"not found in {folder} or {LOGO_LIBRARY}"
-    try:
-        return open_logo(path), None
-    except ValueError as err:
-        return None, str(err)
-
-
 def load_logos(folder: Path, fields: CardFields, teams: "list[Team]") -> tuple[dict[str, Image.Image], list[str]]:
     """The logos these teams' cards can use, keyed as in logo_chain, plus warnings.
 
     A missing or unreadable file is a warning, not an error: the cards use the next logo in their chain.
     """
-    own = {t.team_id: t.logo_file for t in teams}
+    names: dict[str, tuple[str, str | None]] = {t.team_id: (f"team {t.team_id}", t.logo_file) for t in teams}
+    names[TOURNAMENT_KEY] = ("tournament", fields.tournament_logo)
+    names[FALLBACK_KEY] = ("fallback", fields.fallback_logo)
     images: dict[str, Image.Image] = {}
     warnings: list[str] = []
     for key in dict.fromkeys(key for t in teams for key in logo_chain(fields, t.team_id)):
-        what = {TOURNAMENT_KEY: "tournament", FALLBACK_KEY: "fallback"}.get(key, f"team {key}")
-        name = {TOURNAMENT_KEY: fields.tournament_logo, FALLBACK_KEY: fields.fallback_logo}.get(key, own.get(key))
+        what, name = names[key]
         if not name:
             continue
-        image, problem = _load(name, folder)
-        if image is None:
-            warnings.append(f"{what}: logo {name!r}: {problem}; using the next fallback")
+        path = resolve_logo(name, folder)
+        if path is None:
+            warnings.append(f"{what}: logo {name!r} not found in {folder} or {LOGO_LIBRARY}; using the next fallback")
             continue
-        images[key] = image
-        if CUT_FROM in image.info:
+        try:
+            images[key] = open_logo(path)
+        except ValueError as err:
+            warnings.append(f"{what}: logo {name!r}: {err}; using the next fallback")
+            continue
+        if CUT_FROM in images[key].info:
             warnings.append(f"{what}: logo {name!r} is not square; cut to a square around its drawing")
     return images, warnings
 
@@ -169,9 +163,14 @@ def own_logo_problem(team: "Team", folder: Path) -> str | None:
     """Why a team's own logo can't be used, or None if it loads."""
     if not team.logo_file:
         return "not set"
-    if resolve_logo(team.logo_file, folder) is None:
+    path = resolve_logo(team.logo_file, folder)
+    if path is None:
         return "not found"
-    return _load(team.logo_file, folder)[1]
+    try:
+        open_logo(path)
+    except ValueError as err:
+        return str(err)
+    return None
 
 
 def logo_report(folder: Path, fields: CardFields, teams: "list[Team]") -> tuple[list[LogoStatus], list[str]]:

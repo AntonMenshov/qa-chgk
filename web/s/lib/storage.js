@@ -43,6 +43,13 @@ export function storage(backing = localStore(), cached = () => false) {
       let text;
       try {
         text = JSON.stringify(value);
+      } catch {
+        return false;
+      }
+      if (text === undefined) {
+        return false;
+      }
+      try {
         backing.setItem(key, text);
         return true;
       } catch {

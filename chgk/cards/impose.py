@@ -5,6 +5,7 @@ bottom). Pages come out full: free slots become spare cards.
 """
 
 from enum import Enum
+from math import ceil
 
 from chgk.cards.model import Card, spare_card
 
@@ -62,7 +63,7 @@ def cut_stack(decks: list[list[Card]], per_page: int) -> list[Page]:
     total = sum(len(deck) for deck in decks)
     if not total:
         return []
-    n_pages = -(-total // per_page)
+    n_pages = ceil(total / per_page)
     free = n_pages * per_page - total
     decks = [with_extra_spares(deck, free // len(decks) + (k < free % len(decks))) for k, deck in enumerate(decks)]
     sequence = [card for deck in decks for card in deck]

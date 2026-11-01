@@ -102,8 +102,7 @@ function buildTabs_(ss, req) {
   });
 
   const stats = addTab(TABS.stats);
-  tabs += 1; // «Спорные»
-  newDisputedTab_(ss);
+  formatDisputedTab_(addTab(TABS.disputed));
   const rows = statsRows(sizes);
   stats.getRange(1, 1, rows.length, 4).setValues(rows);
   stats.getRange(1, 1, 1, 4).setFontWeight('bold');

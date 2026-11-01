@@ -30,7 +30,7 @@ from chgk.cards.geometry import (
 )
 from chgk.cards.impose import Mode, Page
 from chgk.cards.model import Card
-from chgk.config import Tournament
+from chgk.config import LogoMode, Tournament
 from chgk.ids import encode_payload
 from chgk.logos import first_logo
 
@@ -272,7 +272,7 @@ def render_cards(
     c.setTitle(f"{tournament.name} — карточки ({mode.value})")
     warnings: list[str] = []
     logo_pt = (tournament.card.logo_size or 0) * INCH
-    if logo_pt and all_parts[0].logo.w < logo_pt - 0.5:
+    if logo_pt and tournament.card.logo is not LogoMode.NONE and all_parts[0].logo.w < logo_pt - 0.5:
         warnings.append(
             f"logo_size {tournament.card.logo_size} in is larger than a card has room for: "
             f"it prints at {all_parts[0].logo.w / INCH:.2f} in"

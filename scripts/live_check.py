@@ -24,9 +24,10 @@ from PIL import Image
 
 from chgk import out_dir
 from chgk.backend import BackendClient, BackendError, Profiles
-from chgk.state import load_state
+from chgk.state import SHEETS_URL, load_state
 
-SHEETS = "https://docs.google.com/spreadsheets/d"
+ROOT = Path(__file__).resolve().parent.parent
+COMMAND_LIMIT_S = 300
 TIMER_LIMIT_S = 300
 PAUSE_S = 32  # PUBLISH_EVERY_MS in apps_script/results.js, and a little
 failures = 0
@@ -39,7 +40,14 @@ def check(name, passed, detail=""):
 
 
 def chgk(*args):
-    done = subprocess.run(["uv", "run", "chgk", *map(str, args)], capture_output=True, text=True, input="\n")
+    done = subprocess.run(
+        ["uv", "run", "chgk", *map(str, args)],
+        capture_output=True,
+        text=True,
+        input="\n",
+        cwd=ROOT,
+        timeout=COMMAND_LIMIT_S,
+    )
     return done.returncode, done.stdout + done.stderr
 
 
@@ -70,7 +78,9 @@ class Throwaway:
         teams = "".join(f"    team({name!r}, id={team_id!r}),\n" for team_id, name in team_rows)
         (self.folder / "teams.py").write_text(f"from chgk.teams import team\n\nteams = [\n{teams}]\n", encoding="utf-8")
         code, output = chgk("new", self.folder)
-        check(f"{slug}: created", code == 0, "" if code == 0 else output[-200:])
+        check(f"{slug}: created", code == 0, "" if code == 0 else output[-400:])
+        if code != 0:
+            sys.exit(f"{failures} failed: stopping here, there is no tournament to check.")
         self.state = load_state(self.folder)
         self.tid = self.state.tid
         self.jury = BackendClient(self.state.backend_url, self.state.jury_token)
@@ -104,7 +114,7 @@ tournament = Tournament(
 
     def public_summary(self):
         tab = quote("Итоги")
-        return self.web.get(f"{SHEETS}/{self.state.public_id}/gviz/tq?tqx=out:csv&sheet={tab}").text
+        return self.web.get(f"{SHEETS_URL}{self.state.public_id}/gviz/tq?tqx=out:csv&sheet={tab}").text
 
     def delete(self):
         code, output = chgk("delete", self.folder, "--yes")
@@ -115,13 +125,13 @@ tournament = Tournament(
 def check_sharing(t):
     state = t.state
     check("real Sheet and public copy differ", bool(state.public_id) and state.public_id != state.spreadsheet_id)
-    reply = t.web.get(f"{SHEETS}/{state.public_id}/export?format=xlsx")
+    reply = t.web.get(f"{SHEETS_URL}{state.public_id}/export?format=xlsx")
     names = []
     if reply.status_code == 200 and reply.content[:2] == b"PK":
         workbook = zipfile.ZipFile(io.BytesIO(reply.content)).read("xl/workbook.xml").decode()
         names = re.findall(r'<sheet [^>]*name="([^"]+)"', workbook)
     check("public download holds only the results tabs", names == ["Итоги", "Тур 1", "Тур 2", "Статистика"], names)
-    reply = t.web.get(f"{SHEETS}/{state.spreadsheet_id}/export?format=xlsx")
+    reply = t.web.get(f"{SHEETS_URL}{state.spreadsheet_id}/export?format=xlsx")
     check(
         "real Sheet refuses anonymous", not (reply.status_code == 200 and reply.content[:2] == b"PK"), reply.status_code
     )
@@ -200,7 +210,7 @@ def check_timer(t):
     start = time.time()
     while time.time() - start < TIMER_LIMIT_S:
         time.sleep(10)
-        if t.public_summary() != before:
+        if '"A02","Бета","2"' in t.public_summary():  # the marks themselves, not just any other reply
             check("the timer published with nobody polling", True, f"after {round(time.time() - start)} s")
             return
     check("the timer published with nobody polling", False)
@@ -241,6 +251,8 @@ def main():
     code, output = chgk("backend", "check")
     print(output.strip())
     check("backend check is clean", code == 0)
+    if code != 0:
+        sys.exit("Deploy the current code first: nothing below would test it.")
     with tempfile.TemporaryDirectory() as parent:
         t = Throwaway(parent, "check-live", [("A01", "Альфа"), ("A02", "Бета"), ("007", "Гамма")])
         try:

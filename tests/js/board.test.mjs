@@ -45,7 +45,7 @@ const FOUR = data([3, 3, 3], {
 test('before any round is revealed: the title screen (no columns, no places from marks)', () => {
   const m = boardModel(FOUR, 0, {gridMax: 5});
   assert.deepEqual([m.revealed, m.groups, m.rounds], [0, [], 3]);
-  assert.ok(m.rows.every((r) => r.total === 0 && r.sums.length === 0));
+  assert.ok(m.rows.every((r) => r.total === 0 && r.rounds.length === 0));
 });
 
 test('after round 1 only round 1 counts: marks already in for round 2 stay hidden', () => {
@@ -68,7 +68,7 @@ test('after round 1 only round 1 counts: marks already in for round 2 stay hidde
 test('after round 2: totals and places from rounds 1-2; a tie goes to the better last round', () => {
   const m = boardModel(FOUR, 2, {gridMax: 5});
   assert.deepEqual(
-    m.rows.map((r) => [r.team_id, r.sums, r.total, r.place]),
+    m.rows.map((r) => [r.team_id, r.rounds, r.total, r.place]),
     [
       ['A03', [1, 3], 4, 1],
       ['A01', [3, 0], 3, 2],
@@ -97,7 +97,7 @@ test('after the last round: «?» and «R» show as ?, a wrong answer as ×, and
   const a03 = m.rows.find((r) => r.team_id === 'A03');
   assert.deepEqual([a03.marks[7], a03.marks[8], a03.marks[9]], ['?', '?', '×']);
   assert.equal(m.rows.find((r) => r.team_id === 'A04').marks[9], '•'); // no card
-  assert.deepEqual(a03.sums, [1, 3, 0]);
+  assert.deepEqual(a03.rounds, [1, 3, 0]);
   assert.equal(m.took[7], 1);
   assert.equal(boardModel(FOUR, 99, {gridMax: 5}).revealed, 3); // can't reveal more than exist
 });
@@ -106,7 +106,7 @@ test("more teams than gridMax: total plus the last revealed round's grid; G forc
   const m = boardModel(FOUR, 2, {gridMax: 3});
   assert.equal(m.view, 'compact');
   assert.deepEqual(m.groups, [{round: 2, questions: [4, 5, 6]}]);
-  assert.deepEqual(m.rows[0].sums, [1, 3]); // all round sums are still known
+  assert.deepEqual(m.rows[0].rounds, [1, 3]); // all round sums are still known
   assert.equal(boardModel(FOUR, 2, {gridMax: 3, view: 'grid'}).view, 'grid');
   assert.equal(boardModel(FOUR, 2, {gridMax: 5, view: 'compact'}).groups.length, 1);
   assert.equal(boardModel(FOUR, 4, {gridMax: 4}).view, 'grid'); // exactly gridMax teams: grid

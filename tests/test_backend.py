@@ -256,10 +256,11 @@ def test_new_warns_when_printouts_exist_but_state_json_is_gone(folder, backends)
     pdf = out_dir("test-cup", "cards.pdf")
     pdf.write_bytes(b"%PDF")
     try:
-        result = new_tournament(folder, Profile("personal", URL_A, "tokA"))
+        warnings = []
+        new_tournament(folder, Profile("personal", URL_A, "tokA"), warnings=warnings)
     finally:
         pdf.unlink()
-    assert any("won't scan" in w for w in result.warnings)
+    assert any("won't scan" in w for w in warnings)
 
 
 def test_new_tournament_is_idempotent(folder, backends):

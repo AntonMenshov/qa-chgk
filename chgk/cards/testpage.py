@@ -9,6 +9,7 @@ from pathlib import Path
 
 from PIL import Image
 from reportlab.lib.utils import ImageReader
+from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfgen.canvas import Canvas
 
 from chgk.cards.geometry import INCH, PAGE_H, PAGE_W, PRINT_HINT, Rect, card_rects
@@ -31,7 +32,7 @@ from chgk.teams import Team
 
 QR_SIZES = [0.55, 0.65, 0.75, 0.85, 0.95]
 GREYS = [0.05, 0.08, 0.10, 0.12, 0.14, 0.18]
-TITLE_SUFFIX_W = 130  # pt: «: тестовая страница» in bold 13
+TITLE_SUFFIX = ": тестовая страница"
 
 
 def _ruler(c: Canvas, x: float, y: float, vertical: bool) -> None:
@@ -65,8 +66,9 @@ def render_test_page(
     c.setTitle(f"{tournament.name} — тестовая страница")
 
     c.setFont(FONT_BOLD, 13)
-    title = fit_text(f"{printable(tournament.name, warnings)}", FONT_BOLD, 13, PAGE_W - INCH - TITLE_SUFFIX_W, 13)[0]
-    c.drawString(0.5 * INCH, 10.35 * INCH, f"{title}: тестовая страница")
+    room = PAGE_W - INCH - pdfmetrics.stringWidth(TITLE_SUFFIX, FONT_BOLD, 13)
+    title = fit_text(printable(tournament.name, warnings), FONT_BOLD, 13, room, 13)[0]
+    c.drawString(0.5 * INCH, 10.35 * INCH, title + TITLE_SUFFIX)
     c.setFont(FONT, 9)
     c.drawString(0.5 * INCH, 10.15 * INCH, f"{PRINT_HINT} Both rulers must measure exactly 2 in.")
     _ruler(c, 0.5 * INCH, 9.7 * INCH, vertical=False)
@@ -113,7 +115,7 @@ def render_test_page(
     draw_cards(c, samples, parts, tournament, readers, warnings)
     c.setStrokeGray(GUIDE_GREY)
     c.setLineWidth(0.3)
-    for rect in bottom_row:
+    for rect in bottom_row[: len(samples)]:
         c.rect(rect.x, rect.y, rect.w, rect.h, stroke=1, fill=0)
     c.showPage()
     c.save()

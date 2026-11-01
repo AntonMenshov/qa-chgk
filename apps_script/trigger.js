@@ -18,7 +18,7 @@ function onSheetEdit(e) {
     return;
   }
   const ss = sheet.getParent();
-  const settings = ss.getSheetByName(TABS.settings).getRange(1, 1, SETTINGS_ROWS, 2).getValues();
+  const settings = tabOf_(ss, TABS.settings).getRange(1, 1, SETTINGS_ROWS, 2).getValues();
   const sizes = JSON.parse(settings.find((r) => r[0] === 'round_sizes')[1]);
   const tid = String((settings.find((r) => r[0] === 'tid') || [])[1] || '');
   // Columns never move, so the columns still tell what was touched.
@@ -41,6 +41,9 @@ function onSheetEdit(e) {
     } catch {
       // a Sheet the backend doesn't know (copied?): sort the slow way, nothing to publish to
     }
+    // Not published here: a column of hand edits would publish once per cell, with phones waiting on the
+    // lock. Marked as soon as the edit is written, as in recordEvents_: a failed sort must not leave it unpublished.
+    const markChanged = () => current && markUnpublished_(PropertiesService.getScriptProperties(), current);
     if (touchesNames) {
       propagateNames_(ss, sizes, name);
       refreshDisputed_(ss, sizes);
@@ -52,13 +55,14 @@ function onSheetEdit(e) {
       const rounds = applySheetEdits_(ss, m, user);
       updateDisputed_(m, disputedBefore);
       m.w.flush();
+      markChanged();
+      // A computed cell typed over may still hold the right number, or be «Место», which isn't read:
+      // the sort puts every formula back.
+      m.sortKeysOk = m.sortKeysOk && !touchesFormulas;
       if (rounds.size || !m.sortKeysOk) {
         sortTabs_(ss, sizes, [...rounds], m, current);
       }
     }
-    // Not published here: a column of hand edits would publish once per cell, with phones waiting on the lock.
-    if (current) {
-      markUnpublished_(PropertiesService.getScriptProperties(), current);
-    }
+    markChanged();
   });
 }

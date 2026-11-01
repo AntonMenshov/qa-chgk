@@ -27,10 +27,12 @@ def run_python_file(path: Path) -> dict[str, Any]:
     names = {"__name__": f"chgk_{path.parent.name}_{path.stem}", "__file__": str(path)}
     try:
         exec(compile(path.read_text(encoding="utf-8"), str(path), "exec"), names)  # the organiser's own file
+    except UnicodeDecodeError as err:
+        raise ValueError(f"{path}: not UTF-8 ({err})") from err
     except ValueError as err:
-        if str(path) in str(err):
-            raise
-        raise ValueError(f"{path}: {err}") from err  # our own checks say what is wrong, not in which file
+        if str(path) not in str(err):
+            err.args = (f"{path}: {err}",)  # our own checks say what is wrong, not in which file
+        raise
     except Exception as err:
         raise ValueError(f"{path}: {type(err).__name__}: {err}") from err
     return names

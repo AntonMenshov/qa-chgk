@@ -2,10 +2,10 @@
 // projector laptop reveals it (→ / space / button). Read-only: its link carries a board
 // token that can't change marks. The logic is in lib/board.js (tested in Node).
 
-import {decodeBoard, encodeBoardLink, sameBoardAccess} from '../s/lib/payload.js';
+import {decodeBoard, encodeBoardLink, sameAccess} from '../s/lib/payload.js';
 import {backend} from '../s/lib/api.js';
 import {storage} from '../s/lib/storage.js';
-import {boardModel} from './lib/board.js';
+import {boardModel, chosenView} from './lib/board.js';
 import {qrNode} from './lib/qr.js';
 
 const REFRESH_EVERY_MS = 15000;
@@ -78,8 +78,8 @@ function titleScreen(m) {
   );
 }
 
-/** board.css stripes nine rounds; a longer tournament starts over. */
-const stripe = (round) => `r${((round - 1) % 9) + 1}`;
+/** The rounds' two alternating tints (board.css). */
+const stripe = (round) => (round % 2 ? 'r1' : 'r2');
 
 function table(m) {
   const grid = m.view === 'grid';
@@ -132,7 +132,7 @@ function table(m) {
             const kind = {'+': 'plus', '×': 'wrong', '?': 'maybe', '•': 'no-card'}[mark];
             return el('td', {className: `q ${kind} ${className}`, textContent: mark});
           },
-          (g, className) => el('td', {className: `sum ${className}`, textContent: r.sums[g.round - 1]}),
+          (g, className) => el('td', {className: `sum ${className}`, textContent: r.rounds[g.round - 1]}),
         ),
         el('td', {className: 'total', textContent: r.total}),
       ),
@@ -205,9 +205,9 @@ function render() {
   }
   if (!data) {
     stage.replaceChildren(
-      el('section', {className: 'title'}, el('div', {className: 'wait', textContent: 'Загрузка…'})),
+      el('section', {className: 'title'}, el('div', {className: 'wait', textContent: loadError || 'Загрузка…'})),
     );
-    $('next').textContent = 'Загрузка…';
+    $('next').textContent = loadError ? 'Нет данных' : 'Загрузка…';
     $('view').textContent = 'Сетка';
     for (const id of ['next', 'prev', 'view']) {
       $(id).disabled = true;
@@ -233,23 +233,23 @@ function setRevealed(n) {
   if (!data) {
     return;
   }
-  revealed = n; // boardModel keeps it in range, and render() takes its answer
-  render();
+  revealed = Math.min(Math.max(0, n), data.tournament.round_sizes.length);
   store.set(key('revealed'), revealed);
+  render();
 }
 
 function toggleView() {
   if (!data) {
     return;
   }
-  const current = view || (data.teams.length <= gridMax ? 'grid' : 'compact');
-  view = current === 'grid' ? 'compact' : 'grid';
+  view = chosenView(data, gridMax, view) === 'grid' ? 'compact' : 'grid';
   store.set(key('view'), view);
   render();
 }
 
 let loading = false;
 let lastReply = null;
+let loadError = null; // why the first load failed: said in place of «Загрузка…»
 
 async function load() {
   // One at a time, so an older reply can't replace a newer one; a hidden page asks when shown again.
@@ -257,37 +257,37 @@ async function load() {
     return;
   }
   loading = true;
+  let text;
   try {
     const reply = await backend(access.backendUrl, access.boardToken)('get_board', {tid: access.tid});
     lastOk = new Date();
+    loadError = null;
     $('status').hidden = true;
     const {timing, ...shown} = reply; // eslint-disable-line no-unused-vars
-    const text = JSON.stringify(shown);
+    text = JSON.stringify(shown);
     if (text === lastReply) {
       return; // polled every 15 s, mostly unchanged: nothing to redraw
     }
-    lastReply = text;
     data = reply;
   } catch (err) {
-    $('status').hidden = false;
-    $('status').textContent = err.refused
+    const message = err.refused
       ? err.message
       : lastOk
         ? `Нет связи — данные на ${lastOk.toLocaleTimeString('ru-RU', {hour: '2-digit', minute: '2-digit'})}`
         : `Не удалось загрузить: ${err.message}`;
-    if (!data) {
-      // Nothing to show yet: the reason goes where the hall would read «Загрузка…» for ever.
-      $('stage').replaceChildren(
-        el('section', {className: 'title'}, el('div', {className: 'wait', textContent: $('status').textContent})),
-      );
-      $('next').textContent = 'Нет данных';
-      fit();
+    if (data) {
+      $('status').hidden = false;
+      $('status').textContent = message;
+    } else {
+      loadError = message;
+      render();
     }
     return;
   } finally {
     loading = false;
   }
   render(); // outside the try: a drawing error is not a connection problem
+  lastReply = text; // only now: a drawing error is tried again at the next poll
 }
 
 function toggleQr() {
@@ -306,7 +306,7 @@ function wake() {
 // A board link opened into this tab only changes the #… (no reload): load the board it names.
 addEventListener('hashchange', () => {
   const next = decodeBoard(location.hash);
-  if (next && !sameBoardAccess(next, access)) {
+  if (next && !sameAccess(next, access)) {
     location.reload();
   }
 });

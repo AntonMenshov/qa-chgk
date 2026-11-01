@@ -108,8 +108,8 @@ README.md             organiser guide (end to end) and contributor commands
 ```
 
 ### How to run
-- Tests: `uv run pytest` (541, incl. 4 browser tests that need Google Chrome + Node) and
-  `npm test` (231, then 78 backend and calculation tests again with the Sheets API off).
+- Tests: `uv run pytest` (incl. browser tests that need Google Chrome + Node) and
+  `npm test` (then the backend and calculation tests again with the Sheets API off).
 - Lint, format and types: `uv run mypy`, `npm run typecheck`, `uv run ruff format . && uv run ruff check .`, `npm run format && npm run lint`.
 - Every `chgk` command: [SPEC.md §13](SPEC.md) or `uv run chgk --help`; the organiser's walkthrough:
   [README.md](README.md).
@@ -192,7 +192,7 @@ One line each; SPEC has the details. Decisions recorded only here are written ou
 
 ## Next steps
 
-0. **Code review, 2026-10-31:** every finding closed: fixed, or won't fix with its reason in [docs/accepted-gaps.md](docs/accepted-gaps.md). The user schedules a review of what came after `53b045a`.
+0. **Code review, 2026-10-31:** every finding closed: fixed, or won't fix with its reason in [docs/accepted-gaps.md](docs/accepted-gaps.md). The review of what came after `53b045a` is done and closed too. Backend `5ce47dc79505` waits for the user's redeploy, then `scripts/live_check.py`.
 1. **Phase 7**, the rest: reprint `out/osenniy-salat/`, the fixes' own checks on an iPhone
    ([docs/manual-checks.md](docs/manual-checks.md)), the mock game, fixes, a docs/comments check.
    Then **Phase 8**, an external test at a tournament, with the same loop.

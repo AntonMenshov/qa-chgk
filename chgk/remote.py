@@ -6,7 +6,6 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
-from chgk import out_dir
 from chgk.backend import BackendClient, BackendError, Profile, Profiles
 from chgk.config import load_config
 from chgk.ids import generate_token
@@ -29,14 +28,15 @@ class NewResult:
     state: State
     created: bool  # False if the tournament already existed on its backend
     teams: list[Team] | None = None  # the teams and reserve decks it was created with; None if nothing was read
-    warnings: tuple[str, ...] = ()
 
 
 def _team_dicts(teams: list[Team]) -> list[dict[str, Any]]:
     return [{"team_id": t.team_id, "name": t.name, "city": t.city, "logo_file": t.logo_file} for t in teams]
 
 
-def new_tournament(folder: Path, profile: Profile, client: BackendClient | None = None) -> NewResult:
+def new_tournament(
+    folder: Path, profile: Profile, client: BackendClient | None = None, warnings: list[str] | None = None
+) -> NewResult:
     """Create the tournament's Sheet and Drive folder on `profile`'s backend and record it in state.json.
 
     Idempotent: a tournament that already has a spreadsheet is left on its own backend.
@@ -51,10 +51,9 @@ def new_tournament(folder: Path, profile: Profile, client: BackendClient | None 
     teams = read_teams(folder / TEAMS_FILE)
     is_new = state is None
     state = load_or_create_state(folder, tournament.tid)
-    printed = is_new and not tournament.tid and any(out_dir(tournament.slug).glob("*.pdf"))
-    warnings = (new_id_warning(folder, tournament.slug, state),) if printed else ()
-    remember_team_ids(folder, [t.team_id for t in teams])
-    state = load_or_create_state(folder, tournament.tid)
+    if is_new and warnings is not None and (warning := new_id_warning(folder, tournament, state)):
+        warnings.append(warning)  # now: a failure below would lose it, and the next try has a state.json
+    state = remember_team_ids(folder, [t.team_id for t in teams]) or state
 
     client = client or BackendClient(profile.url, profile.admin_token)
     account = profile.account or client.ping().get("account", "")
@@ -90,7 +89,7 @@ def new_tournament(folder: Path, profile: Profile, client: BackendClient | None 
         public_id=reply.get("public_id"),
     )
     save_state(folder, state)
-    return NewResult(state, not reply.get("existed", False), [*teams, *reserve], warnings)
+    return NewResult(state, not reply.get("existed", False), [*teams, *reserve])
 
 
 def tournament_client(folder: Path, profiles: Profiles) -> tuple[State, BackendClient]:

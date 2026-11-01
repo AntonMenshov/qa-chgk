@@ -44,6 +44,9 @@ here is closed: change it only if the reason stops holding.
 | SVG: text like url(x) in a label and data:image/jpg images are refused; a non-square file on a coloured background or drawn in white is cut from the middle; a huge file is read before the size limit | Rare, they warn, and the file can be fixed by hand |
 | The logo warning says «using the next fallback» when none follows | Not a real issue: fix the config |
 | A one-question tournament shows the same sample card twice on the test page | Can't happen (user) |
+| Phones and CLI read refusals from the backend's reason codes, so they need a backend of the same version | One backend, and `chgk backend check` fails when it differs |
+| `chgk teams` makes two extra reads to name teams off the Teams tab | It runs rarely, not during scanning |
+| Projector QR codes have no crisp-edges setting since the library draws them | The user's choice: `docs/manual-checks.md` scans them from the back of the hall |
 | Logo drawing: no `--draw` summary or failure exit code, Ctrl-C waits for running logos, `--accept` can stop halfway, a draft doesn't notice a renamed team, no cost prompt, near-miss APPROVED replies, unquoted paths in the brief, prompt caching and budgets | The user's own tool, worked around by hand |
 
 ## Minor findings of the first pass, closed as a group
@@ -56,5 +59,3 @@ Judged not worth fixing, for these reasons:
 
 Cleanups left on purpose, because the change costs more than it saves: saving the queue on each mark (that is what makes a mark safe); the service worker re-caching each file on a reload (how updates arrive); a photo re-encoded per retry (keeping it would hold memory); the board's own `$` (importing the scanner's would load its state); Meta read with every board poll (one batched read either way); a paste over names and marks reading twice, and reserve activation re-reading Teams (both rare); `formatSheets_` on every `chgk teams` (it keeps new rows formatted); the footer rebuilt per card; the decoders in `chgk/ids.py` used only by tests (they hold the JS mirror to the vectors).
 
-## Not reviewed yet
-The user schedules a review of the changes after commit `53b045a`.

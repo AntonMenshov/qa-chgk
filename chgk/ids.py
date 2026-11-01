@@ -25,7 +25,7 @@ TID_LENGTH = 5
 # 1-8 digits or capital Latin letters, like a team ID.
 TID_PATTERN = "[0-9A-Z]{1,8}"
 TID_RE = re.compile(rf"^{TID_PATTERN}$")
-TEAM_ID_RE = TID_RE  # e.g. a rating number or A07
+TEAM_ID_RE = re.compile(r"^[0-9A-Z]{1,8}$")
 MAX_QUESTION = 999  # the payload holds questions 1–999 …
 MAX_SPARE = 99  # … and spare cards S1–S99 (_FRAGMENT_RE, and payload.js on the phone)
 _FRAGMENT_RE = re.compile(

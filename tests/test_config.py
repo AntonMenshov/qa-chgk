@@ -24,27 +24,16 @@ def test_uniform_rounds():
     t = make()
     assert t.round_sizes == [12, 12, 12]
     assert t.total_questions == 36
-    assert [t.round_of(q) for q in (1, 12, 13, 24, 25, 36)] == [1, 1, 2, 2, 3, 3]
 
 
 def test_uneven_rounds():
     t = make(questions_per_round=[12, 12, 15])
     assert t.total_questions == 39
-    assert t.round_of(24) == 2
-    assert t.round_of(25) == 3
-    assert t.round_of(39) == 3
 
 
 def test_single_round_single_question():
     t = make(rounds=1, questions_per_round=1)
     assert t.total_questions == 1
-    assert t.round_of(1) == 1
-
-
-@pytest.mark.parametrize("q", [0, 37, -1])
-def test_round_of_out_of_range(q):
-    with pytest.raises(ValueError):
-        make().round_of(q)
 
 
 def test_defaults_match_user_choices():

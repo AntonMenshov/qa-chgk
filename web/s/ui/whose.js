@@ -13,7 +13,7 @@ export async function openLookup() {
   sheet('lookup');
   startedHere = !app.camera.wanted;
   app.camera.forgetLast(); // the card already in front of the camera counts too
-  await startCamera((err) => {
+  await startCamera(app.camera, $('start'), (err) => {
     if (lookingUp()) {
       $('lk-title').textContent = `Камера недоступна: ${err.message}`;
     } else {
@@ -23,10 +23,12 @@ export async function openLookup() {
 }
 
 export function closeLookup() {
-  if (startedHere && !app.camera.running) {
-    app.camera.stop(); // still starting: it must not come on after this and record the card in view
+  if (startedHere) {
+    app.camera.stop(); // left on, it would record the card in view: scanning is «Начать проверку»'s to start
+    $('start').hidden = false;
+  } else {
+    app.camera.restoreLast(); // a card still in view counts only after it leaves the frame and returns
   }
-  app.camera.restoreLast(); // a card still in view counts only after it leaves the frame and returns
   sheet(null);
 }
 

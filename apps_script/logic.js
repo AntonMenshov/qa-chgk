@@ -5,7 +5,7 @@
 export const STATUS_VALUE = {received: 'R', correct: 1, incorrect: 0, disputed: '?', cleared: ''};
 const APP_STATUSES = ['received', 'correct', 'incorrect', 'disputed']; // "cleared" only comes from the sheet
 const TID_RE = /^[0-9A-Z]{1,8}$/; // generated, or given in config.py (chgk/ids.py TID_PATTERN)
-const TEAM_ID_RE = TID_RE; // e.g. a rating.chgk.info number (58746) or A07
+const TEAM_ID_RE = /^[0-9A-Z]{1,8}$/; // e.g. a rating.chgk.info number (58746) or A07
 const MAX_EVENTS_PER_REQUEST = 500;
 const MAX_DATE_MS = 8.64e15; // beyond it JavaScript has no Date, and formatting one throws
 export const MAX_PHOTO_CHARS = 4000000; // base64 of a ~3 MB JPEG; phones send ~150-300 KB
@@ -428,8 +428,12 @@ export function roundRow(lay, team, row) {
   for (let k = 0; k < lay.size; k++) {
     cells.push('');
   }
-  cells.push(`=COUNTIF(${colLetter(lay.firstCol)}${row}:${colLetter(lay.sumCol - 1)}${row},1)`);
-  return cells;
+  return cells.concat(roundFormulas(lay, row));
+}
+
+/** The computed cells of a round tab's row, from «Сумма» on. */
+export function roundFormulas(lay, row) {
+  return [`=COUNTIF(${colLetter(lay.firstCol)}${row}:${colLetter(lay.sumCol - 1)}${row},1)`];
 }
 
 /** Where question q's marks live: round, tab name and column. */
@@ -472,13 +476,17 @@ export function summaryLayout(roundSizes) {
 
 /** One «Итоги» row: each round's sum looked up by team ID, so sorting a round tab is harmless. */
 export function summaryRow(roundSizes, team, row) {
+  return [team.team_id, team.name].concat(summaryFormulas(roundSizes, row));
+}
+
+/** The computed cells of an «Итоги» row: the round sums, Итого, Место. */
+export function summaryFormulas(roundSizes, row) {
   const L = summaryLayout(roundSizes);
-  const cells = [team.team_id, team.name];
-  roundSizes.forEach((_, i) => {
+  const cells = roundSizes.map((_, i) => {
     const lay = roundLayout(roundSizes, i + 1);
     const tab = `'${lay.name}'`;
     const sum = colLetter(lay.sumCol);
-    cells.push(`=IFERROR(INDEX(${tab}!$${sum}:$${sum},MATCH($A${row},${tab}!$A:$A,0)),0)`);
+    return `=IFERROR(INDEX(${tab}!$${sum}:$${sum},MATCH($A${row},${tab}!$A:$A,0)),0)`;
   });
   cells.push(`=SUM(${colLetter(L.firstRound)}${row}:${colLetter(L.totalCol - 1)}${row})`);
   cells.push(placeFormula(colLetter(L.totalCol), row));

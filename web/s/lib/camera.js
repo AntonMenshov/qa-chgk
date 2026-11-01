@@ -23,8 +23,6 @@ const DECODE_PAUSED_EVERY_MS = 200;
 const MISSED_FRAMES = 5;
 const FAILURES_TO_REPORT = 30; // frames in a row that the decoder failed on
 
-export const DECODER_TROUBLE = 'Сканер не читает кадры';
-
 let prepared = false;
 
 export function prepareReader() {
@@ -32,7 +30,7 @@ export function prepareReader() {
     return;
   }
   if (!globalThis.ZXingWASM) {
-    return; // its script failed to load: frames then fail to decode, and DECODER_TROUBLE offers the reload
+    return; // its script failed to load: frames then fail to decode, and onTrouble asks for a reload
   }
   prepared = true;
   // Load the .wasm from our own folder instead of the CDN the library defaults to.
@@ -49,7 +47,7 @@ export function prepareReader() {
 }
 
 export class Camera {
-  /** @param {(message: string) => void} [onTrouble] the stream ended by itself, or the decoder keeps failing */
+  /** @param {(message: string, needsReload?: boolean) => void} [onTrouble] the stream ended by itself, or the decoder keeps failing (only a reload fetches it again) */
   constructor(video, onCode, onTrouble = () => {}) {
     this.video = video;
     this.onCode = onCode;
@@ -72,6 +70,9 @@ export class Camera {
     this.failures = 0;
     this.starting ??= this.open()
       .catch((err) => {
+        if (!this.wanted) {
+          return; // stopped while it was starting: that is why it failed
+        }
         this.wanted = before; // never got going: a return to the app must not ask for the camera by itself
         throw err;
       })
@@ -216,7 +217,7 @@ export class Camera {
         text = null;
         this.failures += 1;
         if (this.failures === FAILURES_TO_REPORT) {
-          this.onTrouble(DECODER_TROUBLE);
+          this.onTrouble('Сканер не читает кадры', true);
         }
       }
       if (text && this.running) {

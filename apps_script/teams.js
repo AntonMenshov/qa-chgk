@@ -1,7 +1,7 @@
 // Teams: the Teams tab, rows on «Итоги» and the round tabs, reserve decks, names, formatting.
 
 function readTeams_(ss) {
-  const sheet = ss.getSheetByName(TABS.teams);
+  const sheet = tabOf_(ss, TABS.teams);
   const n = sheet.getLastRow() - 1;
   if (n < 1) {
     return [];
@@ -28,7 +28,7 @@ function teamsFromRows_(values) {
  * (with any name the jury gave them), unless a registered team now has that ID.
  */
 function writeTeams_(ss, teams, newReserve) {
-  const sheet = ss.getSheetByName(TABS.teams);
+  const sheet = tabOf_(ss, TABS.teams);
   // Plain text, or Sheets turns a team called «42» into a number.
   sheet.getRange(1, 1, sheet.getMaxRows(), TEAMS_HEADER.length).setNumberFormat('@');
   const registered = new Set(teams.map((t) => t.team_id));
@@ -60,14 +60,14 @@ function activateReserve_(ss, sizes, ids) {
       .filter((t) => t.reserve)
       .map((t) => [t.team_id, t]),
   );
-  const present = new Set(teamRowsOf_(summaryOf_(ss)).map((t) => t.team_id));
+  const present = new Set(teamRowsOf_(tabOf_(ss, TABS.summary)).map((t) => t.team_id));
   const add = [...new Set(ids)]
     .filter((id) => reserve.has(id) && !present.has(id))
     .map((id) => ({team_id: id, name: reserve.get(id).name || reservePlaceholder(id)}));
   if (!add.length) {
     return;
   }
-  const teamsTab = ss.getSheetByName(TABS.teams);
+  const teamsTab = tabOf_(ss, TABS.teams);
   add.forEach((t) => {
     if (!reserve.get(t.team_id).name) {
       teamsTab.getRange(reserve.get(t.team_id).row, 2).setValue(t.name);
@@ -91,14 +91,14 @@ function propagateNames_(ss, sizes, sourceName) {
     });
   if (sourceName !== TABS.teams) {
     const typed = {};
-    teamRowsOf_(ss.getSheetByName(sourceName)).forEach((t) => {
+    teamRowsOf_(tabOf_(ss, sourceName)).forEach((t) => {
       typed[t.team_id] = String(t.name);
     });
     nameEdits(typed, truth).forEach((e) => {
       truth[e.team_id] = e.name;
     });
   }
-  const teamsTab = ss.getSheetByName(TABS.teams);
+  const teamsTab = tabOf_(ss, TABS.teams);
   teams.forEach((t) => {
     if (t.team_id && truth[t.team_id] && t.name !== truth[t.team_id]) {
       teamsTab.getRange(t.row, 2).setValue(truth[t.team_id]);
@@ -137,10 +137,10 @@ function formatSheets_(ss, sizes) {
     sheet.getRange(1, FIRST_MARK_COL, sheet.getMaxRows(), width - FIRST_MARK_COL + 1).setHorizontalAlignment('center');
   };
 
-  const meta = ss.getSheetByName(TABS.meta);
+  const meta = tabOf_(ss, TABS.meta);
   meta.getRange(1, 1, meta.getMaxRows(), 1).setNumberFormat('@');
 
-  const summary = ss.getSheetByName(TABS.summary);
+  const summary = tabOf_(ss, TABS.summary);
   const sl = summaryLayout(sizes);
   frame(summary, sl.width);
   summary.setColumnWidths(sl.firstRound, sl.width - sl.firstRound + 1, WIDTHS.sum);
@@ -151,7 +151,7 @@ function formatSheets_(ss, sizes) {
     const tint = ROUND_TINTS[i % ROUND_TINTS.length];
     summary.getRange(1, sl.firstRound + i).setBackground(tint);
 
-    const sheet = ss.getSheetByName(lay.name);
+    const sheet = tabOf_(ss, lay.name);
     frame(sheet, lay.width);
     sheet.setTabColor(tint);
     sheet.getRange(1, lay.firstCol, 1, lay.size).setBackground(tint);
@@ -186,16 +186,12 @@ function teamRowsOf_(sheet) {
 
 /** «Итоги» and every round tab, each with how to build a team's row. */
 function teamTabs_(ss, sizes) {
-  return [{sheet: summaryOf_(ss), rowFor: (t, row) => summaryRow(sizes, t, row)}].concat(
+  return [{sheet: tabOf_(ss, TABS.summary), rowFor: (t, row) => summaryRow(sizes, t, row)}].concat(
     sizes.map((_, i) => {
       const lay = roundLayout(sizes, i + 1);
       return {sheet: tabOf_(ss, lay.name), rowFor: (t, row) => roundRow(lay, t, row)};
     }),
   );
-}
-
-function summaryOf_(ss) {
-  return tabOf_(ss, TABS.summary);
 }
 
 /**
@@ -217,7 +213,7 @@ function syncTeamRows_(ss, sizes, teams) {
     );
     counts = counts || {appended: plan.append.length, renamed: plan.rename.length};
   });
-  const meta = ss.getSheetByName(TABS.meta);
+  const meta = tabOf_(ss, TABS.meta);
   const inMeta = new Set(teamRowsOf_(meta).map((t) => t.team_id));
   const ml = metaLayout(totalQuestions(sizes));
   appendRows_(
@@ -239,7 +235,7 @@ function setTeams_(ss, reg, teams) {
   refreshDisputed_(ss, reg.round_sizes); // names may have changed
   markUnpublished_(PropertiesService.getScriptProperties(), reg);
   const listed = new Set(readTeams_(ss).map((t) => t.team_id));
-  const offTeams = teamRowsOf_(summaryOf_(ss))
+  const offTeams = teamRowsOf_(tabOf_(ss, TABS.summary))
     .map((t) => t.team_id)
     .filter((id) => !listed.has(id));
   return {ok: true, appended: counts.appended, renamed: counts.renamed, off_teams: offTeams};

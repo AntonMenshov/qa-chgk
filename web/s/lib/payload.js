@@ -44,11 +44,17 @@ export function decodeSetup(text) {
 }
 
 /**
- * Whether two jury accesses are the same. The same tournament with a new token (a replaced
- * leaked link) or another backend is a new access, which the phone takes on.
+ * Whether two accesses (jury or board) are the same. The same tournament with a new token (a
+ * replaced leaked link) or another backend is a new access, which the phone or board takes on.
  */
 export function sameAccess(a, b) {
-  return Boolean(a && b) && a.tid === b.tid && a.juryToken === b.juryToken && a.backendUrl === b.backendUrl;
+  return (
+    Boolean(a && b) &&
+    a.tid === b.tid &&
+    a.juryToken === b.juryToken &&
+    a.boardToken === b.boardToken &&
+    a.backendUrl === b.backendUrl
+  );
 }
 
 /**
@@ -70,8 +76,4 @@ export function decodeBoard(text) {
     return null;
   }
   return {tid: m[1], boardToken: m[2], backendUrl: backendUrl(m[3])};
-}
-
-export function sameBoardAccess(a, b) {
-  return Boolean(a && b) && a.tid === b.tid && a.boardToken === b.boardToken && a.backendUrl === b.backendUrl;
 }

@@ -1167,3 +1167,50 @@ test('camera: stopped while it was starting, it does not come on', async () => {
   }
   assert.equal(camera.running, false);
 });
+
+test("storage: a value that can't be saved leaves everything as it was", () => {
+  const values = new Map([
+    ['chgk.state.T', '{}'],
+    ['k', '1'],
+  ]);
+  const backing = {
+    getItem: (k) => values.get(k) ?? null,
+    setItem: (k, v) => values.set(k, v),
+    removeItem: (k) => values.delete(k),
+    key: (i) => [...values.keys()][i],
+    get length() {
+      return values.size;
+    },
+  };
+  const s = storage(backing, () => true);
+  const circular = {};
+  circular.self = circular;
+  assert.equal(s.set('k', circular), false);
+  assert.equal(
+    s.set('k', () => 1),
+    false,
+  );
+  assert.deepEqual([...values.keys()], ['chgk.state.T', 'k']);
+  assert.equal(values.get('k'), '1');
+});
+
+test('queue: a reply naming an event outside the batch does not drop it', async () => {
+  const q = memoryQueue(async () => ({results: [{scan_id: 'a'}, {scan_id: 'c'}]}));
+  q.batchSize = 2;
+  ['a', 'b', 'c'].forEach((scan_id) => q.add({scan_id}));
+  await q.flush();
+  assert.deepEqual(
+    q.pending.map((e) => e.scan_id),
+    ['b', 'c'],
+  );
+});
+
+test('camera: a failure after a deliberate stop is no failure', async () => {
+  const camera = Object.create(Camera.prototype);
+  Object.assign(camera, {wanted: false, starting: null, failures: 0});
+  camera.open = async () => {
+    camera.wanted = false;
+    throw new Error('The play() request was interrupted');
+  };
+  await camera.start();
+});

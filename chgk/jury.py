@@ -208,6 +208,7 @@ class PanelBox(NamedTuple):
     h: float
     qr_size: float
     text_above: float
+    text_below: float
 
 
 class QrPage(Flowable):
@@ -260,12 +261,12 @@ class QrPage(Flowable):
             below = max(b for _, b in texts)
             size = min(inner, row_h - 2 * self.PAD - above - below - 0.35 * INCH, self.MAX_QR)
             for k, panel in enumerate(row):
-                out.append(PanelBox(panel, k * (w + self.GAP), y, w, row_h, size, above))
+                out.append(PanelBox(panel, k * (w + self.GAP), y, w, row_h, size, above, below))
         return out
 
     def draw(self) -> None:
         c = self.canv
-        for (title, hint, payload, secret), x, y, w, h, size, above in self.boxes():
+        for (title, hint, payload, secret), x, y, w, h, size, above, below in self.boxes():
             inner = w - 2 * self.PAD
             left = x + self.PAD
             c.setStrokeGray(0 if secret else 0.7)
@@ -276,7 +277,6 @@ class QrPage(Flowable):
             self._para(escape(hint), self.s["hint"], left, top, inner)
             # The QR code (and the address under it) centred in the space under the text.
             space_top = y + h - self.PAD - above
-            below = self._texts((title, hint, payload, secret), inner)[1]
             block = size + (8 + below if payload else 0)
             qr_top = space_top - (space_top - (y + self.PAD) - block) / 2
             qr_x = x + (w - size) / 2

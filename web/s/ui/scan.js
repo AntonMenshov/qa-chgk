@@ -47,17 +47,18 @@ export function handleCode(text) {
 
 const photoKey = (r) => `${r.team.team_id}:${r.question}${r.spare ? `:S${r.spare}` : ''}`;
 
+const photographed = {
+  get: () => store.get(K.photographed(app.setup.tid)),
+  set: (keys) => store.set(K.photographed(app.setup.tid), keys),
+};
+
 /** Numbered cards only: a spare's question isn't known yet. Spares a JPEG on every scan of the same card. */
 function alreadyPhotographed(r) {
-  return r.kind === 'card' && (store.get(K.photographed(app.setup.tid)) || []).includes(photoKey(r));
+  return r.kind === 'card' && (photographed.get() || []).includes(photoKey(r));
 }
 
 /** One photo per card per phone (a card scanned again is not photographed again). */
 function keepPhoto(r, shot) {
-  const photographed = {
-    get: () => store.get(K.photographed(app.setup.tid)),
-    set: (keys) => store.set(K.photographed(app.setup.tid), keys),
-  };
   const photoQueue = app.photos;
   firstPhoto(shot, photoKey(r), photographed).then((blob) => {
     if (!blob) {

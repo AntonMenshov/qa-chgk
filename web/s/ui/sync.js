@@ -103,8 +103,9 @@ export function render() {
     st.pending ? `${bad ? '' : '⏳ '}${st.pending}` : '',
   ].filter(Boolean);
   pill.textContent = parts.length ? `${bad ? '⚠ ' : ''}${parts.join(' · ')}` : '✓ отправлено';
-  if (app.photos.status.pending) {
-    pill.textContent += ` · фото ${app.photos.status.pending}`;
+  const ph = app.photos.status;
+  if (ph.pending) {
+    pill.textContent += ` · фото ${ph.pending}`;
   }
   const banner = $('banner');
   banner.textContent =

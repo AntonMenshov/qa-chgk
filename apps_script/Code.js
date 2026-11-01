@@ -125,7 +125,7 @@ function doPost(e) {
       ok: false,
       error: known ? err.message : `server error: ${err && err.message ? err.message : err}`,
       retry: !known || err.retry === true,
-      code: err.code,
+      code: known ? err.code : undefined,
     });
   }
 }

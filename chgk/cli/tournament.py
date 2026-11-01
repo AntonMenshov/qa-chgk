@@ -22,9 +22,13 @@ def new(
     """Create the tournament's Google Sheet and Drive folder; writes state.json and the jury sheet."""
     profiles = Profiles()
     profile = profiles.get(backend) if backend else profiles.active()
-    result = new_tournament(folder, profile)
-    jury_path, warnings = build_jury_sheet(folder, teams=result.teams)
-    warn_all([*result.warnings, *warnings])
+    warnings: list[str] = []
+    try:
+        result = new_tournament(folder, profile, warnings=warnings)
+        jury_path, sheet_warnings = build_jury_sheet(folder, teams=result.teams)
+        warnings += sheet_warnings
+    finally:
+        warn_all(warnings)
     s = result.state
     if result.created:
         typer.echo(f"Created on backend '{s.backend_profile}' ({s.backend_account}).")
@@ -59,7 +63,8 @@ def board_cmd(folder: Path = typer.Argument(..., help="Tournament folder")) -> N
 @app.command("view")
 def view_cmd(folder: Path = typer.Argument(..., help="Tournament folder")) -> None:
     """Print the public results link: a separate copy, the real Sheet stays private."""
-    load_config(folder)  # a mistyped folder is said as such, not as "no Sheet yet"
+    if not folder.is_dir():
+        raise ValueError(f"no folder {folder}")  # not "no Sheet yet"; and the link needs no working config.py
     state = load_state(folder)
     if state is None or not state.view_url:
         raise ValueError("this tournament has no Sheet yet: run `chgk new` first")

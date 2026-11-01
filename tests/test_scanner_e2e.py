@@ -203,6 +203,12 @@ def test_jury_scans_cards_and_marks_reach_the_backend(folder, tmp_path, backend_
         assert "#" not in page.url  # the jury token is removed from the address bar
         assert page.inner_text("#t-name") == "Осенний кубок"
         assert page.inner_text("#q-num") == "1"
+        # «Чья карточка?» with the camera off: closing it turns the camera off, nothing is recorded.
+        page.click("#lookup-open")
+        page.click("#lk-close")
+        time.sleep(3)
+        assert page.is_visible("#start") and page.is_hidden("#card") and page.is_hidden("#toast")
+        assert page.inner_text("#sync").endswith("отправлено")
         page.click("#start")
 
         verdicts = {
@@ -627,7 +633,10 @@ def test_board_refused_at_its_first_load_says_why_in_big_letters(web_server):
         page.goto(link)
         page.wait_for_function("document.getElementById('next').textContent === 'Нет данных'")
         assert "Загрузка" not in page.inner_text("#stage")
-        assert page.inner_text("#stage").strip() == page.inner_text("#status").strip()
+        assert "ссылка табло больше не действует" in page.inner_text("#stage")
+        assert page.is_hidden("#status")  # said once
+        page.keyboard.press("q")  # a redraw keeps the reason
+        assert "ссылка табло больше не действует" in page.inner_text("#stage")
         browser.close()
 
 

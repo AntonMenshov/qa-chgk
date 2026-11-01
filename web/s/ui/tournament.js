@@ -1,7 +1,7 @@
 // Loading the tournament: its data (or the last saved copy offline), the queues, the camera.
 
 import {backend} from '../lib/api.js';
-import {Camera, DECODER_TROUBLE} from '../lib/camera.js';
+import {Camera} from '../lib/camera.js';
 import {blobToBase64, PhotoQueue} from '../lib/photos.js';
 import {photoStore} from '../lib/photostore.js';
 import {Queue} from '../lib/queue.js';
@@ -12,10 +12,10 @@ import {app, deviceId, K, store} from './state.js';
 import {render} from './sync.js';
 
 /** The camera stopped by itself, or its decoder keeps failing: the juror can start it again. */
-export function cameraTrouble(message) {
+export function cameraTrouble(message, needsReload = false) {
   $('start').hidden = false;
-  if (message === DECODER_TROUBLE) {
-    return offerReload(message);
+  if (needsReload && offerReload(message)) {
+    return;
   }
   toast(`${message}: нажмите «Начать проверку»`, true);
 }
@@ -30,7 +30,7 @@ export async function resumeCamera() {
   if (!app.camera?.wanted) {
     return;
   }
-  await startCamera((err) => cameraTrouble(`Камера недоступна (${err.message})`));
+  await startCamera(app.camera, $('start'), (err) => cameraTrouble(`Камера недоступна (${err.message})`));
 }
 
 export async function startTournament(cardText = null) {

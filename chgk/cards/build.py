@@ -66,8 +66,8 @@ def _state(folder: Path, tournament: Tournament, teams: list[Team]) -> tuple[Sta
             f"a replacement of the {which} token never finished: the jury sheet may carry a dead one. "
             f"Run `chgk replace-token {folder} {which}` again."
         )
-    if is_new and not tournament.tid and any(out_dir(tournament.slug).glob("*.pdf")):
-        warnings.append(new_id_warning(folder, tournament.slug, state))
+    if is_new and (warning := new_id_warning(folder, tournament, state)):
+        warnings.append(warning)
     return state, warnings
 
 
