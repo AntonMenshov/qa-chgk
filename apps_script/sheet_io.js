@@ -1,8 +1,6 @@
-// With the «Google Sheets API» advanced service on (editor: Services + → Google Sheets API),
-// a request reads everything it needs in one Values.batchGet and writes in one
-// Values.batchUpdate (profiled: ~8 separate reads and 3 single-cell writes per mark were
-// most of a request's 4-5 s). Without it, or when a call fails (quota: 60 per minute per
-// account; a tab too small or missing), the same work goes through SpreadsheetApp.
+// One Values.batchGet and one Values.batchUpdate per request, through the «Google Sheets API»
+// advanced service (SPEC §3.2). Without it, or when a call fails (quota; a tab too small or
+// missing), the same work goes through SpreadsheetApp.
 
 const SHEETS_API_GROW = 1000; // rows added at a time when a write runs past a tab's grid
 

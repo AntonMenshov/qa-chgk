@@ -521,7 +521,7 @@ test('set_teams repairs «Итоги» formulas overwritten by hand (Место 
   assert.deepEqual(
     results(b).standings.map((r) => r.place),
     [1, 1, 3],
-  ); // the old behaviour
+  ); // a plain RANK: no shared «1-2»
   b.post({action: 'set_teams', tid: TID, token: admin, teams});
   assert.deepEqual(
     results(b).standings.map((r) => r.place),

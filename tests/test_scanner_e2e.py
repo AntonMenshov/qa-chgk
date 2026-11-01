@@ -1,4 +1,4 @@
-"""The scanner web app end to end, in a real (headless) Chrome.
+"""The scanner and the board end to end, in a real (headless) Chrome.
 
 Chrome's fake camera plays a video made of real printed cards (cut from the cards PDF),
 the page talks to the fake Apps Script backend (tests/js/fake_backend_server.mjs) and the
@@ -475,11 +475,8 @@ def test_board_on_a_phone_shows_how_to_reveal_a_round(backend_server, web_server
 def test_phone_decoder_reads_the_card_not_a_phantom_micro_qr(folder, tmp_path, web_server):
     """Print robustness with the phone's own decoder (zxing-wasm in Chrome, READER_OPTIONS).
 
-    zxing's "QRCode" format is the whole QR family, and a real QR's corner plus the modules
-    beside it can form a valid Micro QR (zxing-cpp found one on A03's page with tournament
-    ID SP7EM). The phone asks for standard QR codes only: shown a card with a real Micro QR
-    beside it, the QR family reads both, the phone only the card. And the SP7EM page reads
-    as its 15 cards, one at a time.
+    Why: READER_OPTIONS in camera.js. Shown a card with a real Micro QR beside it, the QR family
+    reads both, the phone only the card. And the SP7EM page reads as its 15 cards, one at a time.
     """
     save_state(folder, replace(load_or_create_state(folder), tid="SP7EM"))
     pdf = build_cards(folder, Mode.SCISSORS, tmp_path / "cards.pdf", ["A03"]).path

@@ -1,12 +1,9 @@
 // Card photos (upload_photo): saved in the tournament's Photos folder, linked from the Log.
 
 /**
- * One card's photo from a phone: saved as a JPEG in the tournament's Photos folder (Latin
- * name), then logged (source «photo») with its link, which «Спорные» shows for a «?».
- * The Drive save (~2 s) runs outside the lock; under the lock marks wait only for one read of
- * the Log and that card's tab, and its write (everything else only for a «?»). A photo_id is
- * logged once: a retry may leave an extra file in Drive (the first request still running, or
- * the lock timed out), harmless and never linked.
+ * One card's photo from a phone: saved as a JPEG in the tournament's Photos folder, then logged
+ * (source «photo») with its link, which «Спорные» shows for a «?». The Drive save (~2 s) runs
+ * outside the lock. A photo_id is logged once: a retry may leave an extra file in Drive, never linked.
  */
 function uploadPhoto_(ss, reg, req) {
   if (req.question > totalQuestions(reg.round_sizes)) {

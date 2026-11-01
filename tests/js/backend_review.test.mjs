@@ -1,4 +1,4 @@
-// Backend behaviour settled in the code review of 2026-10-31.
+// Backend behaviour settled in the code reviews.
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';

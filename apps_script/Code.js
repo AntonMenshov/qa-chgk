@@ -16,7 +16,7 @@ const TABS = {
   meta: 'Meta',
 };
 
-// Hidden to keep the Sheet tidy: editors open these from the list of sheets (☰). Not for secrecy:
+// Hidden to keep the Sheet tidy: editors open these from «Все листы», bottom left. Not for secrecy:
 // the public link is a separate copy (results.js).
 const HIDDEN_TABS = [TABS.disputed, TABS.teams, TABS.log, TABS.settings, TABS.meta];
 
@@ -118,9 +118,8 @@ function doPost(e) {
     return json_(reply);
   } catch (err) {
     const known = err instanceof RequestError;
-    // retry: false for a RequestError — the request itself is wrong, sending it again won't
-    // help (the phone's photo queue then drops it) — unless it sets retry (a refused token:
-    // see requireToken_).
+    // A RequestError: the request itself is wrong, so retry: false (the phone's photo queue then
+    // drops it), unless it sets retry (a refused token: requireToken_).
     return json_({
       ok: false,
       error: known ? err.message : `server error: ${err && err.message ? err.message : err}`,

@@ -19,12 +19,7 @@ TEAM_ROWS = [("A01", "Синие зайцы", "Бостон", "z.png"), ("A02", 
 
 
 def read_qr(image):
-    """Standard QR codes in an image, read as the phone reads them (READER_OPTIONS in camera.js).
-
-    zxing's "QRCode" is the whole QR family, and the corner of a real QR code plus the
-    modules beside it can form a valid Micro QR: with tournament ID SP7EM a phantom
-    «091544» turned up next to a card's QR (test_render).
-    """
+    """Standard QR codes in an image, read as the phone reads them (READER_OPTIONS in camera.js, which says why)."""
     return zxingcpp.read_barcodes(image, formats=zxingcpp.BarcodeFormat.QRCodeModel2)
 
 

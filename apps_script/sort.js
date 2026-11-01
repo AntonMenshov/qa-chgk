@@ -64,10 +64,11 @@ function sortTabs_(ss, sizes, changedRounds, m, reg, formulaTypedOver = false) {
   tabs.forEach((tab) => {
     const sheet = tabOf_(ss, tab.name);
     timed_('sort_formulas', () => refreshFormulas_(sheet, tab.firstFormulaCol, tab.formulasFor));
-    // Always, even if this tab wrote nothing: «Итоги» reads the formulas a round tab just rewrote.
-    SpreadsheetApp.flush(); // seen live (sortWithApi_): a sort before a new formula is calculated sees a blank key
+    // Seen live (sortWithApi_): a sort before a new formula is calculated sees a blank key. Always,
+    // even if this tab wrote nothing: «Итоги» reads the formulas a round tab just rewrote.
+    SpreadsheetApp.flush();
     timed_('sort_range', () => {
-      // Down to the last team, not the last row: a note typed under the table stays there.
+      // Down to the last team, not the last row: a note under the table stays there (in column A it counts as a team).
       const teams = teamRowsOf_(sheet);
       const last = teams.length ? teams[teams.length - 1].row : 1;
       if (last > 2) {
