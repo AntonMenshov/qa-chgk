@@ -4,10 +4,13 @@ import re
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from enum import Enum
+from functools import cached_property
 from pathlib import Path
+from typing import Any
 from urllib.parse import urlparse
 
 from chgk import run_python_file
+from chgk.cards.geometry import INCH, GeometryError, card_parts, card_rects
 from chgk.ids import MAX_QUESTION, MAX_SPARE, TID_RE
 
 SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
@@ -65,6 +68,10 @@ MIN_COLS, MAX_COLS = 2, 4
 MIN_ROWS, MAX_ROWS = 2, 6
 
 
+def _whole(value: Any) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
 @dataclass(frozen=True)
 class Layout:
     """Card grid on a Letter page. Sizes are in inches."""
@@ -75,8 +82,12 @@ class Layout:
     margin: float = 0.25
 
     def __post_init__(self) -> None:
-        whole = all(isinstance(n, int) for n in (self.cols, self.rows))
-        if not (whole and MIN_COLS <= self.cols <= MAX_COLS and MIN_ROWS <= self.rows <= MAX_ROWS):
+        if not (
+            _whole(self.cols)
+            and _whole(self.rows)
+            and MIN_COLS <= self.cols <= MAX_COLS
+            and MIN_ROWS <= self.rows <= MAX_ROWS
+        ):
             raise ConfigError(
                 f"grid must be {MIN_COLS}–{MAX_COLS} columns × {MIN_ROWS}–{MAX_ROWS} rows, got {self.cols}×{self.rows}"
             )
@@ -123,8 +134,9 @@ class Tournament:
         if not self.name.strip():
             raise ConfigError("name must not be empty")
         for name in ("rounds", "spares_per_team", "reserve_teams", "board_grid_max_teams"):
-            if not isinstance(getattr(self, name), int) or isinstance(getattr(self, name), bool):
-                raise ConfigError(f"{name} must be a whole number, got {getattr(self, name)!r}")
+            value = getattr(self, name)
+            if not _whole(value):
+                raise ConfigError(f"{name} must be a whole number, got {value!r}")
         if not isinstance(self.date, date) or isinstance(self.date, datetime):
             raise ConfigError(f"date must be a date, e.g. date(2026, 11, 15), got {self.date!r}")
         if not 1 <= self.rounds <= MAX_ROUNDS:  # the backend's limits: found now, not after printing
@@ -132,7 +144,7 @@ class Tournament:
         per_round = self.round_sizes
         if len(per_round) != self.rounds:
             raise ConfigError(f"questions_per_round lists {len(per_round)} rounds, but rounds={self.rounds}")
-        if not all(isinstance(k, int) and not isinstance(k, bool) and 1 <= k <= MAX_ROUND_SIZE for k in per_round):
+        if not all(_whole(k) and 1 <= k <= MAX_ROUND_SIZE for k in per_round):
             raise ConfigError(f"every round needs 1–{MAX_ROUND_SIZE} questions, got {per_round}")
         if self.total_questions > MAX_QUESTION:
             raise ConfigError(f"at most {MAX_QUESTION} questions fit in a card's QR code, got {self.total_questions}")
@@ -149,12 +161,18 @@ class Tournament:
             raise ConfigError(f"reserve_teams must be 0–9, got {self.reserve_teams}")
         if not 0 <= self.board_grid_max_teams <= 100:
             raise ConfigError(f"board_grid_max_teams must be 0–100, got {self.board_grid_max_teams}")
+        # A large QR code or margin can still leave no room: said now, not at the first printing.
+        card = card_rects(self.layout)[0]
+        try:
+            card_parts(card, self.layout.qr_size * INCH, None, self.card.no_qr)
+        except GeometryError as err:
+            raise ConfigError(str(err)) from err
         url = urlparse(self.scanner_url)
         if url.scheme != "https" or not url.hostname or url.fragment or url.query or not url.path.endswith("/s/"):
             # /s/: the board's page is found beside it, at ../b/.
             raise ConfigError(f"scanner_url must look like https://<host>/…/s/, got {self.scanner_url!r}")
 
-    @property
+    @cached_property
     def round_sizes(self) -> list[int]:
         if isinstance(self.questions_per_round, int):
             return [self.questions_per_round] * self.rounds
@@ -193,9 +211,4 @@ def load_config(folder: Path) -> Tournament:
             f"{path}: slug={tournament.slug!r} but the folder is {name!r}; they must be the same "
             "(the slug names out/<slug>/): change slug or rename the folder"
         )
-    from chgk.cards.geometry import INCH, card_parts, card_rects  # it imports this module
-
-    layout = tournament.layout
-    # A large QR code or margin can still leave no room: say so now, not at the first printing.
-    card_parts(card_rects(layout)[0], layout.qr_size * INCH, None, tournament.card.no_qr)
     return tournament

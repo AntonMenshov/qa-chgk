@@ -119,6 +119,7 @@ function doPost(e) {
       ok: false,
       error: known ? err.message : `server error: ${err && err.message ? err.message : err}`,
       retry: !known || err.retry === true,
+      code: err.code,
     });
   }
 }
@@ -146,17 +147,15 @@ const ACTIONS = {
   },
   get_teams: {who: 'admin', run: (req, reg) => ({ok: true, teams: readTeams_(open_(reg))})},
   set_teams: {who: 'admin', lock: true, run: (req, reg) => setTeams_(open_(reg), reg, req.teams)},
-  get_state: {who: 'jury', run: (req, reg) => readState_(open_(reg), reg)},
+  get_state: {who: 'jury', polled: true, run: (req, reg) => readState_(open_(reg), reg)},
   get_results: {who: 'jury', run: (req, reg) => readResults_(open_(reg), reg)},
   record_events: {who: 'jury', lock: true, run: (req, reg) => recordEvents_(open_(reg), reg, req)},
   upload_photo: {who: 'jury', run: (req, reg) => uploadPhoto_(open_(reg), reg, req)}, // locks only its Log write
-  get_board: {who: 'board', run: (req, reg) => readBoard_(open_(reg), reg)},
+  get_board: {who: 'board', polled: true, run: (req, reg) => readBoard_(open_(reg), reg)},
   replace_token: {who: 'admin', lock: true, run: (req, reg) => replaceToken_(reg, req)},
   make_public_copy: {who: 'admin', lock: true, run: (req, reg, props) => makePublicCopy_(open_(reg), reg, props)},
   delete_tournament: {who: 'admin', lock: true, run: (req, reg, props) => deleteTournament_(props, reg)},
 };
-
-const POLLED = ['get_state', 'get_board'];
 
 function handle_(req) {
   validateRequest(req);
@@ -169,7 +168,7 @@ function handle_(req) {
   requireToken_(action.who, props, reg, req);
   if (!action.lock) {
     const reply = action.run(req, reg, props);
-    if (POLLED.includes(req.action)) {
+    if (action.polled) {
       publishIfDue_(open_(reg), reg, props); // what phones and the board ask for all game: the public copy follows
     }
     return reply;
@@ -236,7 +235,7 @@ function replaceToken_(reg, req) {
 function registry_(props, tid) {
   const raw = props.getProperty('t:' + tid);
   if (!raw) {
-    fail(`unknown tournament ${tid}`);
+    fail(`unknown tournament ${tid}`, 'unknown_tournament');
   }
   return Object.assign(JSON.parse(raw), {tid});
 }

@@ -6,6 +6,7 @@ A logo name is looked up in the tournament folder first, then in the shared libr
 """
 
 from dataclasses import dataclass
+from itertools import accumulate
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -13,7 +14,7 @@ from PIL import Image, ImageOps
 
 from chgk import PROJECT_DIR
 from chgk.config import CardFields, LogoMode
-from chgk.svg import CUT_FROM, INK_THRESHOLD, MAX_ASPECT, ink_box, open_svg
+from chgk.svg import CUT_FROM, INK_THRESHOLD, MAX_ASPECT, ink_box, on_white, open_svg
 
 if TYPE_CHECKING:
     from chgk.teams import Team
@@ -34,6 +35,10 @@ def logo_chain(fields: CardFields, team_id: str) -> list[str]:
     if fields.logo in (LogoMode.TOURNAMENT, LogoMode.TEAM_ELSE_TOURNAMENT):
         chain.append(TOURNAMENT_KEY)
     return [*chain, FALLBACK_KEY]
+
+
+def shows_team_logos(fields: CardFields) -> bool:
+    return fields.logo in (LogoMode.TEAM, LogoMode.TEAM_ELSE_TOURNAMENT)
 
 
 def first_logo(fields: CardFields, team_id: str, logos: dict[str, Any]) -> str | None:
@@ -73,20 +78,13 @@ def pale(image: Image.Image, grey: float) -> Image.Image:
     """
     if not 0 < grey <= 1:
         raise ValueError(f"grey must be in (0, 1], got {grey}")
-    rgba = image.convert("RGBA")
-    flat = Image.new("RGBA", rgba.size, "white")
-    flat.alpha_composite(rgba)
-    lum = _paper_to_white(flat.convert("L"))
+    lum = _paper_to_white(on_white(image))
     hist = lum.histogram()
     ink = sum(hist[:INK_THRESHOLD])
     if ink == 0:
-        return lum.point(lambda v: 255)
-    target, seen, reference = ink * REFERENCE_PERCENTILE, 0, 0
-    for value in range(INK_THRESHOLD):
-        seen += hist[value]
-        if seen >= target:
-            reference = value
-            break
+        return Image.new("L", lum.size, 255)
+    target = ink * REFERENCE_PERCENTILE
+    reference = next(value for value, seen in enumerate(accumulate(hist[:INK_THRESHOLD])) if seen >= target)
     span = 255 - reference
     return lum.point(lambda v: round(255 - 255 * grey * min(1.0, (255 - v) / span)))
 
@@ -104,6 +102,7 @@ def _read_logo(path: Path) -> Image.Image:
         return open_svg(path, MAX_SIDE)
     try:
         with Image.open(path) as opened:
+            opened.draft("RGB", (2 * MAX_SIDE, 2 * MAX_SIDE))  # a JPEG decodes smaller, far quicker
             image = ImageOps.exif_transpose(opened)  # a phone's photo is stored sideways
             if max(image.size) > MAX_ASPECT * min(image.size):
                 raise ValueError(f"too long and narrow ({image.width}×{image.height}) to be a logo")
@@ -111,10 +110,22 @@ def _read_logo(path: Path) -> Image.Image:
             if image.mode in ("P", "1") or "transparency" in image.info:
                 image = image.convert("RGBA")
             image.thumbnail((MAX_SIDE, MAX_SIDE))
-            return image.copy()
+            image.info.pop(CUT_FROM, None)  # a PNG's text can hold any name; only render_svg sets this one
+            return image
     # Pillow raises SyntaxError for a damaged PNG.
     except (OSError, SyntaxError, Image.DecompressionBombError) as err:
         raise ValueError(f"not a readable image ({err})") from err
+
+
+def _load(name: str, folder: Path) -> tuple[Image.Image | None, str | None]:
+    """A logo by name, or None and why it can't be used."""
+    path = resolve_logo(name, folder)
+    if path is None:
+        return None, f"not found in {folder} or {LOGO_LIBRARY}"
+    try:
+        return open_logo(path), None
+    except ValueError as err:
+        return None, str(err)
 
 
 def load_logos(folder: Path, fields: CardFields, teams: "list[Team]") -> tuple[dict[str, Image.Image], list[str]]:
@@ -122,25 +133,21 @@ def load_logos(folder: Path, fields: CardFields, teams: "list[Team]") -> tuple[d
 
     A missing or unreadable file is a warning, not an error: the cards use the next logo in their chain.
     """
-    names: dict[str, tuple[str, str | None]] = {t.team_id: (f"team {t.team_id}", t.logo_file) for t in teams}
-    names[TOURNAMENT_KEY] = ("tournament", fields.tournament_logo)
-    names[FALLBACK_KEY] = ("fallback", fields.fallback_logo)
+    own = {t.team_id: t.logo_file for t in teams}
     images: dict[str, Image.Image] = {}
     warnings: list[str] = []
     for key in dict.fromkeys(key for t in teams for key in logo_chain(fields, t.team_id)):
-        what, name = names[key]
+        what = {TOURNAMENT_KEY: "tournament", FALLBACK_KEY: "fallback"}.get(key, f"team {key}")
+        name = {TOURNAMENT_KEY: fields.tournament_logo, FALLBACK_KEY: fields.fallback_logo}.get(key, own.get(key))
         if not name:
             continue
-        path = resolve_logo(name, folder)
-        if path is None:
-            warnings.append(f"{what}: logo {name!r} not found in {folder} or {LOGO_LIBRARY}; using the next fallback")
+        image, problem = _load(name, folder)
+        if image is None:
+            warnings.append(f"{what}: logo {name!r}: {problem}; using the next fallback")
             continue
-        try:
-            images[key] = open_logo(path)
-            if CUT_FROM in images[key].info:
-                warnings.append(f"{what}: logo {name!r} is not square; cut to a square around its drawing")
-        except ValueError as err:
-            warnings.append(f"{what}: logo {name!r}: {err}; using the next fallback")
+        images[key] = image
+        if CUT_FROM in image.info:
+            warnings.append(f"{what}: logo {name!r} is not square; cut to a square around its drawing")
     return images, warnings
 
 
@@ -160,14 +167,9 @@ def own_logo_problem(team: "Team", folder: Path) -> str | None:
     """Why a team's own logo can't be used, or None if it loads."""
     if not team.logo_file:
         return "not set"
-    path = resolve_logo(team.logo_file, folder)
-    if path is None:
+    if resolve_logo(team.logo_file, folder) is None:
         return "not found"
-    try:
-        open_logo(path)
-    except ValueError as err:
-        return str(err)
-    return None
+    return _load(team.logo_file, folder)[1]
 
 
 def logo_report(folder: Path, fields: CardFields, teams: "list[Team]") -> tuple[list[LogoStatus], list[str]]:
@@ -177,5 +179,6 @@ def logo_report(folder: Path, fields: CardFields, teams: "list[Team]") -> tuple[
     for t in teams:
         key = first_logo(fields, t.team_id, images)
         shown = "own logo" if key == t.team_id else SHOWN[key]
-        rows.append(LogoStatus(t.team_id, t.name, t.logo_file, own_logo_problem(t, folder), shown))
+        problem = None if key == t.team_id else own_logo_problem(t, folder)  # that one just loaded
+        rows.append(LogoStatus(t.team_id, t.name, t.logo_file, problem, shown))
     return rows, warnings

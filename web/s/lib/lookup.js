@@ -42,10 +42,8 @@ export function identify(text, session = null) {
     return {tone: 'bad', title: `Команда ID ${c.teamId}`, details: ['Нет в списке команд этого турнира', which]};
   }
 
-  const id =
-    `ID ${team.team_id}` +
-    (team.reserve && !session.isPlaying(team) ? ' · запасной комплект, команда ещё не названа' : '');
   const unnamed = team.reserve && !session.isPlaying(team);
+  const id = `ID ${team.team_id}` + (unnamed ? ' · запасной комплект, команда ещё не названа' : '');
   if (c.spare !== null) {
     return {tone: unnamed ? 'warn' : 'ok', title: team.name, details: [which, id]};
   }

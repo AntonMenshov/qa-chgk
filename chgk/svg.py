@@ -43,8 +43,8 @@ def _local(name: str) -> str:
     return name.rsplit("}", 1)[-1]  # "{http://www.w3.org/2000/svg}rect" → "rect"
 
 
-def check_svg(text: str) -> None:
-    """Raise ValueError if the SVG is not plain drawing (see the module docstring)."""
+def check_svg(text: str) -> ET.Element:
+    """The SVG's root element; ValueError if it is not plain drawing (see the module docstring)."""
     if len(text.encode("utf-8")) > MAX_BYTES:
         raise ValueError(f"SVG larger than {MAX_BYTES // 1_000_000} MB")
     if re.search(r"<!DOCTYPE|<!ENTITY", text, re.IGNORECASE):
@@ -72,6 +72,7 @@ def check_svg(text: str) -> None:
             for ref in CSS_URL.findall(css):
                 if not ref.startswith("#"):
                     raise ValueError(f"SVG with an external reference (url({ref[:60]})) is refused")
+    return root
 
 
 def _length(value: str) -> float | None:
@@ -84,9 +85,8 @@ def _length(value: str) -> float | None:
     raise ValueError(f"SVG with a size that can't be read ({value[:30]!r})")  # em, 5000%: it could fill the memory
 
 
-def _size(text: str) -> tuple[float, float]:
+def _size(root: ET.Element) -> tuple[float, float]:
     """The SVG's proportions: its width and height (they decide the render), else viewBox, else square."""
-    root = ET.fromstring(text)
     width, height = _length(root.get("width") or ""), _length(root.get("height") or "")
     numbers = re.split(r"[\s,]+", (root.get("viewBox") or "").strip())
     w, h = 1.0, 1.0
@@ -100,12 +100,17 @@ def _size(text: str) -> tuple[float, float]:
     return (w, h) if w > 0 and h > 0 else (1.0, 1.0)
 
 
+def on_white(image: Image.Image) -> Image.Image:
+    """The image as greyscale, flattened on white: how its transparent parts print."""
+    rgba = image.convert("RGBA")
+    flat = Image.new("RGBA", rgba.size, "white")
+    flat.alpha_composite(rgba)
+    return flat.convert("L")
+
+
 def ink_box(image: Image.Image) -> tuple[int, int, int, int] | None:
     """Where the drawing is: anything darker than INK_THRESHOLD once flattened on white; None if nothing is."""
-    rgba = image.convert("RGBA")
-    flat = Image.new("L", rgba.size, 255)
-    flat.paste(rgba.convert("L"), mask=rgba)
-    return flat.point(lambda v: 255 if v < INK_THRESHOLD else 0).getbbox()
+    return on_white(image).point(lambda v: 255 if v < INK_THRESHOLD else 0).getbbox()
 
 
 def _square(image: Image.Image) -> Image.Image:
@@ -124,7 +129,7 @@ def _square(image: Image.Image) -> Image.Image:
 
 def render_svg(text: str, max_side: int) -> Image.Image:
     """The SVG as a square RGBA image `max_side` px across (`_square`); ValueError if unsafe or unreadable."""
-    check_svg(text)
+    root = check_svg(text)
     options: dict[str, Any] = {
         "svg_string": text,
         "skip_system_fonts": True,
@@ -133,7 +138,7 @@ def render_svg(text: str, max_side: int) -> Image.Image:
         "style_sheet": FORCE_FONT,
         "dpi": 96,  # or a size in mm or pt comes out as nothing
     }
-    w, h = _size(text)
+    w, h = _size(root)
     if max(w, h) > MAX_ASPECT * min(w, h):
         raise ValueError(f"SVG too long and narrow ({w:g}×{h:g}) to be a logo")
     longest = round(max_side * max(w, h) / min(w, h))  # so that the cut square is still max_side across

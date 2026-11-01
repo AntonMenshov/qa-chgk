@@ -47,6 +47,10 @@ class CardId:
     def __post_init__(self) -> None:
         if (self.question is None) == (self.spare is None):
             raise ValueError("a card has either a question number or a spare number")
+        if not TID_RE.fullmatch(self.tid) or not TEAM_ID_RE.fullmatch(self.team_id):
+            raise ValueError(f"not a card's IDs: tournament {self.tid!r}, team {self.team_id!r}")
+        if not (1 <= (self.question or 0) <= MAX_QUESTION or 1 <= (self.spare or 0) <= MAX_SPARE):
+            raise ValueError(f"no card can hold question {self.question} or spare {self.spare}")
 
     @property
     def fragment(self) -> str:

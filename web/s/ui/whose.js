@@ -1,7 +1,7 @@
 // «Чья карточка?»: cards are only described, nothing is recorded.
 
 import {identify} from '../lib/lookup.js';
-import {$, sheet, toast} from './dom.js';
+import {$, lookingUp, sheet, startCamera, toast} from './dom.js';
 import {app} from './state.js';
 
 export async function openLookup() {
@@ -10,17 +10,18 @@ export async function openLookup() {
   $('lk-details').replaceChildren();
   sheet('lookup');
   app.camera.forgetLast(); // the card already in front of the camera counts too
-  try {
-    await app.camera.start();
-    $('start').hidden = true;
-  } catch (err) {
-    $('start').hidden = false; // a failed start released the camera, even one that was running
-    if (app.lookingUp) {
+  await startCamera((err) => {
+    if (lookingUp()) {
       $('lk-title').textContent = `Камера недоступна: ${err.message}`;
     } else {
       toast(`Камера недоступна: ${err.message}`, true);
     }
-  }
+  });
+}
+
+export function closeLookup() {
+  app.camera.restoreLast(); // a card still in view counts only after it leaves the frame and returns
+  sheet(null);
 }
 
 export function showLookup(text) {

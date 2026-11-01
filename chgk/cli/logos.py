@@ -9,8 +9,8 @@ from chgk import logo_drafts as drafts
 from chgk import out_dir
 from chgk.cards.build import build_logo_preview
 from chgk.cli.common import app, fail, team_ids
-from chgk.config import LogoMode, Tournament, load_config
-from chgk.logos import LOGO_LIBRARY, logo_report, own_logo_problem
+from chgk.config import Tournament, load_config
+from chgk.logos import LOGO_LIBRARY, logo_report, own_logo_problem, shows_team_logos
 from chgk.teams import TEAMS_FILE, Team, read_teams
 
 
@@ -20,7 +20,7 @@ def _draw(folder: Path, slug: str, look: drafts.LogoLook, teams: list[Team], onl
             raise ValueError("--team gives no team IDs")
         unknown = sorted(set(only) - {t.team_id for t in teams})
         if unknown:
-            raise fail(ValueError(f"unknown team_id(s): {', '.join(unknown)}"))
+            raise ValueError(f"unknown team_id(s): {', '.join(unknown)}")
         todo = [t for t in teams if t.team_id in only]
     else:
         have = drafts.existing_drafts(slug, teams)
@@ -59,7 +59,7 @@ def _report(folder: Path, tournament: Tournament, teams: list[Team]) -> None:
         typer.echo(f"  {r.team_id:<8} {r.name:<28} {own:<36} cards show: {r.shown}{draft}")
     for warning in warnings:
         typer.secho(f"Warning: {warning}", fg="yellow", err=True)
-    if tournament.card.logo in (LogoMode.NONE, LogoMode.TOURNAMENT):
+    if not shows_team_logos(tournament.card):
         typer.secho(f"This tournament's cards don't show team logos (logo={tournament.card.logo.name}).", fg="yellow")
     key = "set" if drafts.api_key_set() else "not set (`--draw` writes a brief for Claude Code instead)"
     typer.echo(f"{drafts.API_KEY_ENV}: {key}.")
@@ -81,27 +81,22 @@ def logos_cmd(
 ) -> None:
     """Show which logo each team's cards use; draw drafts with Claude; preview and accept them."""
     if team is not None and not draw:
-        raise fail(ValueError("--team goes with --draw"))
+        raise ValueError("--team goes with --draw")
     if draw and accept is not None:
-        raise fail(ValueError("use --draw and --accept one at a time: preview the drafts first"))
-    try:
-        tournament = load_config(folder)
-        teams_path = Path(folder) / TEAMS_FILE
+        raise ValueError("use --draw and --accept one at a time: preview the drafts first")
+    tournament = load_config(folder)
+    teams_path = folder / TEAMS_FILE
+    teams = read_teams(teams_path)
+    if accept is not None:
+        which = None if accept.strip().lower() == "all" else team_ids(accept)
+        if which == []:
+            raise ValueError("--accept gives no team IDs")
+        for t in drafts.accept_drafts(teams_path, tournament.slug, teams, which):
+            typer.echo(f"  {t.team_id} «{t.name}»: logo={t.logo_file!r} (in {LOGO_LIBRARY})")
         teams = read_teams(teams_path)
-        if accept is not None:
-            which = None if accept.strip().lower() == "all" else team_ids(accept)
-            if which == []:
-                raise ValueError("--accept gives no team IDs")
-            for t in drafts.accept_drafts(teams_path, tournament.slug, teams, which):
-                typer.echo(f"  {t.team_id} «{t.name}»: logo={t.logo_file!r} (in {LOGO_LIBRARY})")
-            teams = read_teams(teams_path)
-        if draw:
-            if tournament.card.logo in (LogoMode.NONE, LogoMode.TOURNAMENT):
-                raise ValueError(
-                    "this tournament's cards don't show team logos: drawing them would be paid for nothing"
-                )
-            look = drafts.logo_look(tournament.card, tournament.layout)
-            _draw(Path(folder), tournament.slug, look, teams, team_ids(team) if team is not None else None)
-        _report(Path(folder), tournament, teams)
-    except ValueError as err:
-        raise fail(err) from err
+    if draw:
+        if not shows_team_logos(tournament.card):
+            raise ValueError("this tournament's cards don't show team logos: drawing them would be paid for nothing")
+        look = drafts.logo_look(tournament.card, tournament.layout)
+        _draw(folder, tournament.slug, look, teams, team_ids(team) if team is not None else None)
+    _report(folder, tournament, teams)

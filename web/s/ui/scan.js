@@ -1,6 +1,6 @@
 // Scanning: what a code means, the card sheet with the verdicts, the spare card's question, photos.
 
-import {$, hideToast, sheet, toast} from './dom.js';
+import {$, hideToast, lookingUp, sheet, toast} from './dom.js';
 import {sameAccess} from '../lib/payload.js';
 import {noVerdictLabel} from '../lib/marks.js';
 import {firstPhoto} from '../lib/photos.js';
@@ -10,7 +10,7 @@ import {flushSoon, refresh, render} from './sync.js';
 import {showLookup} from './whose.js';
 
 export function handleCode(text) {
-  if (app.lookingUp) {
+  if (lookingUp()) {
     return showLookup(text);
   }
   if (!app.session || app.openCardResult || app.spareResult) {

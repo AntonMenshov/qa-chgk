@@ -2,27 +2,20 @@
 // The logic lives in lib/ (tested in Node); ui/ shows it on the page.
 
 import {sameAccess} from './lib/payload.js';
-import {$, sheet, show, toast} from './ui/dom.js';
+import {$, sheet, show, startCamera, toast} from './ui/dom.js';
 import {answerSpare, handleCode, verdict} from './ui/scan.js';
 import {adoptSetup, readHash, startSetupScreen, useSetup} from './ui/setup.js';
 import {app, forgetLocalData, K, store} from './ui/state.js';
 import {flush, refresh, render, renderMissing, renderSync, retryAll} from './ui/sync.js';
 import {resumeCamera, startTournament} from './ui/tournament.js';
-import {openLookup} from './ui/whose.js';
+import {closeLookup, openLookup} from './ui/whose.js';
 
 const FLUSH_EVERY_MS = 1000;
 
 const REFRESH_EVERY_MS = 20000;
 
 function wire() {
-  $('start').onclick = async () => {
-    try {
-      await app.camera.start();
-      $('start').hidden = true;
-    } catch (err) {
-      toast(`Камера недоступна: ${err.message}`, true);
-    }
-  };
+  $('start').onclick = () => startCamera((err) => toast(`Камера недоступна: ${err.message}`, true));
   const stepQuestion = (step) => {
     app.session.setQuestion(app.session.current + step);
     store.set(K.current(app.setup.tid), app.session.current);
@@ -55,10 +48,7 @@ function wire() {
     sheet('missing');
   };
   $('lookup-open').onclick = openLookup;
-  $('lk-close').onclick = () => {
-    app.camera.restoreLast(); // a card still in view counts only after it leaves the frame and returns
-    sheet(null);
-  };
+  $('lk-close').onclick = closeLookup;
   $('m-close').onclick = () => sheet(null);
   $('sync').onclick = () => {
     renderSync();

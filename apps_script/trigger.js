@@ -39,6 +39,12 @@ function onSheetEdit(e) {
   const user = e.user && e.user.getEmail ? e.user.getEmail() : '';
 
   withLock_(() => {
+    let current = null;
+    try {
+      current = registry_(PropertiesService.getScriptProperties(), tid);
+    } catch {
+      // a Sheet the backend doesn't know (copied?): sort the slow way, nothing to publish to
+    }
     if (touchesNames) {
       propagateNames_(ss, sizes, name);
       refreshDisputed_(ss, sizes);
@@ -51,22 +57,10 @@ function onSheetEdit(e) {
       updateDisputed_(m, disputedBefore);
       m.w.flush();
       if (rounds.size || !m.sortKeysOk) {
-        let reg = null;
-        try {
-          reg = registry_(PropertiesService.getScriptProperties(), tid);
-        } catch {
-          // a Sheet the backend doesn't know (copied?): sort the slow way
-        }
-        sortTabs_(ss, sizes, [...rounds], m, reg);
+        sortTabs_(ss, sizes, [...rounds], m, current);
       }
     }
     // Not published here: a column of hand edits would publish once per cell, with phones waiting on the lock.
-    let current = null;
-    try {
-      current = registry_(PropertiesService.getScriptProperties(), tid);
-    } catch {
-      // a Sheet the backend doesn't know (copied?): nothing to publish to
-    }
     if (current) {
       markUnpublished_(PropertiesService.getScriptProperties(), current);
     }

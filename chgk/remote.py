@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass, replace
 from datetime import datetime
+from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
@@ -46,7 +47,7 @@ def new_tournament(folder: Path, profile: Profile, client: BackendClient | None 
     teams = read_teams(folder / TEAMS_FILE)
     state = load_or_create_state(folder, tournament.tid)
     remember_team_ids(folder, [t.team_id for t in teams])
-    state = replace(state, used_team_ids=sorted({*state.used_team_ids, *(t.team_id for t in teams)}))
+    state = load_or_create_state(folder, tournament.tid)
 
     client = client or BackendClient(profile.url, profile.admin_token)
     account = profile.account or client.ping().get("account", "")
@@ -69,7 +70,7 @@ def new_tournament(folder: Path, profile: Profile, client: BackendClient | None 
             board_token=board_token,
         )
     except BackendError as err:
-        if "belonged to a deleted tournament" in str(err) or "already exists" in str(err):
+        if err.code == "id_taken":
             # An ID this tournament can't have, and nothing was made with it: kept, state.json would bring it back.
             (folder / STATE_FILE).unlink()
         raise
@@ -123,7 +124,9 @@ def sync_teams(
     """
     warnings = warnings if warnings is not None else []
     folder = Path(folder)
+    config = load_config(folder)
     state, default_client = tournament_client(folder, profiles)
+    check_reserve(state, config.reserve_teams)
     client = client or default_client
     rows = [r for r in client.get_teams(state.tid) if not r.get("reserve")]
     if not rows:
@@ -145,9 +148,8 @@ def sync_teams(
         teams.append(replace(t, logo_file=t.logo_file or mine.logo_file, logo_grey=mine.logo_grey) if mine else t)
     for t in mine_teams:
         if t.team_id not in kept and (t.logo_file or t.logo_grey is not None):
-            warnings.append(
-                f"{t.team_id} {t.name!r} is no longer on the Teams tab: its logo {t.logo_file!r} left teams.py"
-            )
+            what = f"its logo {t.logo_file!r}" if t.logo_file else "its logo_grey"
+            warnings.append(f"{t.team_id} {t.name!r} is no longer on the Teams tab: {what} left teams.py")
     listed = {t.team_id for t in teams}
     on_tabs = client.get_state(state.tid).get("teams", [])
     gone = [t["team_id"] for t in on_tabs if not t.get("reserve") and t["team_id"] not in listed]
@@ -157,8 +159,6 @@ def sync_teams(
             "and the round tabs by hand, then run `chgk results-copy` to update the public copy; their marks stay "
             "in the Log."
         )
-    config = load_config(folder)
-    check_reserve(state, config.reserve_teams)
     reserve_teams(config.reserve_teams, teams)  # R1, R2, … are printed on the reserve decks
     client.set_teams(state.tid, _team_dicts(teams))  # writes assigned IDs back and adds rows on every tab
     write_teams(folder / TEAMS_FILE, teams)  # only once the Sheet has the same IDs
@@ -182,13 +182,17 @@ def delete_tournament(folder: Path, profiles: Profiles) -> State:
     try:
         client.delete_tournament(state.tid)
     except BackendError as err:
-        if "unknown tournament" not in str(err):  # else: an earlier try did it, only its reply was lost
+        # Else an earlier try did it, only its reply was lost. A backend reset under the same URL looks the same,
+        # and the Sheet then stays in Drive. Accepted (user decision, 2026-10-31): we never reset one.
+        if err.code != "unknown_tournament":
             raise
     (folder / STATE_FILE).unlink()
     return state
 
 
-TOKEN_KINDS = ("jury", "board")
+class TokenKind(StrEnum):
+    JURY = "jury"
+    BOARD = "board"
 
 
 def replace_token(folder: Path, which: str, profiles: Profiles, client: BackendClient | None = None) -> State:
@@ -197,8 +201,8 @@ def replace_token(folder: Path, which: str, profiles: Profiles, client: BackendC
     The new token goes into state.json first, then to the backend, then counts as replaced (time
     and kind). If the reply is lost, running it again sends the same token, so nothing is locked out.
     """
-    if which not in TOKEN_KINDS:
-        raise ValueError(f"which token? one of {', '.join(TOKEN_KINDS)}, got {which!r}")
+    if which not in list(TokenKind):
+        raise ValueError(f"which token? one of {', '.join(TokenKind)}, got {which!r}")
     folder = Path(folder)
     state, default_client = tournament_client(folder, profiles)
     pending = state.pending_token or {}

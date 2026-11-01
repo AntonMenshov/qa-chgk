@@ -2,6 +2,7 @@
 
 import re
 import unicodedata
+from collections.abc import Sequence
 from functools import cache
 from pathlib import Path
 
@@ -14,6 +15,7 @@ from reportlab.pdfgen.canvas import Canvas
 
 from chgk import FONT_BOLD_FILE, FONT_REGULAR_FILE
 from chgk.cards.geometry import (
+    INCH,
     INFO_SIZE,
     NUMBER_SIZE,
     PAD,
@@ -224,6 +226,26 @@ def draw_card(
     c.restoreState()
 
 
+def placed_parts(rect: Rect, tournament: Tournament) -> CardParts:
+    """The parts of a card at `rect`, with the tournament's QR and logo sizes."""
+    logo_pt = tournament.card.logo_size * INCH if tournament.card.logo_size else None
+    return card_parts(rect, tournament.layout.qr_size * INCH, logo_pt, tournament.card.no_qr)
+
+
+def draw_cards(
+    c: Canvas,
+    cards: Sequence[Card],
+    parts: Sequence[CardParts],
+    tournament: Tournament,
+    readers: dict[str, ImageReader],
+    warnings: list[str],
+) -> None:
+    """Each card in its place, with the logo its team's cards use; a page may have empty slots at the end."""
+    for card, place in zip(cards, parts, strict=False):
+        key = first_logo(tournament.card, card.team.team_id, readers)
+        draw_card(c, card, place, tournament, readers.get(key) if key else None, warnings)
+
+
 def render_cards(
     pages: list[Page],
     tournament: Tournament,
@@ -236,14 +258,11 @@ def render_cards(
     `logos` maps team_id / TOURNAMENT_KEY / FALLBACK_KEY to pale images.
     """
     register_fonts()
-    logos = logos or {}
-    readers = {k: ImageReader(v) for k, v in logos.items()}
+    readers = {key: ImageReader(image) for key, image in (logos or {}).items()}
 
     rects = card_rects(tournament.layout)
-    qr_pt = tournament.layout.qr_size * 72
-    logo_pt = tournament.card.logo_size * 72 if tournament.card.logo_size else None
     no_qr = tournament.card.no_qr
-    all_parts = [card_parts(r, qr_pt, logo_pt, no_qr) for r in rects]
+    all_parts = [placed_parts(r, tournament) for r in rects]
     number_w = pdfmetrics.stringWidth(str(tournament.total_questions), FONT_BOLD, NUMBER_SIZE)
 
     out_path = Path(out_path)
@@ -254,11 +273,7 @@ def render_cards(
     if not no_qr and number_w > all_parts[0].number.w + PAD:
         warnings.append(f"question {tournament.total_questions} is wider than its place: it can reach the QR code")
     for page in pages:
-        for card, parts in zip(page, all_parts, strict=False):  # a last page may have empty slots
-            if card is None:
-                continue
-            key = first_logo(tournament.card, card.team.team_id, logos)
-            draw_card(c, card, parts, tournament, readers.get(key) if key else None, warnings)
+        draw_cards(c, page, all_parts, tournament, readers, warnings)
         # Guides last: the QR's white quiet zone would otherwise hide them at the corners.
         _draw_guides(c, tournament, mode, rects)
         c.showPage()

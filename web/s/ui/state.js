@@ -7,13 +7,15 @@
 
 import {storage} from '../lib/storage.js';
 
-export const store = storage();
+const CACHED_STATE = 'chgk.state.';
+
+export const store = storage(undefined, (key) => key.startsWith(CACHED_STATE));
 
 export const K = {
   setup: 'chgk.setup',
   device: 'chgk.device',
   juror: 'chgk.juror',
-  state: (tid) => `chgk.state.${tid}`,
+  state: (tid) => `${CACHED_STATE}${tid}`,
   current: (tid) => `chgk.current.${tid}`,
   queue: (tid) => `chgk.queue.${tid}`,
   photographed: (tid) => `chgk.photographed.${tid}`,
@@ -30,7 +32,6 @@ export const app = {
   openCardResult: null, // the card on screen, waiting for a verdict
   spareResult: null, // the spare card on screen, waiting for its question
   spareDigits: '',
-  lookingUp: false, // «Чья карточка?»: scans are only shown, never recorded
   refreshTimer: null,
   setupCamera: null,
   switching: false, // a jury link is being tried: another scan of it waits

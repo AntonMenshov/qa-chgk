@@ -41,6 +41,10 @@ SHEETS_API_HINT = (
 class BackendError(RuntimeError):
     """The backend refused a request or could not be reached."""
 
+    def __init__(self, message: str, code: str | None = None) -> None:
+        super().__init__(message)
+        self.code = code  # the reason, when the CLI acts on it: "id_taken", "unknown_tournament"
+
 
 def check_backend_url(url: str) -> None:
     if not BACKEND_URL_RE.fullmatch(url):
@@ -143,7 +147,7 @@ class BackendClient:
             error = data.get("error") or f"backend error (HTTP {response.status_code})"
             if "permission to call" in error:
                 error += "\n" + PERMISSIONS_HINT
-            raise BackendError(error)
+            raise BackendError(error, data.get("code"))
         return data
 
     def ping(self) -> dict[str, Any]:

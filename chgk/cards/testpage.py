@@ -4,15 +4,16 @@ Print scale, QR sizes, logo shades and a row of real cards, so the organiser can
 printer before printing everything.
 """
 
+from math import isclose
 from pathlib import Path
 
 from PIL import Image
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen.canvas import Canvas
 
-from chgk.cards.geometry import INCH, PAGE_H, PAGE_W, Rect, card_parts, card_rects
+from chgk.cards.geometry import INCH, PAGE_H, PAGE_W, Rect, card_rects
 from chgk.cards.model import team_deck
-from chgk.cards.render import FONT, FONT_BOLD, GUIDE_GREY, draw_card, draw_qr, printable, register_fonts
+from chgk.cards.render import FONT, FONT_BOLD, GUIDE_GREY, draw_cards, draw_qr, placed_parts, printable, register_fonts
 from chgk.config import Tournament
 from chgk.ids import CardId, encode_payload
 from chgk.logos import first_logo, pale
@@ -48,7 +49,6 @@ def render_test_page(
     """
     warnings: list[str] = []
     register_fonts()
-    out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     c = Canvas(str(out_path), pagesize=(PAGE_W, PAGE_H))
     c.setTitle(f"{tournament.name} — тестовая страница")
@@ -72,47 +72,38 @@ def render_test_page(
         payload = encode_payload(tournament.scanner_url, CardId(tid, team.team_id, question=question))
         draw_qr(c, payload, Rect(x, 8.3 * INCH, size * INCH, size * INCH))
         c.setFillGray(0)
-        c.drawString(x, 8.15 * INCH, f"{size} in{' (chosen)' if size == chosen else ''}")
+        c.drawString(x, 8.15 * INCH, f"{size} in{' (chosen)' if isclose(size, chosen) else ''}")
         x += (size + 0.45) * INCH
 
     # Logo shades.
-    c.setFont(FONT, 8)
-    reader = None
     for i, grey in enumerate(GREYS):
         box = Rect(0.5 * INCH + i * 1.15 * INCH, 6.6 * INCH, 1.0 * INCH, 1.0 * INCH)
         if source_logo is not None:
-            reader = ImageReader(pale(source_logo, grey))
-            c.drawImage(reader, box.x, box.y, box.w, box.h, preserveAspectRatio=True, anchor="c")
+            c.drawImage(
+                ImageReader(pale(source_logo, grey)), box.x, box.y, box.w, box.h, preserveAspectRatio=True, anchor="c"
+            )
         else:
             c.setFillGray(1 - grey)
             c.rect(box.x, box.y, box.w, box.h, stroke=0, fill=1)
         c.setFillGray(0)
-        mark = " (chosen)" if abs(grey - tournament.card.logo_grey) < 1e-9 else ""
+        mark = " (chosen)" if isclose(grey, tournament.card.logo_grey) else ""
         c.drawString(box.x, box.y - 11, f"{round(grey * 100)}% grey{mark}")
 
     # A row of real cards, as they will print: first numbered card, last numbered card, a spare.
     deck = team_deck(tournament, tid, team)
     numbered = [card for card in deck if not card.is_spare]
     samples = [numbered[0], numbered[-1], *[card for card in deck if card.is_spare][:1]]
-    logos = logos or {}
-    readers = {k: ImageReader(v) for k, v in logos.items()}
     rects = card_rects(tournament.layout)
     bottom_row = rects[-tournament.layout.cols :]
-    qr_pt = tournament.layout.qr_size * INCH
+    parts = [placed_parts(rect, tournament) for rect in bottom_row]
+    # Whichever is shorter: two columns leave out the spare, a longer row stays part empty.
+    logos = logos or {}
+    key = first_logo(tournament.card, team.team_id, logos)
+    readers = {key: ImageReader(logos[key])} if key else {}  # the sample team's: all the page shows
+    draw_cards(c, samples, parts, tournament, readers, warnings)
     c.setStrokeGray(GUIDE_GREY)
     c.setLineWidth(0.3)
-    # Whichever is shorter: two columns leave out the spare, a longer row stays part empty.
-    for card, rect in zip(samples, bottom_row, strict=False):
-        key = first_logo(tournament.card, card.team.team_id, logos)
-        logo_pt = tournament.card.logo_size * INCH if tournament.card.logo_size else None
-        draw_card(
-            c,
-            card,
-            card_parts(rect, qr_pt, logo_pt, tournament.card.no_qr),
-            tournament,
-            readers.get(key) if key else None,
-            warnings,
-        )
+    for rect in bottom_row:
         c.rect(rect.x, rect.y, rect.w, rect.h, stroke=1, fill=0)
     c.showPage()
     c.save()

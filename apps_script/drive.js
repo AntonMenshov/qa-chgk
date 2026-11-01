@@ -20,7 +20,7 @@ function createTournament_(props, req) {
   if (existing) {
     const reg = JSON.parse(existing);
     if (!tokensEqual(reg.jury_token, req.jury_token)) {
-      fail(`tournament ${req.tid} already exists`);
+      fail(`tournament ${req.tid} already exists`, 'id_taken');
     }
     return {
       ok: true,
@@ -32,7 +32,7 @@ function createTournament_(props, req) {
   }
   // Phones keep unsent marks and photos by this ID, so a new tournament under it would inherit them.
   if (props.getProperty(`used:${req.tid}`)) {
-    fail(`tournament ID ${req.tid} belonged to a deleted tournament: give config.py another tid, or none`);
+    fail(`tournament ID ${req.tid} belonged to a deleted tournament: give config.py another tid, or none`, 'id_taken');
   }
   if (ScriptApp.getProjectTriggers().length >= MAX_TRIGGERS) {
     fail(`Google allows ${MAX_TRIGGERS} triggers and all are in use: \`chgk delete\` old tournaments`); // before any file is made

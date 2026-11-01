@@ -6,7 +6,7 @@ import {blobToBase64, PhotoQueue} from '../lib/photos.js';
 import {photoStore} from '../lib/photostore.js';
 import {Queue} from '../lib/queue.js';
 import {Session} from '../lib/session.js';
-import {$, show, toast} from './dom.js';
+import {$, show, startCamera, toast} from './dom.js';
 import {handleCode} from './scan.js';
 import {app, deviceId, K, store} from './state.js';
 import {render} from './sync.js';
@@ -27,12 +27,7 @@ export async function resumeCamera() {
   if (!app.camera?.wanted) {
     return;
   }
-  try {
-    await app.camera.start();
-    $('start').hidden = true;
-  } catch (err) {
-    cameraTrouble(`Камера недоступна (${err.message})`);
-  }
+  await startCamera((err) => cameraTrouble(`Камера недоступна (${err.message})`));
 }
 
 export async function startTournament(cardText = null) {

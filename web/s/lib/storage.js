@@ -1,8 +1,9 @@
 // JSON values in localStorage. Never throws: with storage blocked they last until a reload, in
-// memory. When it is full, cached copies of tournaments go first, since they can be fetched again;
-// set() returns false if the value still can't be saved.
-
-const CACHED = /^chgk\.state\./;
+// memory. When it is full, the keys `cached` picks go first, since they can be fetched again; set()
+// returns false if the value still can't be saved.
+//
+// That can take the current tournament's offline copy too, and a reload offline then waits for the
+// network. Accepted (user decision, 2026-10-31): it needs about 5 MB of text, and marks stay safe.
 
 function memoryStore() {
   const values = new Map();
@@ -10,8 +11,6 @@ function memoryStore() {
     getItem: (key) => values.get(key) ?? null,
     setItem: (key, value) => values.set(key, value),
     removeItem: (key) => values.delete(key),
-    key: () => null,
-    length: 0,
   };
 }
 
@@ -23,7 +22,11 @@ function localStore() {
   }
 }
 
-export function storage(backing = localStore()) {
+/**
+ * @param {any} [backing]
+ * @param {(key: string) => boolean} [cached] what may go first when storage is full
+ */
+export function storage(backing = localStore(), cached = () => false) {
   return {
     get(key) {
       try {
@@ -37,8 +40,9 @@ export function storage(backing = localStore()) {
       if (value === undefined) {
         return this.remove(key);
       }
-      const text = JSON.stringify(value);
+      let text;
       try {
+        text = JSON.stringify(value);
         backing.setItem(key, text);
         return true;
       } catch {
@@ -46,7 +50,7 @@ export function storage(backing = localStore()) {
       }
       try {
         const keys = Array.from({length: backing.length}, (_, i) => backing.key(i));
-        keys.filter((k) => CACHED.test(k) && k !== key).forEach((k) => backing.removeItem(k));
+        keys.filter((k) => cached(k) && k !== key).forEach((k) => backing.removeItem(k));
         backing.setItem(key, text);
         return true;
       } catch {
@@ -56,8 +60,9 @@ export function storage(backing = localStore()) {
     remove(key) {
       try {
         backing.removeItem(key);
+        return true;
       } catch {
-        // ignore
+        return false;
       }
     },
   };

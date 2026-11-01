@@ -101,11 +101,11 @@ def build_cards(folder: Path, mode: Mode, out: Path | None = None, team_ids: lis
         jury_out = out.with_name("jury.pdf")
     logos = _pale(sources, tournament.card.logo_grey, teams)
     warnings += logo_warnings + render_cards(pages, tournament, mode, out, logos)
-    payloads = [encode_payload(tournament.scanner_url, card.id) for page in pages for card in page if card]
+    payloads = [encode_payload(tournament.scanner_url, card.id) for page in pages for card in page]
     if not tournament.card.no_qr:
         warnings += [w for w in [denser_qr_warning(payloads)] if w]
     warnings += render_jury_sheet(tournament, state, all_teams, jury_out)
-    n_cards = sum(1 for page in pages for card in page if card is not None)
+    n_cards = sum(len(page) for page in pages)
     n_reserve = sum(1 for t in teams if t.reserve)
     return BuildResult(out, jury_out, len(teams) - n_reserve, n_reserve, n_cards, len(pages), sorted(set(warnings)))
 

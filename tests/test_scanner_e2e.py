@@ -534,3 +534,75 @@ def test_phone_decoder_reads_the_card_not_a_phantom_micro_qr(folder, tmp_path, w
     # Every card of the SP7EM page, shown alone, reads as itself.
     expected = [f"#SP7EM.A03.{q}" for q in range(1, 7)] + [f"#SP7EM.A03.S{n}" for n in range(1, 10)]
     assert [[r["text"].split("/s/")[-1] for r in one] for one in found["cards"]] == [[e] for e in expected]
+
+
+def test_board_keeps_space_for_the_next_round_after_a_mouse_click(backend_server, web_server):
+    """A clicked button must not keep the focus: Space shows the next round, and the controls fade."""
+    tid, backend_url, _ = backend_server
+    link = encode_board_link(f"{web_server}/s/", BoardAccess(tid, BOARD_TOKEN, BACKEND), 5)
+    with playwright.sync_playwright() as p:
+        browser = p.chromium.launch(executable_path=CHROME, headless=True)
+        page = browser.new_page(viewport={"width": 1280, "height": 800})
+
+        def to_backend(route):
+            with urllib.request.urlopen(
+                urllib.request.Request(backend_url, data=route.request.post_data.encode(), method="POST")
+            ) as r:
+                route.fulfill(
+                    status=200,
+                    body=r.read(),
+                    headers={"Content-Type": "application/json", "Access-Control-Allow-Origin": "*"},
+                )
+
+        page.route("https://script.google.com/**", to_backend)
+        page.goto(link)
+        page.wait_for_selector("#next:not([disabled])")
+        page.click("#qr")  # a mouse click on another button: Space must not toggle it again
+        qr_off = page.evaluate("document.getElementById('qr').classList.contains('off')")
+        assert page.evaluate("document.activeElement === document.body")
+        page.keyboard.press(" ")
+        page.wait_for_selector("text=после 1-го тура из 2")
+        assert page.evaluate("document.getElementById('qr').classList.contains('off')") == qr_off
+        page.mouse.move(5, 5)
+        page.wait_for_function("getComputedStyle(document.getElementById('controls')).opacity < 0.5", timeout=8000)
+        browser.close()
+
+
+@pytest.mark.parametrize("viewport", [{"width": 390, "height": 664}, {"width": 375, "height": 553}])
+def test_scanner_setup_button_is_visible_without_scrolling(web_server, viewport):
+    """Safari's visible height with its bars on an ordinary iPhone, and on an SE."""
+    with playwright.sync_playwright() as p:
+        browser = p.chromium.launch(executable_path=CHROME, headless=True)
+        page = browser.new_page(viewport=viewport)
+        page.goto(f"{web_server}/s/")
+        page.wait_for_selector("#setup-start")
+        box = page.locator("#setup-start").bounding_box()
+        assert box["y"] + box["height"] <= viewport["height"]
+        browser.close()
+
+
+def test_scanner_disconnect_button_is_red(web_server):
+    with playwright.sync_playwright() as p:
+        browser = p.chromium.launch(executable_path=CHROME, headless=True)
+        page = browser.new_page()
+        page.goto(f"{web_server}/s/")
+        page.wait_for_selector("#setup-start")
+        assert page.evaluate("getComputedStyle(document.getElementById('forget')).color") == "rgb(198, 40, 40)"
+        browser.close()
+
+
+def test_scanner_that_never_starts_offers_a_reload(web_server):
+    with playwright.sync_playwright() as p:
+        browser = p.chromium.launch(executable_path=CHROME, headless=True)
+        page = browser.new_page()
+        page.clock.install()
+        page.route("**/app.js", lambda route: route.abort())
+        page.goto(f"{web_server}/s/", wait_until="commit")
+        page.wait_for_selector("#loading-title")
+        page.clock.fast_forward(16000)
+        page.wait_for_selector("text=Приложение не запустилось")
+        page.unroute("**/app.js")
+        page.clock.resume()
+        page.click("#loading-retry")
+        page.wait_for_selector("#setup-start")
+        browser.close()

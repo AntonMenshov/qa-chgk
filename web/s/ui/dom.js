@@ -5,21 +5,27 @@ import {app} from './state.js';
 /** @type {(id: string) => any} */
 export const $ = (id) => document.getElementById(id);
 
-export function show(id) {
-  for (const s of /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('.screen'))) {
+function showOnly(selector, id) {
+  for (const s of /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll(selector))) {
     s.hidden = s.id !== id;
   }
 }
 
+export function show(id) {
+  showOnly('.screen', id);
+}
+
+/** «Чья карточка?» is open: scans are only shown, never recorded. */
+export const lookingUp = () => !$('lookup').hidden;
+
 export function sheet(id) {
-  for (const s of /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('.sheet'))) {
-    s.hidden = s.id !== id;
-  }
-  app.lookingUp = id === 'lookup'; // any other sheet ends «Чья карточка?»
+  showOnly('.sheet', id);
   // Nothing behind a sheet can act: a card waits for its verdict, a list shows its question.
   $('main').inert = id !== null;
-  if (app.camera) {
-    id && id !== 'lookup' ? app.camera.pause() : app.camera.resume();
+  if (id && id !== 'lookup') {
+    app.camera?.pause();
+  } else {
+    app.camera?.resume();
   }
 }
 
@@ -39,4 +45,15 @@ export function toast(text, bad = false) {
 export function hideToast() {
   clearTimeout(toastTimer);
   $('toast').hidden = true;
+}
+
+/** Start scanning; `onFail` says why not. A failed start released the camera, so «Начать проверку» comes back. */
+export async function startCamera(onFail) {
+  try {
+    await app.camera.start();
+    $('start').hidden = true;
+  } catch (err) {
+    $('start').hidden = false;
+    onFail(err);
+  }
 }

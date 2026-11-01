@@ -85,6 +85,7 @@ tests/                pytest (tests/test_*.py) and node:test (tests/js/*.test.mj
                       test_scanner_e2e.py is headless Chrome; vectors/ holds the shared JSON test vectors
 docs/google-account.md  deploying the backend under any Gmail account; switching; updating
 docs/manual-checks.md   what the tests can't cover: iPhone, printing, the Sheet's edit trigger
+docs/accepted-gaps.md   review findings closed as won't fix, with the reason
 docs/lessons.md         code-level lessons: what went wrong and why the code is the way it is
 docs/new-machine.md     what a clone doesn't have, and how to set it up
 docs/logo-drawing.md    how Claude draws logo drafts (`chgk logos --draw`)
@@ -115,6 +116,7 @@ README.md             organiser guide (end to end) and contributor commands
 
 ## Working conventions (agreed with the user)
 
+- **Never deploy during a game** ([docs/accepted-gaps.md](docs/accepted-gaps.md)).
 - **Python + uv**: run everything as `uv run …`. Package at the repo root (`chgk/`), no `src/`.
 - **Node:** `.node-version` is the one place for the version (26; CI reads it, `engines` in package.json
   warns on another). From Homebrew, not uv (user): `nodejs-wheel` runs Node through a Python launcher, which
@@ -190,7 +192,7 @@ One line each; SPEC has the details. Decisions recorded only here are written ou
 
 ## Next steps
 
-0. **Code review, 2026-10-31:** all findings triaged with the user and the decisions implemented and deployed
+0. **Code review, 2026-10-31:** every finding closed: fixed, or won't fix with its reason in [docs/accepted-gaps.md](docs/accepted-gaps.md). The user schedules a review of what came after `53b045a`. Backend `a8abf0d232d0` (the cleanups) waits for the user's redeploy
    (`out/code-review/TRIAGE.md`, `DECISIONS.md`, `second-pass/` and `third-pass/` for the reviews of those changes; local only: the repo is public). Not yet tried for real: the iPhone
    side and edits typed in the Sheet ([docs/manual-checks.md](docs/manual-checks.md)).
 1. **Phase 7**, the rest: reprint `out/osenniy-salat/`, the fixes' own checks on an iPhone

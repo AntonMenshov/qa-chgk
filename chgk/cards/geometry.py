@@ -1,8 +1,10 @@
 """Where things go on the page. All values in PDF points (1/72 in), origin bottom-left."""
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
-from chgk.config import Layout
+if TYPE_CHECKING:
+    from chgk.config import Layout
 
 INCH = 72.0
 PAGE_W, PAGE_H = 8.5 * INCH, 11 * INCH  # Letter
@@ -68,12 +70,12 @@ class CardParts:
         return self.footer.y + 1
 
 
-def printable_area(layout: Layout) -> Rect:
+def printable_area(layout: "Layout") -> Rect:
     m = layout.margin * INCH
     return Rect(m, m, PAGE_W - 2 * m, PAGE_H - 2 * m)
 
 
-def card_rects(layout: Layout) -> list[Rect]:
+def card_rects(layout: "Layout") -> list[Rect]:
     """Card rectangles in reading order: left to right, top to bottom.
 
     Neighbouring cards share an edge, so every cut separates two cards and no paper is wasted.

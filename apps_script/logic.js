@@ -11,14 +11,15 @@ const MAX_DATE_MS = 8.64e15; // beyond it JavaScript has no Date, and formatting
 export const MAX_PHOTO_CHARS = 4000000; // base64 of a ~3 MB JPEG; phones send ~150-300 KB
 
 export class RequestError extends Error {
-  constructor(message) {
+  constructor(message, code) {
     super(message);
+    this.code = code; // for callers that act on the reason (the CLI); the message is for people
     this.retry = false; // true: worth sending again all the same (a refused token, see requireToken_)
   }
 }
 
-export function fail(message) {
-  throw new RequestError(message);
+export function fail(message, code) {
+  throw new RequestError(message, code);
 }
 
 /** Constant-time string comparison for tokens. */

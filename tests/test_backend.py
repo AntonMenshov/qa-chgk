@@ -192,7 +192,7 @@ def test_new_tournament_with_a_tid_from_config(folder, backends):
 def test_a_refused_deleted_id_does_not_stay_in_state_json(folder):
     class Refusing:
         def create_tournament(self, **_):
-            raise BackendError("tournament ID X belonged to a deleted tournament: give config.py another tid, or none")
+            raise BackendError("tournament ID X belonged to a deleted tournament", "id_taken")
 
     with pytest.raises(BackendError, match="deleted"):
         new_tournament(folder, Profile("personal", URL_A, "tokA", "a@gmail.com"), Refusing())
@@ -202,7 +202,7 @@ def test_a_refused_deleted_id_does_not_stay_in_state_json(folder):
 def test_an_id_another_tournament_holds_does_not_stay_in_state_json(folder):
     class Refusing:
         def create_tournament(self, **_):
-            raise BackendError("tournament X already exists")
+            raise BackendError("tournament X already exists", "id_taken")
 
     with pytest.raises(BackendError, match="already exists"):
         new_tournament(folder, Profile("personal", URL_A, "tokA", "a@gmail.com"), Refusing())

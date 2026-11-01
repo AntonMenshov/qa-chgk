@@ -1,6 +1,5 @@
 """A tournament on its backend: create it, sync its teams, its board and view-only links, replace a leaked link."""
 
-from enum import StrEnum
 from pathlib import Path
 
 import typer
@@ -11,7 +10,7 @@ from chgk.cards.build import build_jury_sheet, load_teams
 from chgk.cli.common import app, fail
 from chgk.config import load_config
 from chgk.jury import board_link, sheet_version
-from chgk.remote import delete_tournament, make_results_copy, new_tournament, replace_token, sync_teams
+from chgk.remote import TokenKind, delete_tournament, make_results_copy, new_tournament, replace_token, sync_teams
 from chgk.state import check_tid, load_state
 
 
@@ -111,11 +110,6 @@ def delete_cmd(
     typer.echo(
         f"Tournament {state.tid} deleted; config.py and teams.py stay. Its Drive folder is in the bin for 30 days."
     )
-
-
-class TokenKind(StrEnum):
-    JURY = "jury"
-    BOARD = "board"
 
 
 LEAKED = {

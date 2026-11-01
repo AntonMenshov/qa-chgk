@@ -1032,7 +1032,7 @@ test('storage: full: cached tournaments go first; still full: set says so; block
       return values.size;
     },
   };
-  const s = storage(backing);
+  const s = storage(backing, (key) => key.startsWith('chgk.state.'));
   assert.equal(s.set('chgk.queue.B', [1]), true);
   assert.equal(values.has('chgk.state.A'), false);
   assert.equal(values.has('chgk.queue.A'), true);

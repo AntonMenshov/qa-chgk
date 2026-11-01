@@ -184,12 +184,11 @@ function applySheetEdits_(ss, m, user) {
     const at = m.where[edit.key];
     // Notes are not values: these go through SpreadsheetApp (jury edits are rare).
     const range = ss.getSheetByName(at.name).getRange(at.row, at.col);
+    const [teamId, q] = edit.key.split(':');
     if (edit.status === null) {
       timed_('notes', () => range.setNote('Непонятное значение: используйте 1, 0, ? или R'));
       // Known from now on: noted once, not on every request. The sums changed, so the tab re-sorts.
-      m.w.set(TABS.meta, metaRowOf_(m, edit.key.split(':')[0]), m.meta.ml.knownCol(Number(edit.key.split(':')[1])), [
-        [edit.raw],
-      ]);
+      m.w.set(TABS.meta, metaRowOf_(m, teamId), m.meta.ml.knownCol(Number(q)), [[edit.raw]]);
       m.known[edit.key] = edit.raw;
       rounds.add(at.round);
       return;
@@ -198,7 +197,6 @@ function applySheetEdits_(ss, m, user) {
     m.cells[edit.key] = {value: edit.value, ts: now};
     writeMark_(m, edit.key, m.cells[edit.key], edit.raw !== edit.value);
     rounds.add(at.round);
-    const [teamId, q] = edit.key.split(':');
     rows.push([
       logTime_(now),
       logTime_(now),

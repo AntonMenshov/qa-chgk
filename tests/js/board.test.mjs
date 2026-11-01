@@ -171,7 +171,10 @@ test("qrSvg draws the vendored generator's matrix with a 4-module white quiet zo
       dark += qr.isDark(r, c) ? 1 : 0;
     }
   }
-  assert.equal((svg.match(/h1v1h-1z/g) || []).length, dark);
+  assert.equal(
+    [...svg.matchAll(/h(\d+)v1h-\d+z/g)].reduce((sum, m) => sum + Number(m[1]), 0),
+    dark,
+  );
   assert.ok(!/M[0-3] |M\d+ [0-3]h/.test(svg)); // nothing drawn in the quiet zone
 });
 
