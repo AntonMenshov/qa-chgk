@@ -25,6 +25,7 @@ from chgk.jury import (
     _grid,
     _questions_line,
     _styles,
+    _team_label,
 )
 from chgk.state import load_or_create_state, save_state
 from chgk.teams import Team
@@ -228,5 +229,5 @@ def test_links_are_clickable_with_the_full_address(folder, tmp_path):
 
 def test_grid_keeps_room_for_the_sum_column():
     teams = [Team("A01", "Первая")]
-    table = _grid([str(q) for q in range(1, 19)] + ["Сумма"], teams, 100, _styles(), [])
+    table = _grid([str(q) for q in range(1, 19)] + ["Сумма"], [_team_label(t, 100, []) for t in teams], 100, _styles())
     assert table._colWidths[-1] == SUM_W > table._colWidths[-2]

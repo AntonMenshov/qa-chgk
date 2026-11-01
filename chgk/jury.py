@@ -11,7 +11,7 @@ notice of each replacement on page 1 (and a board one on page 2 too).
 
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 from xml.sax.saxutils import escape
 
 from reportlab.lib import colors
@@ -200,6 +200,16 @@ def _public_panels(t: Tournament, state: State) -> list[Panel]:
     ]
 
 
+class PanelBox(NamedTuple):
+    panel: Panel
+    x: float
+    y: float
+    w: float
+    h: float
+    qr_size: float
+    text_above: float
+
+
 class QrPage(Flowable):
     """QR codes filling the rest of the page.
 
@@ -237,8 +247,8 @@ class QrPage(Flowable):
         below = self._height(_link(payload), self.s["url"], inner) if payload else 0
         return above, below
 
-    def boxes(self) -> list[Any]:
-        """(panel, x, y, w, h, qr_size, text_above) for every panel; one QR size per row."""
+    def boxes(self) -> list[PanelBox]:
+        """Where every panel goes; one QR size per row."""
         out = []
         row_h = (self.h - self.GAP * (len(self.rows) - 1)) / len(self.rows)
         for r, row in enumerate(self.rows):
@@ -250,7 +260,7 @@ class QrPage(Flowable):
             below = max(b for _, b in texts)
             size = min(inner, row_h - 2 * self.PAD - above - below - 0.35 * INCH, self.MAX_QR)
             for k, panel in enumerate(row):
-                out.append((panel, k * (w + self.GAP), y, w, row_h, size, above))
+                out.append(PanelBox(panel, k * (w + self.GAP), y, w, row_h, size, above))
         return out
 
     def draw(self) -> None:
@@ -266,8 +276,8 @@ class QrPage(Flowable):
             self._para(escape(hint), self.s["hint"], left, top, inner)
             # The QR code (and the address under it) centred in the space under the text.
             space_top = y + h - self.PAD - above
-            url_h = self._height(_link(payload), self.s["url"], inner) if payload else 0
-            block = size + (8 + url_h if payload else 0)
+            below = self._texts((title, hint, payload, secret), inner)[1]
+            block = size + (8 + below if payload else 0)
             qr_top = space_top - (space_top - (y + self.PAD) - block) / 2
             qr_x = x + (w - size) / 2
             if payload:
@@ -314,11 +324,15 @@ def _links_table(t: Tournament, state: State, s: Styles) -> Table:
     if state.backend_url:
         label = " · ".join(x for x in (state.backend_profile, state.backend_account) if x)
         backend = f"{escape(label)}<br/>{_link(state.backend_url)}" if label else _link(state.backend_url)
+
+    def link_or_not_yet(url: str | None) -> str:
+        return _link(url) if url else NOT_YET
+
     rows = [
         ("Сканер жюри", _link(t.scanner_url)),
-        ("Таблица (редактирование)", _link(state.spreadsheet_url) if state.spreadsheet_url else NOT_YET),
-        ("Таблица (только просмотр)", _link(state.view_url) if state.view_url else NOT_YET),
-        ("Табло для проектора", _link(board_link(t, state) or "") if state.board_access else NOT_YET),
+        ("Таблица (редактирование)", link_or_not_yet(state.spreadsheet_url)),
+        ("Таблица (только просмотр)", link_or_not_yet(state.view_url)),
+        ("Табло для проектора", link_or_not_yet(board_link(t, state))),
         ("Бэкенд (Google-аккаунт)", backend),
     ]
     data = [[Paragraph(name, s["cell"]), Paragraph(value, s["small"])] for name, value in rows]
@@ -341,8 +355,7 @@ def _numbered(items: list[str], s: Styles) -> list[Flowable]:
 def _team_label(team: Team, width: float, warnings: list[str]) -> str:
     if team.reserve:
         return f"{team.team_id}  ________________"
-    text, _ = fit_text(f"{team.team_id}  {printable(team.name, warnings)}", FONT, 8.5, width - 8, 8.5)
-    return text
+    return fit_text(f"{team.team_id}  {printable(team.name, warnings)}", FONT, 8.5, width - 8, 8.5)[0]
 
 
 FORM_GAP = 0.3 * INCH
@@ -410,11 +423,11 @@ def _player_forms(teams: list[Team], s: Styles, warnings: list[str]) -> list[Flo
     return rows
 
 
-def _grid(header: list[str], teams: list[Team], name_w: float, s: Styles, warnings: list[str]) -> Table:
+def _grid(header: list[str], labels: list[str], name_w: float, s: Styles) -> Table:
     n = len(header)
     # The last column holds a word («Сумма», «Итого»), whatever the number of questions.
     other_w = (WIDTH - name_w - SUM_W) / (n - 1)
-    rows = [["Команда", *header]] + [[_team_label(t, name_w, warnings)] + [""] * n for t in teams]
+    rows = [["Команда", *header]] + [[label] + [""] * n for label in labels]
     table = Table(rows, colWidths=[name_w] + [other_w] * (n - 1) + [SUM_W], rowHeights=0.25 * INCH, repeatRows=1)
     table.setStyle(
         TableStyle(
@@ -491,6 +504,7 @@ def render_jury_sheet(tournament: Tournament, state: State, teams: list[Team], o
     ]
     first = 1
     name_w = 2.0 * INCH
+    labels = [_team_label(t, name_w, warnings) for t in teams]
     for round_no, size in enumerate(tournament.round_sizes, start=1):
         questions = list(range(first, first + size))
         first += size
@@ -503,7 +517,7 @@ def render_jury_sheet(tournament: Tournament, state: State, teams: list[Team], o
                         + ")",
                         s["h3"],
                     ),
-                    _grid([str(q) for q in questions] + ["Сумма"], teams, name_w, s, warnings),
+                    _grid([str(q) for q in questions] + ["Сумма"], labels, name_w, s),
                 ]
             )
         )
@@ -511,7 +525,7 @@ def render_jury_sheet(tournament: Tournament, state: State, teams: list[Team], o
         KeepTogether(
             [
                 Paragraph("Итого", s["h3"]),
-                _grid([f"Тур {r}" for r in range(1, tournament.rounds + 1)] + ["Итого"], teams, name_w, s, warnings),
+                _grid([f"Тур {r}" for r in range(1, tournament.rounds + 1)] + ["Итого"], labels, name_w, s),
             ]
         )
     )

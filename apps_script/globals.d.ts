@@ -13,6 +13,7 @@ declare global {
   const validateReserve: typeof L.validateReserve;
   const latinName: typeof L.latinName;
   const driveNames: typeof L.driveNames;
+  const DRIVE_ROOT: typeof L.DRIVE_ROOT;
   const reservePlaceholder: typeof L.reservePlaceholder;
   const nameEdits: typeof L.nameEdits;
   const TOKEN_KINDS: typeof L.TOKEN_KINDS;

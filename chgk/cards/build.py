@@ -16,7 +16,7 @@ from chgk.jury import render_jury_sheet
 from chgk.logos import first_logo, load_logos, open_logo, pale
 from chgk.state import State, check_reserve, load_or_create_state, load_state, new_id_warning, remember_team_ids
 from chgk.svg import CUT_FROM
-from chgk.teams import TEAMS_FILE, Team, read_teams, reserve_teams
+from chgk.teams import TEAMS_FILE, Team, only_teams, read_teams, reserve_teams
 
 INSTRUCTIONS = {
     Mode.TEAM_PAGES: "Each page holds one team's cards. Cut each page along the grey lines.",
@@ -77,12 +77,7 @@ def build_cards(folder: Path, mode: Mode, out: Path | None = None, team_ids: lis
     teams = load_teams(folder, tournament)
     all_teams = teams
     if team_ids is not None:
-        if not team_ids:
-            raise ValueError("--teams gives no team IDs")
-        unknown = set(team_ids) - {t.team_id for t in teams}
-        if unknown:
-            raise ValueError(f"unknown team_id(s): {', '.join(sorted(unknown))}")
-        teams = [t for t in teams if t.team_id in team_ids]
+        teams = only_teams(teams, team_ids, "--teams")
     state, warnings = _state(folder, tournament, all_teams)
     sources, logo_warnings = load_logos(folder, tournament.card, teams)
     decks = [team_deck(tournament, state.tid, team) for team in teams]
@@ -132,7 +127,7 @@ def build_test_page(folder: Path, out: Path | None = None) -> tuple[Path, list[s
         team,
         out,
         sources.get(key) if key else None,
-        _pale(sources, tournament.card.logo_grey, teams),
+        _pale({key: sources[key]} if key else {}, tournament.card.logo_grey, teams),  # all the page shows
     )
     return out, sorted(set(warnings))
 
@@ -147,16 +142,16 @@ def build_logo_preview(
     none left, no PDF is written (None).
     """
     teams = [t for t in all_teams if t.team_id in drafts]
-    images, warnings = {}, []
+    sources, warnings = {}, []
     for t in teams:
         try:
-            grey = tournament.card.logo_grey if t.logo_grey is None else t.logo_grey
-            source = open_logo(drafts[t.team_id])
-            images[t.team_id] = pale(source, grey)
-            if CUT_FROM in source.info:
-                warnings.append(f"draft {drafts[t.team_id]}: not square ({source.info[CUT_FROM]}); shown cut")
+            sources[t.team_id] = open_logo(drafts[t.team_id])
         except ValueError as err:
             warnings.append(f"draft {drafts[t.team_id]}: {err}")
+            continue
+        if CUT_FROM in sources[t.team_id].info:
+            warnings.append(f"draft {drafts[t.team_id]}: not square ({sources[t.team_id].info[CUT_FROM]}); shown cut")
+    images = _pale(sources, tournament.card.logo_grey, teams)
     preview = replace(tournament, card=replace(tournament.card, logo=LogoMode.TEAM, fallback_logo=None))
     state = load_state(folder)
     tid = state.tid if state else tournament.tid or generate_tid()  # no tournament yet: the QR codes are only for show

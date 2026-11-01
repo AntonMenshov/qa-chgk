@@ -8,20 +8,15 @@ import typer
 from chgk import logo_drafts as drafts
 from chgk import out_dir
 from chgk.cards.build import build_logo_preview
-from chgk.cli.common import app, fail, team_ids
+from chgk.cli.common import app, team_ids, warn_all
 from chgk.config import Tournament, load_config
 from chgk.logos import LOGO_LIBRARY, logo_report, own_logo_problem, shows_team_logos
-from chgk.teams import TEAMS_FILE, Team, read_teams
+from chgk.teams import TEAMS_FILE, Team, only_teams, read_teams
 
 
 def _draw(folder: Path, slug: str, look: drafts.LogoLook, teams: list[Team], only: list[str] | None) -> None:
     if only is not None:
-        if not only:
-            raise ValueError("--team gives no team IDs")
-        unknown = sorted(set(only) - {t.team_id for t in teams})
-        if unknown:
-            raise ValueError(f"unknown team_id(s): {', '.join(unknown)}")
-        todo = [t for t in teams if t.team_id in only]
+        todo = only_teams(teams, only, "--team")
     else:
         have = drafts.existing_drafts(slug, teams)
         todo = [t for t in teams if own_logo_problem(t, folder) and t.team_id not in have]
@@ -34,8 +29,7 @@ def _draw(folder: Path, slug: str, look: drafts.LogoLook, teams: list[Team], onl
         typer.echo(f"{out}: a brief for {len(todo)} logos. Open Claude Code here and ask it to follow that file.")
         return
     references, warnings = drafts.reference_blocks(drafts.reference_logos())
-    for warning in warnings:
-        typer.secho(f"Warning: {warning}", fg="yellow", err=True)
+    warn_all(warnings)
     typer.echo(
         f"Drawing {len(todo)} logos with {drafts.MODEL} at {drafts.EFFORT} effort, {drafts.PARALLEL} at a time, "
         f"each reviewed up to {drafts.REVIEW_ROUNDS} times ({len(references)} reference logos). This takes a while…"
@@ -47,7 +41,7 @@ def _draw(folder: Path, slug: str, look: drafts.LogoLook, teams: list[Team], onl
     try:
         drafts.draw_drafts(drafts.make_client(), slug, todo, references, look, log)
     except anthropic.AuthenticationError as err:
-        raise fail(ValueError(f"the API refused {drafts.API_KEY_ENV} (HTTP {err.status_code})")) from err
+        raise ValueError(f"the API refused {drafts.API_KEY_ENV} (HTTP {err.status_code})") from err
 
 
 def _report(folder: Path, tournament: Tournament, teams: list[Team]) -> None:
@@ -57,16 +51,14 @@ def _report(folder: Path, tournament: Tournament, teams: list[Team]) -> None:
         own = r.logo_file + (f" ({r.problem})" if r.problem else "") if r.logo_file else "(none)"
         draft = "  draft ready" if r.team_id in have else ""
         typer.echo(f"  {r.team_id:<8} {r.name:<28} {own:<36} cards show: {r.shown}{draft}")
-    for warning in warnings:
-        typer.secho(f"Warning: {warning}", fg="yellow", err=True)
+    warn_all(warnings)
     if not shows_team_logos(tournament.card):
         typer.secho(f"This tournament's cards don't show team logos (logo={tournament.card.logo.name}).", fg="yellow")
     key = "set" if drafts.api_key_set() else "not set (`--draw` writes a brief for Claude Code instead)"
     typer.echo(f"{drafts.API_KEY_ENV}: {key}.")
     if have:
         path, warnings = build_logo_preview(folder, tournament, teams, have)
-        for warning in warnings:
-            typer.secho(f"Warning: {warning}", fg="yellow", err=True)
+        warn_all(warnings)
         if path:
             typer.echo(f"{path}: the drafts on real cards, at this tournament's shade. Print it to judge them.")
             typer.echo(f"Keep them: `uv run chgk logos {folder} --accept all` (or `--accept A01,A02`).")

@@ -377,7 +377,6 @@ test('latinName: Cyrillic transliterated, accents and symbols dropped, never emp
 
 test('driveNames: everything Latin, the TID and date kept', () => {
   assert.deepEqual(L.driveNames('QHZJ8', 'Осенний кубок', '2026-11-15'), {
-    root: 'CHGK',
     folder: '2026-11-15 Osenniy kubok (QHZJ8)',
     photos: 'Photos',
     spreadsheet: 'Osenniy kubok 2026-11-15 (QHZJ8)',

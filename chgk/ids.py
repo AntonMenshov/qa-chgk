@@ -25,7 +25,7 @@ TID_LENGTH = 5
 # 1-8 digits or capital Latin letters, like a team ID.
 TID_PATTERN = "[0-9A-Z]{1,8}"
 TID_RE = re.compile(rf"^{TID_PATTERN}$")
-TEAM_ID_RE = re.compile(r"^[0-9A-Z]{1,8}$")
+TEAM_ID_RE = TID_RE  # e.g. a rating number or A07
 MAX_QUESTION = 999  # the payload holds questions 1–999 …
 MAX_SPARE = 99  # … and spare cards S1–S99 (_FRAGMENT_RE, and payload.js on the phone)
 _FRAGMENT_RE = re.compile(
@@ -121,10 +121,9 @@ def assign_team_ids(existing: list[str | None], taken: Iterable[str] = ()) -> li
 # Jury setup link: `<scanner_url>#setup=<TID>.<JURY_TOKEN>.<DEPLOYMENT_ID>`.
 # The deployment ID is the part of the Apps Script URL between /macros/s/ and /exec,
 # so the phone learns which backend (Google account) this tournament lives on.
-BACKEND_URL_RE = re.compile(r"^https://script\.google\.com/macros/s/(?P<id>[A-Za-z0-9_-]{10,})/exec$")
-_SETUP_RE = re.compile(
-    rf"^setup=(?P<tid>{TID_PATTERN})\.(?P<token>[A-Za-z0-9_-]{{16,}})\.(?P<dep>[A-Za-z0-9_-]{{10,}})$"
-)
+BACKEND_URL_RE = re.compile(r"https://script\.google\.com/macros/s/(?P<id>[A-Za-z0-9_-]{10,})/exec")
+_ACCESS = rf"(?P<tid>{TID_PATTERN})\.(?P<token>[A-Za-z0-9_-]{{16,}})\.(?P<dep>[A-Za-z0-9_-]{{10,}})"
+_SETUP_RE = re.compile(rf"setup={_ACCESS}")
 
 
 @dataclass(frozen=True)
@@ -134,30 +133,36 @@ class JuryAccess:
     backend_url: str
 
 
-def generate_jury_token() -> str:
+def generate_token() -> str:
     return secrets.token_urlsafe(18)  # 24 chars of [A-Za-z0-9_-]
 
 
-def encode_jury_link(scanner_url: str, access: JuryAccess) -> str:
-    m = BACKEND_URL_RE.fullmatch(access.backend_url)
+def _deployment_id(backend_url: str) -> str:
+    m = BACKEND_URL_RE.fullmatch(backend_url)
     if not m:
-        raise ValueError(f"not an Apps Script web app URL: {access.backend_url!r}")
-    return f"{scanner_url}#setup={access.tid}.{access.jury_token}.{m['id']}"
+        raise ValueError(f"not an Apps Script web app URL: {backend_url!r}")
+    return m["id"]
+
+
+def _backend_url(deployment_id: str) -> str:
+    return f"https://script.google.com/macros/s/{deployment_id}/exec"
+
+
+def encode_jury_link(scanner_url: str, access: JuryAccess) -> str:
+    return f"{scanner_url}#setup={access.tid}.{access.jury_token}.{_deployment_id(access.backend_url)}"
 
 
 def decode_jury_link(link: str) -> JuryAccess:
     m = _SETUP_RE.fullmatch(link.rsplit("#", 1)[-1])
     if not m:
         raise PayloadError(f"not a jury setup link: {link!r}")
-    return JuryAccess(m["tid"], m["token"], f"https://script.google.com/macros/s/{m['dep']}/exec")
+    return JuryAccess(m["tid"], m["token"], _backend_url(m["dep"]))
 
 
 # Projector board link: `<board_url>?grid=<N>#board=<TID>.<BOARD_TOKEN>.<DEPLOYMENT_ID>`.
 # The board token is read-only (marks and teams), separate from the jury token. `grid`:
 # up to this many teams the board shows the full grid of every round.
-_BOARD_RE = re.compile(
-    rf"^board=(?P<tid>{TID_PATTERN})\.(?P<token>[A-Za-z0-9_-]{{16,}})\.(?P<dep>[A-Za-z0-9_-]{{10,}})$"
-)
+_BOARD_RE = re.compile(rf"board={_ACCESS}")
 
 
 @dataclass(frozen=True)
@@ -173,14 +178,12 @@ def board_page_url(scanner_url: str) -> str:
 
 
 def encode_board_link(scanner_url: str, access: BoardAccess, grid_max_teams: int) -> str:
-    m = BACKEND_URL_RE.fullmatch(access.backend_url)
-    if not m:
-        raise ValueError(f"not an Apps Script web app URL: {access.backend_url!r}")
-    return f"{board_page_url(scanner_url)}?grid={grid_max_teams}#board={access.tid}.{access.board_token}.{m['id']}"
+    deployment = _deployment_id(access.backend_url)
+    return f"{board_page_url(scanner_url)}?grid={grid_max_teams}#board={access.tid}.{access.board_token}.{deployment}"
 
 
 def decode_board_link(link: str) -> BoardAccess:
     m = _BOARD_RE.fullmatch(link.rsplit("#", 1)[-1])
     if not m:
         raise PayloadError(f"not a board link: {link!r}")
-    return BoardAccess(m["tid"], m["token"], f"https://script.google.com/macros/s/{m['dep']}/exec")
+    return BoardAccess(m["tid"], m["token"], _backend_url(m["dep"]))

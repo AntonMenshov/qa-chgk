@@ -28,17 +28,13 @@ function readMarks_(ss, reg, with_) {
   const w = writer_(ss);
 
   // «Итоги» as it is now, row by row (sortTabs_ checks its order without reading it again).
-  const summaryRows = [];
-  blocks[0].forEach((r, j) => {
-    const id = String(r[0]).trim();
-    if (id) {
-      summaryRows.push({team_id: id, row: j + 2});
-    }
-  });
+  const summary = blocks[0]
+    .map((r, j) => ({team_id: String(r[0]).trim(), name: String(r[1]), row: j + 2, values: r}))
+    .filter((t) => t.team_id !== '');
+  const summaryRows = summary.map((t) => ({team_id: t.team_id, row: t.row}));
   // ID order (the order of the cards), not the standings order of «Итоги».
-  const teams = blocks[0]
-    .map((r) => ({team_id: String(r[0]).trim(), name: String(r[1])}))
-    .filter((t) => t.team_id !== '')
+  const teams = summary
+    .map((t) => ({team_id: t.team_id, name: t.name}))
     .sort((a, b) => compareIds(a.team_id, b.team_id));
   const cells = {};
   const where = {};
@@ -64,15 +60,12 @@ function readMarks_(ss, reg, with_) {
       sortKeysOk = sortKeysOk && r[lay.sumCol - 1] === took;
     });
   });
-  blocks[0].forEach((r) => {
-    const id = String(r[0]).trim();
-    if (id) {
-      const sums = lays.map((_, i) => (roundSums[id] || [])[i] || 0);
-      sums.forEach((sum, i) => {
-        sortKeysOk = sortKeysOk && r[sl.firstRound - 1 + i] === sum;
-      });
-      sortKeysOk = sortKeysOk && r[sl.totalCol - 1] === sums.reduce((a, b) => a + b, 0);
-    }
+  summary.forEach(({team_id: id, values: r}) => {
+    const sums = lays.map((_, i) => (roundSums[id] || [])[i] || 0);
+    sums.forEach((sum, i) => {
+      sortKeysOk = sortKeysOk && r[sl.firstRound - 1 + i] === sum;
+    });
+    sortKeysOk = sortKeysOk && r[sl.totalCol - 1] === sums.reduce((a, b) => a + b, 0);
   });
 
   const metaBlock = blocks[1];
@@ -262,29 +255,21 @@ function readBoard_(ss, reg) {
 /** «Итоги» and «Статистика» as Google computed them, to check the formulas live (tests). */
 function readResults_(ss, reg) {
   const sizes = reg.round_sizes;
-  const summary = summaryOf_(ss);
   const sl = summaryLayout(sizes);
-  const last = summary.getLastRow();
-  const standings =
-    last < 2
-      ? []
-      : summary
-          .getRange(2, 1, last - 1, sl.width)
-          .getValues()
-          .filter((r) => String(r[0]).trim() !== '')
-          .map((r) => ({
-            team_id: String(r[0]).trim(),
-            name: String(r[1]),
-            rounds: r.slice(sl.firstRound - 1, sl.totalCol - 1),
-            total: r[sl.totalCol - 1],
-            place: r[sl.placeCol - 1],
-          }));
-  const n = totalQuestions(sizes);
-  const stats = ss
-    .getSheetByName(TABS.stats)
-    .getRange(2, 1, n, 4)
-    .getValues()
-    .map((r) => ({question: r[0], round: r[1], took: r[2], share: r[3]}));
+  const [summary, statRows] = readBlocks_(ss, [
+    {name: TABS.summary, row: 2, col: 1, cols: sl.width},
+    {name: TABS.stats, row: 2, col: 1, cols: 4},
+  ]);
+  const standings = summary
+    .filter((r) => String(r[0]).trim() !== '')
+    .map((r) => ({
+      team_id: String(r[0]).trim(),
+      name: String(r[1]),
+      rounds: r.slice(sl.firstRound - 1, sl.totalCol - 1),
+      total: r[sl.totalCol - 1],
+      place: r[sl.placeCol - 1],
+    }));
+  const stats = statRows.map((r) => ({question: r[0], round: r[1], took: r[2], share: r[3]}));
   return {ok: true, standings, stats};
 }
 
@@ -320,11 +305,19 @@ function recordEvents_(ss, reg, req) {
 
   // An event whose cell has no row (the jury deleted the team's row from that round's tab) is
   // refused on its own; otherwise it would fail the whole batch, and the phone retries it forever.
-  const hasRow = (ev) =>
-    !ev || eventError(ev, teamIds, reg.round_sizes, nowMs) || m.where[`${ev.team_id}:${ev.question}`];
-  const applied = applyEvents(cells, m.log.seen, req.events.filter(hasRow), teamIds, reg.round_sizes, nowMs);
-  const outcomes = req.events.map((ev) =>
-    hasRow(ev)
+  const hasRow = req.events.map(
+    (ev) => !ev || eventError(ev, teamIds, reg.round_sizes, nowMs) || m.where[`${ev.team_id}:${ev.question}`],
+  );
+  const applied = applyEvents(
+    cells,
+    m.log.seen,
+    req.events.filter((_, k) => hasRow[k]),
+    teamIds,
+    reg.round_sizes,
+    nowMs,
+  );
+  const outcomes = req.events.map((ev, k) =>
+    hasRow[k]
       ? applied.shift()
       : {scan_id: ev.scan_id, applied: false, duplicate: false, error: `no row for ${ev.team_id} on its round's tab`},
   );

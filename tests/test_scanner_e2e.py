@@ -613,7 +613,9 @@ def test_board_refused_at_its_first_load_says_why_in_big_letters(web_server):
     with playwright.sync_playwright() as p:
         browser = p.chromium.launch(executable_path=CHROME, headless=True)
         page = browser.new_page(viewport={"width": 1280, "height": 800})
-        reply = json.dumps({"ok": False, "error": "forbidden: board token required", "code": "board_token_refused", "retry": True})
+        reply = json.dumps(
+            {"ok": False, "error": "forbidden: board token required", "code": "board_token_refused", "retry": True}
+        )
         page.route(
             "https://script.google.com/**",
             lambda route: route.fulfill(

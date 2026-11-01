@@ -5,7 +5,6 @@ bottom). Pages come out full: free slots become spare cards.
 """
 
 from enum import Enum
-from math import ceil
 
 from chgk.cards.model import Card, spare_card
 
@@ -41,8 +40,6 @@ def team_pages(decks: list[list[Card]], per_page: int) -> list[Page]:
     """
     pages: list[Page] = []
     for deck in decks:
-        if not deck:
-            continue
         cards = with_extra_spares(deck, -len(deck) % per_page)
         pages += [cards[i : i + per_page] for i in range(0, len(cards), per_page)]
     return pages
@@ -62,11 +59,10 @@ def cut_stack(decks: list[list[Card]], per_page: int) -> list[Page]:
     (the first decks get one more when they don't divide evenly), so no page is added
     and no slot is left empty (user rule).
     """
-    decks = [deck for deck in decks if deck]
     total = sum(len(deck) for deck in decks)
     if not total:
         return []
-    n_pages = ceil(total / per_page)
+    n_pages = -(-total // per_page)
     free = n_pages * per_page - total
     decks = [with_extra_spares(deck, free // len(decks) + (k < free % len(decks))) for k, deck in enumerate(decks)]
     sequence = [card for deck in decks for card in deck]

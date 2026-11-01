@@ -7,7 +7,7 @@ import typer
 from chgk import out_dir
 from chgk.backend import BackendError, Profiles
 from chgk.cards.build import build_jury_sheet, load_teams
-from chgk.cli.common import app, fail
+from chgk.cli.common import app, fail, warn_all
 from chgk.config import load_config
 from chgk.jury import board_link, sheet_version
 from chgk.remote import TokenKind, delete_tournament, make_results_copy, new_tournament, replace_token, sync_teams
@@ -21,14 +21,10 @@ def new(
 ) -> None:
     """Create the tournament's Google Sheet and Drive folder; writes state.json and the jury sheet."""
     profiles = Profiles()
-    try:
-        profile = profiles.get(backend) if backend else profiles.active()
-        result = new_tournament(folder, profile)
-        jury_path, warnings = build_jury_sheet(folder, teams=result.teams)
-    except (ValueError, BackendError) as err:
-        raise fail(err) from err
-    for warning in [*result.warnings, *warnings]:
-        typer.secho(f"Warning: {warning}", fg="yellow", err=True)
+    profile = profiles.get(backend) if backend else profiles.active()
+    result = new_tournament(folder, profile)
+    jury_path, warnings = build_jury_sheet(folder, teams=result.teams)
+    warn_all([*result.warnings, *warnings])
     s = result.state
     if result.created:
         typer.echo(f"Created on backend '{s.backend_profile}' ({s.backend_account}).")
@@ -42,26 +38,19 @@ def new(
 def teams_cmd(folder: Path = typer.Argument(..., help="Tournament folder")) -> None:
     """Pull the Sheet's Teams tab into teams.py (assigning team IDs, written back to the Sheet)."""
     warnings: list[str] = []
-    try:
-        teams = sync_teams(folder, Profiles(), warnings=warnings)
-    except (ValueError, BackendError) as err:
-        raise fail(err) from err
-    for warning in warnings:
-        typer.secho(f"Warning: {warning}", fg="yellow", err=True)
+    teams = sync_teams(folder, Profiles(), warnings=warnings)
+    warn_all(warnings)
     typer.echo(f"{len(teams)} teams synced to {Path(folder) / 'teams.py'}.")
 
 
 @app.command("board")
 def board_cmd(folder: Path = typer.Argument(..., help="Tournament folder")) -> None:
     """Print the projector board link (read-only; its token is made by `chgk new`)."""
-    try:
-        tournament = load_config(folder)
-    except ValueError as err:
-        raise fail(err) from err
+    tournament = load_config(folder)
     state = load_state(folder)
     link = board_link(tournament, state) if state else None
     if not link:
-        raise fail(ValueError("this tournament has no board yet: run `chgk new` first"))
+        raise ValueError("this tournament has no board yet: run `chgk new` first")
     typer.echo("Open on the projector laptop (read-only; → shows the next round):")
     typer.echo(link)
     typer.echo("Its QR code is on page 2 of the jury sheet: run `chgk jury-sheet` (or `chgk cards`) to refresh it.")
@@ -73,7 +62,7 @@ def view_cmd(folder: Path = typer.Argument(..., help="Tournament folder")) -> No
     load_config(folder)  # a mistyped folder is said as such, not as "no Sheet yet"
     state = load_state(folder)
     if state is None or not state.view_url:
-        raise fail(ValueError("this tournament has no Sheet yet: run `chgk new` first"))
+        raise ValueError("this tournament has no Sheet yet: run `chgk new` first")
     typer.echo("Results, view-only for anyone with the link (marks appear as the jury enters them):")
     typer.echo(state.view_url)
     typer.echo("Its QR code is on page 2 of the jury sheet and on the projector board.")
@@ -88,8 +77,7 @@ def results_copy_cmd(folder: Path = typer.Argument(..., help="Tournament folder"
         typer.echo(f"Public results updated: {state.view_url}")
         return
     path, warnings = build_jury_sheet(folder)
-    for warning in warnings:
-        typer.secho(f"Warning: {warning}", fg="yellow", err=True)
+    warn_all(warnings)
     typer.echo(f"Public results: {state.view_url}")
     typer.echo(f"{path}: refreshed with the new link. Printed sheets and the old link no longer show the results.")
 
@@ -127,15 +115,12 @@ def replace_token_cmd(
 ) -> None:
     """Replace a leaked jury or board link: the old one stops working at once; writes jury-v<N>.pdf."""
     # All that the new sheet needs comes first: once the backend switches, the old link is dead.
-    try:
-        tournament = load_config(folder)
-        teams = load_teams(folder, tournament)
-        current = load_state(folder)
-        if current is not None:
-            check_tid(current, tournament.tid)
-        out_dir(tournament.slug).mkdir(parents=True, exist_ok=True)
-    except ValueError as err:
-        raise fail(err) from err
+    tournament = load_config(folder)
+    teams = load_teams(folder, tournament)
+    current = load_state(folder)
+    if current is not None:
+        check_tid(current, tournament.tid)
+    out_dir(tournament.slug).mkdir(parents=True, exist_ok=True)
     if not yes:
         typer.confirm(
             f"«{tournament.name}» ({tournament.slug}): the old {LEAKED[which]} stops working at once. Replace it?",
@@ -150,8 +135,6 @@ def replace_token_cmd(
             err=True,
         )
         raise fail(err) from err
-    except ValueError as err:
-        raise fail(err) from err
     try:
         path, warnings = build_jury_sheet(folder, out_dir(tournament.slug, f"jury-v{sheet_version(state)}.pdf"), teams)
     except (ValueError, OSError) as err:
@@ -161,8 +144,7 @@ def replace_token_cmd(
             err=True,
         )
         raise fail(err) from err
-    for warning in warnings:
-        typer.secho(f"Warning: {warning}", fg="yellow", err=True)
+    warn_all(warnings)
     typer.echo(f"New {which.value} token is live; the old one is refused from now on.")
     typer.echo(f"{path}: the new jury sheet (version {sheet_version(state)}), saying what happened. Print it.")
     if which is TokenKind.JURY:

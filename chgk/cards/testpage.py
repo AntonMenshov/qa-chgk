@@ -11,7 +11,7 @@ from PIL import Image
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen.canvas import Canvas
 
-from chgk.cards.geometry import INCH, PAGE_H, PAGE_W, Rect, card_rects
+from chgk.cards.geometry import INCH, PAGE_H, PAGE_W, PRINT_HINT, Rect, card_rects
 from chgk.cards.model import team_deck
 from chgk.cards.render import (
     FONT,
@@ -68,9 +68,7 @@ def render_test_page(
     title = fit_text(f"{printable(tournament.name, warnings)}", FONT_BOLD, 13, PAGE_W - INCH - TITLE_SUFFIX_W, 13)[0]
     c.drawString(0.5 * INCH, 10.35 * INCH, f"{title}: тестовая страница")
     c.setFont(FONT, 9)
-    c.drawString(
-        0.5 * INCH, 10.15 * INCH, "Print on Letter at 100% / Actual size. Both rulers must measure exactly 2 in."
-    )
+    c.drawString(0.5 * INCH, 10.15 * INCH, f"{PRINT_HINT} Both rulers must measure exactly 2 in.")
     _ruler(c, 0.5 * INCH, 9.7 * INCH, vertical=False)
     _ruler(c, 7.6 * INCH, 7.6 * INCH, vertical=True)
 

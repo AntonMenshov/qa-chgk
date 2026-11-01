@@ -12,10 +12,11 @@ from typing import Any
 from chgk import write_file
 from chgk.ids import TID_RE, BoardAccess, JuryAccess, generate_tid
 
+SHEETS_URL = "https://docs.google.com/spreadsheets/d/"
 STATE_FILE = "state.json"
 
 
-@dataclass
+@dataclass(frozen=True)
 class State:
     tid: str
     backend_url: str | None = None  # Apps Script /exec URL
@@ -37,13 +38,13 @@ class State:
 
     @property
     def spreadsheet_url(self) -> str | None:
-        return f"https://docs.google.com/spreadsheets/d/{self.spreadsheet_id}/edit" if self.spreadsheet_id else None
+        return f"{SHEETS_URL}{self.spreadsheet_id}/edit" if self.spreadsheet_id else None
 
     @property
     def view_url(self) -> str | None:
         """Read-only page of the results for anyone with the link (Google's HTML view of the public copy)."""
         sheet = self.public_id or self.spreadsheet_id
-        return f"https://docs.google.com/spreadsheets/d/{sheet}/htmlview" if sheet else None
+        return f"{SHEETS_URL}{sheet}/htmlview" if sheet else None
 
     @property
     def board_access(self) -> BoardAccess | None:

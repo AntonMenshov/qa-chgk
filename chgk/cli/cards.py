@@ -5,8 +5,9 @@ from pathlib import Path
 import typer
 
 from chgk.cards.build import INSTRUCTIONS, build_cards, build_jury_sheet, build_test_page
+from chgk.cards.geometry import PRINT_HINT
 from chgk.cards.impose import Mode
-from chgk.cli.common import app, fail, team_ids
+from chgk.cli.common import app, team_ids, warn_all
 
 MODE_HELP = {
     Mode.TEAM_PAGES: "one team per page, cut along the lines",
@@ -39,18 +40,14 @@ def cards(
 ) -> None:
     """Generate the printable answer cards."""
     mode = mode or _ask_mode()
-    try:
-        result = build_cards(folder, mode, out, team_ids(teams) if teams is not None else None)
-    except ValueError as err:
-        raise fail(err) from err
-    for warning in result.warnings:
-        typer.secho(f"Warning: {warning}", fg="yellow", err=True)
+    result = build_cards(folder, mode, out, team_ids(teams) if teams is not None else None)
+    warn_all(result.warnings)
     reserve = f" + {result.reserve} reserve decks" if result.reserve else ""
     typer.echo(
         f"{result.path}: {result.teams} teams{reserve}, {result.cards} cards, {result.pages} pages ({mode.value})."
     )
     typer.echo(f"{result.jury_path}: jury sheet (contains the secret jury access QR once `chgk new` has run).")
-    typer.echo("Print on Letter at 100% / Actual size.")
+    typer.echo(PRINT_HINT)
     typer.echo(INSTRUCTIONS[mode])
 
 
@@ -60,13 +57,9 @@ def test_page(
     out: Path | None = typer.Option(None, help="Output PDF (default: out/<slug>/test-page.pdf)"),
 ) -> None:
     """Print one calibration page: rulers, QR sizes, logo shades and sample cards."""
-    try:
-        path, warnings = build_test_page(folder, out)
-    except ValueError as err:
-        raise fail(err) from err
-    for warning in warnings:
-        typer.secho(f"Warning: {warning}", fg="yellow", err=True)
-    typer.echo(f"{path}: print on Letter at 100% / Actual size and check the rulers, QR sizes and logo shades.")
+    path, warnings = build_test_page(folder, out)
+    warn_all(warnings)
+    typer.echo(f"{path}: check the rulers, QR sizes and logo shades. {PRINT_HINT}")
 
 
 @app.command("jury-sheet")
@@ -75,12 +68,8 @@ def jury_sheet(
     out: Path | None = typer.Option(None, help="Output PDF (default: out/<slug>/jury.pdf)"),
 ) -> None:
     """Print the jury sheet: QR codes, links, how-to, team and player forms, paper backup grid."""
-    try:
-        path, warnings = build_jury_sheet(folder, out)
-    except ValueError as err:
-        raise fail(err) from err
-    for warning in warnings:
-        typer.secho(f"Warning: {warning}", fg="yellow", err=True)
+    path, warnings = build_jury_sheet(folder, out)
+    warn_all(warnings)
     typer.echo(
         f"{path}: jury sheet. Keep it away from the teams once `chgk new` has run: it then holds the jury access QR."
     )

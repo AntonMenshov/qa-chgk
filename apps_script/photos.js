@@ -60,12 +60,7 @@ function uploadPhoto_(ss, reg, req) {
     const row = tab.find((r) => String(r[0]).trim() === req.team_id);
     if (row && row[at.col - 1] === '?') {
       const full = readMarks_(ss, reg, {log: true});
-      full.w.set(
-        TABS.disputed,
-        1,
-        1,
-        disputedBlock_(full, markValues_(full), full.log.photos, disputedBefore_(full).rows),
-      );
+      queueDisputed_(full, disputedBefore_(full));
       full.w.flush();
     }
     return {ok: true, photo_id: req.photo_id, url};

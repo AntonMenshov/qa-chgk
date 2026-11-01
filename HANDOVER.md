@@ -192,9 +192,7 @@ One line each; SPEC has the details. Decisions recorded only here are written ou
 
 ## Next steps
 
-0. **Code review, 2026-10-31:** every finding closed: fixed, or won't fix with its reason in [docs/accepted-gaps.md](docs/accepted-gaps.md). The user schedules a review of what came after `53b045a`.
-   (`out/code-review/TRIAGE.md`, `DECISIONS.md`, `second-pass/` and `third-pass/` for the reviews of those changes; local only: the repo is public). Not yet tried for real: the iPhone
-   side and edits typed in the Sheet ([docs/manual-checks.md](docs/manual-checks.md)).
+0. **Code review, 2026-10-31:** every finding closed: fixed, or won't fix with its reason in [docs/accepted-gaps.md](docs/accepted-gaps.md). The user schedules a review of what came after `53b045a`. Backend `dafcc3d4bf4d` (the last cleanups) waits for the user's redeploy, then the full live check.
 1. **Phase 7**, the rest: reprint `out/osenniy-salat/`, the fixes' own checks on an iPhone
    ([docs/manual-checks.md](docs/manual-checks.md)), the mock game, fixes, a docs/comments check.
    Then **Phase 8**, an external test at a tournament, with the same loop.

@@ -155,6 +155,8 @@ tournament = Tournament(
 
 The QR payload (§6) sets the limits: at most 999 questions, and spare cards numbered up to
 S99 (extra spares from a last page's empty slots included); a config beyond them is refused.
+So does the backend: at most 20 rounds and 100 questions a round. A margin below 0.15 in is refused too:
+printers clip the cards' edges, and no cut guides fit. A three-digit question number shrinks to fit beside the QR code.
 
 Values the system generates or records (tournament ID, backend, spreadsheet ID, jury and board
 tokens, token replacements) are stored next to the config in `tournaments/<slug>/state.json`,

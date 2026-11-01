@@ -82,15 +82,21 @@ function doGet() {
 // own clock minus `total` is Google's part: starting the script and passing the request.
 
 let timing = null;
+let timedDepth = 0;
+let timedTotal = 0; // outermost steps only: a step inside another is already counted in it
 
 /** Run fn, adding its milliseconds to step `step` of this request's timing. */
 function timed_(step, fn) {
   const start = Date.now();
+  timedDepth += 1;
   try {
     return fn();
   } finally {
+    timedDepth -= 1;
     if (timing) {
-      timing[step] = (timing[step] || 0) + Date.now() - start;
+      const ms = Date.now() - start;
+      timing[step] = (timing[step] || 0) + ms;
+      timedTotal += timedDepth === 0 ? ms : 0;
     }
   }
 }
@@ -98,6 +104,7 @@ function timed_(step, fn) {
 function doPost(e) {
   const start = Date.now();
   timing = {};
+  timedTotal = 0;
   let body;
   try {
     body = JSON.parse(e.postData.contents);
@@ -107,8 +114,7 @@ function doPost(e) {
   try {
     const reply = handle_(body);
     const total = Date.now() - start;
-    const steps = Object.keys(timing).reduce((sum, step) => sum + timing[step], 0);
-    reply.timing = Object.assign({}, timing, {rest: total - steps, total});
+    reply.timing = Object.assign({}, timing, {rest: total - timedTotal, total});
     return json_(reply);
   } catch (err) {
     const known = err instanceof RequestError;
@@ -165,7 +171,7 @@ function handle_(req) {
   }
   const props = timed_('access', () => PropertiesService.getScriptProperties());
   const reg = action.noTournament ? null : timed_('access', () => registry_(props, req.tid));
-  requireToken_(action.who, props, reg, req);
+  timed_('access', () => requireToken_(action.who, props, reg, req));
   if (!action.lock) {
     const reply = action.run(req, reg, props);
     if (action.polled) {
@@ -247,7 +253,7 @@ function saveRegistry_(reg) {
 /**
  * The tournament's spreadsheet, opened only when something needs it: opening costs ~0.3 s
  * (profiled), and the batched read, the batched write and the one-call sort need only its
- * ID. The methods are the ones the backend uses on a spreadsheet.
+ * ID. The methods are the ones the backend uses on one it opened this way.
  */
 function open_(reg) {
   let ss = null;
@@ -255,9 +261,6 @@ function open_(reg) {
   return {
     getId: () => reg.spreadsheet_id,
     getSheetByName: (name) => real().getSheetByName(name),
-    getSheets: () => real().getSheets(),
-    insertSheet: (...args) => real().insertSheet(...args),
-    setActiveSheet: (sheet) => real().setActiveSheet(sheet),
   };
 }
 
@@ -286,13 +289,21 @@ function ensureSize_(sheet, rows, cols) {
   }
 }
 
-function appendRows_(sheet, rows) {
+function appendRows_(sheet, rows, first = sheet.getLastRow() + 1) {
   if (!rows.length) {
     return;
   }
-  const first = sheet.getLastRow() + 1;
   ensureSize_(sheet, first + rows.length - 1, rows[0].length);
   sheet.getRange(first, 1, rows.length, rows[0].length).setValues(rows);
+}
+
+/** A tab that must exist. */
+function tabOf_(ss, name) {
+  const sheet = ss.getSheetByName(name);
+  if (!sheet) {
+    fail(`the Sheet has no «${name}» tab`);
+  }
+  return sheet;
 }
 
 function json_(obj) {

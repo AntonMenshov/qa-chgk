@@ -15,7 +15,7 @@ also regenerates it from the Sheet's Teams tab.
 
 import json
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from chgk import run_python_file, write_file
@@ -43,18 +43,28 @@ def team(name: str, id: str | None = None, city: str = "", logo: str = "", logo_
     return Team("" if id is None else str(id), name, city, logo, logo_grey=logo_grey)
 
 
+def only_teams(teams: list[Team], team_ids: list[str], option: str) -> list[Team]:
+    """The teams a command-line `option` names; ValueError for none or an unknown one."""
+    if not team_ids:
+        raise ValueError(f"{option} gives no team IDs")
+    unknown = sorted(set(team_ids) - {t.team_id for t in teams})
+    if unknown:
+        raise ValueError(f"unknown team_id(s): {', '.join(unknown)}")
+    return [t for t in teams if t.team_id in team_ids]
+
+
 def normalize_teams(teams: list[Team], source: str, taken: Iterable[str] = ()) -> list[Team]:
     """Assign the missing team IDs and strip spaces; every team needs a name (`source` names the list).
 
     `taken`: IDs the tournament used before (state.json), never given to a new team.
     """
-    ids = assign_team_ids([t.team_id.strip() or None for t in teams], taken)
+    ids = assign_team_ids([t.team_id for t in teams], taken)
     out = []
     for t, team_id in zip(teams, ids, strict=True):
         name = t.name.strip()
         if not name:
             raise ValueError(f"{source}: team {team_id} has no name")
-        out.append(Team(team_id, name, t.city.strip(), t.logo_file.strip(), logo_grey=t.logo_grey))
+        out.append(replace(t, team_id=team_id, name=name, city=t.city.strip(), logo_file=t.logo_file.strip()))
     return out
 
 

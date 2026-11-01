@@ -11,14 +11,14 @@ function sheetsApi_() {
   return typeof Sheets !== 'undefined' && Boolean(Sheets.Spreadsheets && Sheets.Spreadsheets.Values);
 }
 
-/** A1 range on a named tab; `rows` null = down to the last row. */
-function a1_(name, row, col, rows, cols) {
+/** A1 range on a named tab; no `rows`: down to the last row. */
+function a1_(name, row, col, cols, rows) {
   const end = rows ? row + rows - 1 : '';
   return `'${name.replace(/'/g, "''")}'!${colLetter(col)}${row}:${colLetter(col + cols - 1)}${end}`;
 }
 
 /**
- * Read blocks {name, row, col, cols, rows?} at once. Each comes back as rows padded to
+ * Read blocks {name, row, col, cols} at once, each down to its tab's last row. Each comes back as rows padded to
  * `cols` with "", trailing empty rows dropped; row k of a block is sheet row `row + k`.
  */
 function readBlocks_(ss, specs) {
@@ -27,7 +27,7 @@ function readBlocks_(ss, specs) {
     try {
       const res = timed_('read', () =>
         Sheets.Spreadsheets.Values.batchGet(ss.getId(), {
-          ranges: specs.map((b) => a1_(b.name, b.row, b.col, b.rows, b.cols)),
+          ranges: specs.map((b) => a1_(b.name, b.row, b.col, b.cols)),
           valueRenderOption: 'UNFORMATTED_VALUE',
         }),
       );
@@ -41,11 +41,8 @@ function readBlocks_(ss, specs) {
 
 function readBlocksSlowly_(ss, specs) {
   return specs.map((b) => {
-    const sheet = b.name === TABS.summary ? summaryOf_(ss) : ss.getSheetByName(b.name);
-    if (!sheet) {
-      fail(`the Sheet has no «${b.name}» tab`);
-    }
-    const last = b.rows ? b.row + b.rows - 1 : sheet.getLastRow();
+    const sheet = tabOf_(ss, b.name);
+    const last = sheet.getLastRow();
     if (last < b.row) {
       return [];
     }
@@ -67,9 +64,6 @@ function writer_(ss) {
         data.push({name, row, col, values});
       }
     },
-    get size() {
-      return data.length;
-    },
     flush() {
       if (!data.length) {
         return;
@@ -82,7 +76,7 @@ function writer_(ss) {
               {
                 valueInputOption: 'RAW',
                 data: batch.map((d) => ({
-                  range: a1_(d.name, d.row, d.col, d.values.length, d.values[0].length),
+                  range: a1_(d.name, d.row, d.col, d.values[0].length, d.values.length),
                   values: d.values,
                 })),
               },
@@ -101,17 +95,18 @@ function writer_(ss) {
 }
 
 function writeSlowly_(ss, batch) {
+  const tabs = new Map(); // each tab looked up and sized once
   batch.forEach((d) => {
-    const sheet = ss.getSheetByName(d.name);
-    if (!sheet) {
-      fail(`the Sheet has no «${d.name}» tab`);
-    }
-    const lastRow = d.row + d.values.length - 1;
-    if (sheet.getMaxRows() < lastRow) {
-      ensureSize_(sheet, lastRow + SHEETS_API_GROW, 1);
-    }
-    ensureSize_(sheet, 1, d.col + d.values[0].length - 1);
-    sheet.getRange(d.row, d.col, d.values.length, d.values[0].length).setValues(d.values);
+    const tab = tabs.get(d.name) || {sheet: tabOf_(ss, d.name), rows: 1, cols: 1};
+    tab.rows = Math.max(tab.rows, d.row + d.values.length - 1);
+    tab.cols = Math.max(tab.cols, d.col + d.values[0].length - 1);
+    tabs.set(d.name, tab);
+  });
+  tabs.forEach(({sheet, rows, cols}) => {
+    ensureSize_(sheet, sheet.getMaxRows() < rows ? rows + SHEETS_API_GROW : 1, cols);
+  });
+  batch.forEach((d) => {
+    tabs.get(d.name).sheet.getRange(d.row, d.col, d.values.length, d.values[0].length).setValues(d.values);
   });
 }
 

@@ -92,7 +92,7 @@ function propagateNames_(ss, sizes, sourceName) {
   if (sourceName !== TABS.teams) {
     const typed = {};
     teamRowsOf_(ss.getSheetByName(sourceName)).forEach((t) => {
-      typed[t.team_id] = t.name;
+      typed[t.team_id] = String(t.name);
     });
     nameEdits(typed, truth).forEach((e) => {
       truth[e.team_id] = e.name;
@@ -112,10 +112,10 @@ function propagateNames_(ss, sizes, sourceName) {
       .filter((t) => t.reserve && t.team_id && truth[t.team_id] && truth[t.team_id] !== reservePlaceholder(t.team_id))
       .map((t) => t.team_id),
   );
-  [summaryOf_(ss)].concat(sizes.map((_, i) => ss.getSheetByName(roundSheetName(i + 1)))).forEach((sheet) => {
+  teamTabs_(ss, sizes).forEach(({sheet}) => {
     teamRowsOf_(sheet).forEach((t) => {
       const want = truth[t.team_id];
-      if (want && String(t.rawName) !== want) {
+      if (want && String(t.name) !== want) {
         sheet.getRange(t.row, 2).setValue(want);
       }
     });
@@ -171,7 +171,7 @@ function formatSheets_(ss, sizes) {
   });
 }
 
-/** [{team_id, name, rawName, row}] for the rows of a tab that have a team ID in column A. */
+/** [{team_id, name, row}] for the rows of a tab that have a team ID in column A; `name` is the cell's raw value. */
 function teamRowsOf_(sheet) {
   const n = sheet.getLastRow() - 1;
   if (n < 1) {
@@ -180,16 +180,22 @@ function teamRowsOf_(sheet) {
   return sheet
     .getRange(2, 1, n, 2)
     .getValues()
-    .map((r, i) => ({team_id: String(r[0]).trim(), name: String(r[1]), rawName: r[1], row: i + 2}))
+    .map((r, i) => ({team_id: String(r[0]).trim(), name: r[1], row: i + 2}))
     .filter((t) => t.team_id !== '');
 }
 
+/** «Итоги» and every round tab, each with how to build a team's row. */
+function teamTabs_(ss, sizes) {
+  return [{sheet: summaryOf_(ss), rowFor: (t, row) => summaryRow(sizes, t, row)}].concat(
+    sizes.map((_, i) => {
+      const lay = roundLayout(sizes, i + 1);
+      return {sheet: tabOf_(ss, lay.name), rowFor: (t, row) => roundRow(lay, t, row)};
+    }),
+  );
+}
+
 function summaryOf_(ss) {
-  const summary = ss.getSheetByName(TABS.summary);
-  if (!summary) {
-    fail(`the Sheet has no «${TABS.summary}» tab`);
-  }
-  return summary;
+  return tabOf_(ss, TABS.summary);
 }
 
 /**
@@ -197,25 +203,17 @@ function summaryOf_(ss) {
  * re-sort. Returns {appended, renamed} as counted on «Итоги».
  */
 function syncTeamRows_(ss, sizes, teams) {
-  const tabs = [[summaryOf_(ss), (t, row) => summaryRow(sizes, t, row)]].concat(
-    sizes.map((_, i) => {
-      const lay = roundLayout(sizes, i + 1);
-      return [ss.getSheetByName(lay.name), (t, row) => roundRow(lay, t, row)];
-    }),
-  );
   let counts = null;
-  tabs.forEach(([sheet, rowFor]) => {
+  teamTabs_(ss, sizes).forEach(({sheet, rowFor}) => {
     const existing = teamRowsOf_(sheet);
     // Compare raw values: a name stored as the number 42 gets rewritten as the text "42".
-    const plan = planTeamRows(
-      existing.map((r) => ({team_id: r.team_id, name: r.rawName})),
-      teams,
-    );
+    const plan = planTeamRows(existing, teams);
     plan.rename.forEach((t) => sheet.getRange(existing.find((r) => r.team_id === t.team_id).row, 2).setValue(t.name));
     const first = sheet.getLastRow() + 1;
     appendRows_(
       sheet,
       plan.append.map((t, i) => rowFor(t, first + i)),
+      first,
     );
     counts = counts || {appended: plan.append.length, renamed: plan.rename.length};
   });

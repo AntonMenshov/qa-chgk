@@ -10,15 +10,15 @@ function markValues_(m) {
 }
 
 // A-D the list, E-F empty, G-H the counts (user request: well clear of the photo links).
-const DISPUTED_WIDTH = 8;
-
-const DISPUTED_COUNTS_COL = 7;
-
 const DISPUTED_WIDTHS = [50, 70, 200, 360, 30, 30, 200, 70]; // pixels, A-H
+const DISPUTED_WIDTH = DISPUTED_WIDTHS.length;
+const DISPUTED_LIST = ['', '', '', ''];
+const DISPUTED_SPACER = ['', ''];
+const DISPUTED_COUNTS = ['', ''];
+const DISPUTED_COUNTS_COL = DISPUTED_LIST.length + DISPUTED_SPACER.length + 1;
 
 function newDisputedTab_(ss) {
   const sheet = ss.insertSheet(TABS.disputed, ss.getSheets().length);
-  sheet.hideSheet();
   formatDisputedTab_(sheet);
   return sheet;
 }
@@ -43,38 +43,44 @@ function disputedBlock_(m, values, photos, minRows) {
   });
   const {list, summary} = disputedSheet(m.sizes, names, values, photos);
   const n = Math.max(list.length, summary.length, minRows || 0);
-  return Array.from({length: n}, (_, i) => (list[i] || ['', '', '', '']).concat(['', ''], summary[i] || ['', '']));
+  return Array.from({length: n}, (_, i) =>
+    (list[i] || DISPUTED_LIST).concat(DISPUTED_SPACER, summary[i] || DISPUTED_COUNTS),
+  );
 }
 
 /** Rewrite «Спорные» completely. Needs `m` read with the Log. */
 function writeDisputed_(ss, m) {
-  const sheet = ss.getSheetByName(TABS.disputed);
-  const block = disputedBlock_(m, markValues_(m), m.log.photos, 0);
+  putDisputed_(ss, disputedBlock_(m, markValues_(m), m.log.photos, 0));
+}
+
+function putDisputed_(ss, block) {
+  const sheet = tabOf_(ss, TABS.disputed);
   const last = sheet.getLastRow();
   if (last > 0) {
     sheet.getRange(1, 1, last, DISPUTED_WIDTH).clearContent();
   }
   ensureSize_(sheet, block.length, DISPUTED_WIDTH);
   sheet.getRange(1, 1, block.length, DISPUTED_WIDTH).setValues(block);
-  sheet.getRange(1, 1, 1, 4).setFontWeight('bold');
+  sheet.getRange(1, 1, 1, DISPUTED_LIST.length).setFontWeight('bold');
   sheet.getRange(1, DISPUTED_COUNTS_COL, block.length, 1).setFontWeight('bold');
 }
 
 /** What «Спорные» shows now, from the values the backend knows (a jury edit is already on the tab). */
 function disputedBefore_(m) {
-  return {keys: disputedKeys(m.known).join(), rows: disputedBlock_(m, m.known, {}, 0).length};
+  return {keys: disputedKeys(m.known).join(), known: Object.assign({}, m.known)};
 }
 
-/**
- * Queue a rewrite of «Спорные» with the request's other writes, only when the set of «?»
- * marks changed (most requests leave it alone). The block is padded to the old length, so
- * rows of «?» that went away are cleared.
- */
+/** Queue «Спорные» with the request's other writes; padded to its old length, so rows that went away are cleared. */
+function queueDisputed_(m, before) {
+  const oldRows = disputedBlock_(m, before.known, {}, 0).length;
+  m.w.set(TABS.disputed, 1, 1, disputedBlock_(m, markValues_(m), m.log.photos, oldRows));
+}
+
+/** Queue a rewrite only when the set of «?» marks changed: most requests leave it alone. */
 function updateDisputed_(m, before) {
-  if (disputedKeys(markValues_(m)).join() === before.keys) {
-    return;
+  if (disputedKeys(markValues_(m)).join() !== before.keys) {
+    queueDisputed_(m, before);
   }
-  m.w.set(TABS.disputed, 1, 1, disputedBlock_(m, markValues_(m), m.log.photos, before.rows));
 }
 
 /** Full rewrite after SpreadsheetApp writes (names, teams). */

@@ -9,7 +9,7 @@ from typing import Any
 from chgk import out_dir
 from chgk.backend import BackendClient, BackendError, Profile, Profiles
 from chgk.config import load_config
-from chgk.ids import generate_jury_token
+from chgk.ids import generate_token
 from chgk.state import (
     STATE_FILE,
     State,
@@ -59,8 +59,8 @@ def new_tournament(folder: Path, profile: Profile, client: BackendClient | None 
     client = client or BackendClient(profile.url, profile.admin_token)
     account = profile.account or client.ping().get("account", "")
     reserve = reserve_teams(tournament.reserve_teams, teams)
-    jury_token = state.jury_token or generate_jury_token()
-    board_token = state.board_token or generate_jury_token()
+    jury_token = state.jury_token or generate_token()
+    board_token = state.board_token or generate_token()
     # Save the tokens first, so a retry after a timeout reuses them and the backend recognises the retry.
     state = replace(state, jury_token=jury_token, board_token=board_token, reserve_teams=tournament.reserve_teams)
     save_state(folder, state)
@@ -215,7 +215,7 @@ def replace_token(folder: Path, which: str, profiles: Profiles, client: BackendC
             f"replacing the {pending.get('which')} token didn't finish: run `chgk replace-token` for it first, "
             "or its new token would be lost"
         )
-    token = pending["token"] if pending.get("which") == which else generate_jury_token()
+    token = pending["token"] if pending.get("which") == which else generate_token()
     save_state(folder, replace(state, pending_token={"which": which, "token": token}))
     (client or default_client).replace_token(state.tid, which, token)
     record = {"which": which, "at": datetime.now().strftime("%Y-%m-%dT%H:%M")}

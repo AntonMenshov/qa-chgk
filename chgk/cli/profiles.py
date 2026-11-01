@@ -6,7 +6,6 @@ import typer
 
 from chgk.backend import (
     BackendClient,
-    BackendError,
     Profile,
     Profiles,
     bundle_apps_script,
@@ -15,7 +14,7 @@ from chgk.backend import (
     check_backend_url,
     source_version,
 )
-from chgk.cli.common import backend_app, fail, warn_permissions
+from chgk.cli.common import backend_app, warn_permissions
 
 
 @backend_app.command("bundle")
@@ -38,22 +37,13 @@ def backend_add(
     check: bool = typer.Option(True, help="Ping the backend before saving"),
 ) -> None:
     """Add (or replace) a backend profile and make it active."""
-    try:
-        check_backend_url(url)  # before the token is sent anywhere
-    except ValueError as err:
-        raise fail(err) from err
+    check_backend_url(url)  # before the token is sent anywhere
     profiles = Profiles()
     if check:
-        try:
-            reply = BackendClient(url, token).ping()
-        except BackendError as err:
-            raise fail(err) from err
+        reply = BackendClient(url, token).ping()
         account = account or reply.get("account") or ""
         warn_permissions(reply)
-    try:
-        profiles.add(Profile(name, url, token, account))
-    except ValueError as err:
-        raise fail(err) from err
+    profiles.add(Profile(name, url, token, account))
     profiles.save()
     typer.echo(f"Backend '{name}' saved and active{f' ({account})' if account else ''}.")
 
@@ -62,10 +52,7 @@ def backend_add(
 def backend_use(name: str) -> None:
     """Make a profile active: new tournaments are created on it."""
     profiles = Profiles()
-    try:
-        profiles.use(name)
-    except ValueError as err:
-        raise fail(err) from err
+    profiles.use(name)
     profiles.save()
     typer.echo(f"Active backend: {name}. Existing tournaments stay on the backend they were created on.")
 
@@ -85,10 +72,7 @@ def backend_list() -> None:
 def backend_remove(name: str) -> None:
     """Forget a profile (the Google side is not touched)."""
     profiles = Profiles()
-    try:
-        profiles.remove(name)
-    except ValueError as err:
-        raise fail(err) from err
+    profiles.remove(name)
     profiles.save()
     now = f" Active now: '{profiles.active_name}'." if profiles.active_name else ""
     typer.echo(f"Removed backend '{name}'.{now}")
@@ -98,11 +82,8 @@ def backend_remove(name: str) -> None:
 def backend_check(name: str | None = typer.Argument(None, help="Profile (default: active)")) -> None:
     """Ping a backend: shows its Google account and whether its code is up to date."""
     profiles = Profiles()
-    try:
-        profile = profiles.get(name) if name else profiles.active()
-        reply = BackendClient(profile.url, profile.admin_token).ping()
-    except (ValueError, BackendError) as err:
-        raise fail(err) from err
+    profile = profiles.get(name) if name else profiles.active()
+    reply = BackendClient(profile.url, profile.admin_token).ping()
     local = source_version()
     typer.echo(
         f"Backend '{profile.name}' OK: account {reply.get('account') or '?'}, version {reply.get('version') or '?'}."

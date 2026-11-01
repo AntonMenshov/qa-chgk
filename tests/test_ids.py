@@ -18,8 +18,8 @@ from chgk.ids import (
     encode_board_link,
     encode_jury_link,
     encode_payload,
-    generate_jury_token,
     generate_tid,
+    generate_token,
 )
 
 VECTORS = json.loads((Path(__file__).parent / "vectors" / "qr_payloads.json").read_text(encoding="utf-8"))
@@ -114,14 +114,14 @@ def test_invalid_jury_links(case):
 
 
 def test_generated_jury_token_round_trips():
-    access = JuryAccess("K7M2Q", generate_jury_token(), "https://script.google.com/macros/s/AKfycbx_Example-123/exec")
+    access = JuryAccess("K7M2Q", generate_token(), "https://script.google.com/macros/s/AKfycbx_Example-123/exec")
     assert decode_jury_link(encode_jury_link("https://e.github.io/qa-chgk/s/", access)) == access
 
 
 def test_jury_link_rejects_non_apps_script_backend():
     with pytest.raises(ValueError):
         encode_jury_link(
-            "https://e.github.io/qa-chgk/s/", JuryAccess("K7M2Q", generate_jury_token(), "https://evil.example/exec")
+            "https://e.github.io/qa-chgk/s/", JuryAccess("K7M2Q", generate_token(), "https://evil.example/exec")
         )
 
 

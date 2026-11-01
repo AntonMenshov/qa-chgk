@@ -5,7 +5,7 @@
 export const STATUS_VALUE = {received: 'R', correct: 1, incorrect: 0, disputed: '?', cleared: ''};
 const APP_STATUSES = ['received', 'correct', 'incorrect', 'disputed']; // "cleared" only comes from the sheet
 const TID_RE = /^[0-9A-Z]{1,8}$/; // generated, or given in config.py (chgk/ids.py TID_PATTERN)
-const TEAM_ID_RE = /^[0-9A-Z]{1,8}$/; // e.g. a rating.chgk.info number (58746) or A07
+const TEAM_ID_RE = TID_RE; // e.g. a rating.chgk.info number (58746) or A07
 const MAX_EVENTS_PER_REQUEST = 500;
 const MAX_DATE_MS = 8.64e15; // beyond it JavaScript has no Date, and formatting one throws
 export const MAX_PHOTO_CHARS = 4000000; // base64 of a ~3 MB JPEG; phones send ~150-300 KB
@@ -79,6 +79,8 @@ function validateTeams(teams) {
   }
 }
 
+const isCount = (n) => Number.isInteger(n) && n >= 1;
+
 /** A card photo from a phone (upload_photo): who, which question, and a base64 JPEG. */
 function validatePhoto(p) {
   if (typeof p.photo_id !== 'string' || !/^[A-Za-z0-9_-]{8,64}$/.test(p.photo_id)) {
@@ -87,21 +89,21 @@ function validatePhoto(p) {
   if (!TEAM_ID_RE.test(p.team_id || '')) {
     fail('invalid team_id');
   }
-  if (!Number.isInteger(p.question) || p.question < 1) {
+  if (!isCount(p.question)) {
     fail('invalid question');
   }
-  if (p.spare !== undefined && p.spare !== null && !(Number.isInteger(p.spare) && p.spare >= 1)) {
+  if (p.spare != null && !isCount(p.spare)) {
     fail('invalid spare');
   }
   if (typeof p.client_ts !== 'number' || !(p.client_ts > 0 && p.client_ts <= MAX_DATE_MS)) {
     fail('invalid client_ts');
   }
+  if (typeof p.image === 'string' && p.image.length > MAX_PHOTO_CHARS) {
+    fail('image too large'); // before the pattern below scans all of it
+  }
   // JPEG files start with FF D8 FF, which is "/9j/" in base64.
   if (typeof p.image !== 'string' || !p.image.startsWith('/9j/') || !/^[A-Za-z0-9+/]+=*$/.test(p.image)) {
     fail('image must be a base64 JPEG');
-  }
-  if (p.image.length > MAX_PHOTO_CHARS) {
-    fail('image too large');
   }
 }
 
@@ -200,13 +202,14 @@ export function latinName(text) {
 export function driveNames(tid, name, date) {
   const latin = latinName(name);
   return {
-    root: 'CHGK',
     folder: `${date} ${latin} (${tid})`,
     photos: 'Photos',
     spreadsheet: `${latin} ${date} (${tid})`,
     results: `${latin} ${date} (${tid}) results`,
   };
 }
+
+export const DRIVE_ROOT = 'CHGK';
 
 /** Name shown for a reserve team from its first scan until the jury types the real one. */
 export function reservePlaceholder(teamId) {
@@ -320,13 +323,13 @@ export function eventError(ev, teamIds, roundSizes, nowMs) {
   if (!teamIds.has(ev.team_id)) {
     return `unknown team ${JSON.stringify(ev.team_id)}`;
   }
-  if (!Number.isInteger(ev.question) || ev.question < 1 || ev.question > totalQuestions(roundSizes)) {
+  if (!isCount(ev.question) || ev.question > totalQuestions(roundSizes)) {
     return 'invalid question';
   }
   if (!Number.isFinite(ev.client_ts) || ev.client_ts <= 0 || ev.client_ts > nowMs + 24 * 3600 * 1000) {
     return 'invalid client_ts';
   }
-  if (ev.spare != null && (!Number.isInteger(ev.spare) || ev.spare < 1)) {
+  if (ev.spare != null && !isCount(ev.spare)) {
     return 'invalid spare';
   }
   return null;
@@ -566,16 +569,13 @@ export function roundSortSpec(lay) {
 /** Team IDs in the order a round tab should show them (roundSortSpec), from marks {id: [values]}. */
 export function roundOrder(roundSizes, round, ids, values) {
   const lay = roundLayout(roundSizes, round);
-  const sum = (id) => {
-    let s = 0;
-    for (let k = 0; k < lay.size; k++) {
-      if ((values[id] || [])[lay.first - 1 + k] === 1) {
-        s++;
-      }
-    }
-    return s;
-  };
-  return [...ids].sort((a, b) => sum(b) - sum(a) || compareIds(a, b));
+  const sums = new Map(
+    ids.map((id) => [
+      id,
+      (values[id] || []).slice(lay.first - 1, lay.first - 1 + lay.size).filter((v) => v === 1).length,
+    ]),
+  );
+  return [...ids].sort((a, b) => sums.get(b) - sums.get(a) || compareIds(a, b));
 }
 
 /** Team IDs in the order «Итоги» should show them (summarySortSpec). */
@@ -662,7 +662,7 @@ export function disputedSheet(roundSizes, names, values, photos) {
     ['', ''],
     ['Тур', '«?»'],
   ]
-    .concat(perRound.map((n, i) => [`Тур ${i + 1}`, n]))
+    .concat(perRound.map((n, i) => [roundSheetName(i + 1), n]))
     .concat([
       ['', ''],
       ['Команда', '«?»'],

@@ -18,19 +18,15 @@ function onSheetEdit(e) {
     return;
   }
   const ss = sheet.getParent();
-  const settings = ss.getSheetByName(TABS.settings).getRange(1, 1, 6, 2).getValues();
+  const settings = ss.getSheetByName(TABS.settings).getRange(1, 1, SETTINGS_ROWS, 2).getValues();
   const sizes = JSON.parse(settings.find((r) => r[0] === 'round_sizes')[1]);
   const tid = String((settings.find((r) => r[0] === 'tid') || [])[1] || '');
   // Columns never move, so the columns still tell what was touched.
   const first = e.range.getColumn();
   const last = first + e.range.getNumColumns() - 1;
   const touchesNames = first <= 2 && last >= 2;
-  let touchesMarks = false;
-  for (let c = first; c <= last && isRound; c++) {
-    if (questionAt(sizes, name, 2, c) !== null) {
-      touchesMarks = true;
-    }
-  }
+  const columns = Array.from({length: last - first + 1}, (_, i) => first + i);
+  const touchesMarks = isRound && columns.some((c) => questionAt(sizes, name, 2, c) !== null);
   // A computed cell typed over («Сумма», «Итого», …): the same pass below finds and repairs it.
   const touchesFormulas = name !== TABS.teams && last > 2 && !touchesMarks;
   if (!touchesNames && !touchesMarks && !touchesFormulas) {

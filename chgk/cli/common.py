@@ -1,5 +1,6 @@
 """What every command group shares: the app, the `backend` group, error and warning output."""
 
+from collections.abc import Iterable
 from typing import Any
 
 import typer
@@ -36,6 +37,11 @@ def warn_permissions(reply: dict[str, Any]) -> None:
 def team_ids(text: str) -> list[str]:
     """Team IDs typed on the command line: "a01, A02" → ["A01", "A02"]."""
     return [t.strip().upper() for t in text.split(",") if t.strip()]
+
+
+def warn_all(warnings: Iterable[str]) -> None:
+    for warning in warnings:
+        typer.secho(f"Warning: {warning}", fg="yellow", err=True)
 
 
 def fail(err: Exception) -> typer.Exit:

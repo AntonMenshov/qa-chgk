@@ -8,6 +8,7 @@ if TYPE_CHECKING:
 
 INCH = 72.0
 PAGE_W, PAGE_H = 8.5 * INCH, 11 * INCH  # Letter
+PRINT_HINT = "Print on Letter at 100% / Actual size."
 
 PAD = 0.07 * INCH  # inner padding of a card
 NUMBER_SIZE = 26  # pt, question number
@@ -16,6 +17,9 @@ TEAM_SIZE = 8  # pt, footer line 1
 INFO_SIZE = 6.5  # pt, footer line 2
 FOOTER_H = TEAM_SIZE + INFO_SIZE + 4
 MIN_WRITING_H = 0.35 * INCH
+MIN_NUMBER_W = 0.45 * INCH
+NUMBER_GAP = 5  # pt between the number and «Тур N», and under it
+LOGO_FIT = 0.92  # of the writing area a logo fills
 # The QR's black modules stand 20% farther from the top and right edges than its quiet zone
 # alone would put them (user: safer when cutting). A version 4 code: 4 of its 41 modules.
 QR_INSET_SHARE = 0.2 * 4 / 41
@@ -104,20 +108,21 @@ def card_parts(card: Rect, qr_size: float, logo_size: float | None = None, no_qr
         qr_size = 0.0
     inset = qr_size * QR_INSET_SHARE
     qr = Rect(card.right - inset - qr_size, card.top - inset - qr_size, qr_size, qr_size)
-    number_h = NUMBER_SIZE + ROUND_SIZE + 5
+    number_h = NUMBER_SIZE + ROUND_SIZE + NUMBER_GAP
     number = Rect(card.x + PAD, card.top - PAD - number_h, qr.x - card.x - 2 * PAD, number_h)
-    footer = Rect(card.x + PAD, card.y + PAD, card.w - 2 * PAD, FOOTER_H)
+    inner_w = card.w - 2 * PAD
+    footer = Rect(card.x + PAD, card.y + PAD, inner_w, FOOTER_H)
     writing_top = min(qr.y, number.y)
-    writing = Rect(card.x + PAD, footer.top, card.w - 2 * PAD, writing_top - footer.top)
-    if not no_qr and (number.w < 0.45 * INCH or writing.h < MIN_WRITING_H):
+    writing = Rect(card.x + PAD, footer.top, inner_w, writing_top - footer.top)
+    if not no_qr and (number.w < MIN_NUMBER_W or writing.h < MIN_WRITING_H):
         raise GeometryError(
             f"card {card.w / INCH:.2f}×{card.h / INCH:.2f} in is too small for a {qr_size / INCH:.2f} in QR code"
         )
     if logo_size is None:
         area = writing
-        side = min(writing.w, writing.h) * 0.92
+        side = min(writing.w, writing.h) * LOGO_FIT
     else:
-        area = Rect(card.x + PAD, card.y + PAD, card.w - 2 * PAD, card.h - 2 * PAD)
+        area = Rect(card.x + PAD, card.y + PAD, inner_w, card.h - 2 * PAD)
         side = min(logo_size, area.w, area.h)
     logo = Rect(area.x + (area.w - side) / 2, area.y + (area.h - side) / 2, side, side)
     return CardParts(card, qr, number, writing, logo, footer)
