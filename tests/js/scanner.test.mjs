@@ -1168,7 +1168,8 @@ test('camera: stopped while it was starting, it does not come on', async () => {
   assert.equal(camera.running, false);
 });
 
-test("storage: a value that can't be saved leaves everything as it was", () => {
+test("storage: a value that can't be saved leaves everything as it was", async () => {
+  const {storage} = await import('../../web/s/lib/storage.js');
   const values = new Map([
     ['chgk.state.T', '{}'],
     ['k', '1'],
@@ -1197,7 +1198,7 @@ test("storage: a value that can't be saved leaves everything as it was", () => {
 test('queue: a reply naming an event outside the batch does not drop it', async () => {
   const q = memoryQueue(async () => ({results: [{scan_id: 'a'}, {scan_id: 'c'}]}));
   q.batchSize = 2;
-  ['a', 'b', 'c'].forEach((scan_id) => q.add({scan_id}));
+  ['a', 'b', 'c'].forEach((id) => q.add({scan_id: id}));
   await q.flush();
   assert.deepEqual(
     q.pending.map((e) => e.scan_id),
