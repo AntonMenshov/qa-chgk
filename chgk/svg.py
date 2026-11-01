@@ -15,6 +15,7 @@ import contextlib
 import io
 import re
 import xml.etree.ElementTree as ET
+import xml.parsers.expat
 from math import isfinite
 from pathlib import Path
 from typing import Any
@@ -43,14 +44,24 @@ def _local(name: str) -> str:
     return name.rsplit("}", 1)[-1]  # "{http://www.w3.org/2000/svg}rect" → "rect"
 
 
+def _check_doctype(text: str) -> None:
+    """The standard DOCTYPE line many exporters write is harmless; defining anything in it is not. The parser knows."""
+
+    def on_doctype(_name: str, _system_id: str | None, _public_id: str | None, has_subset: int) -> None:
+        if has_subset:
+            raise ValueError("SVG with anything defined in its DOCTYPE is refused")
+
+    parser = xml.parsers.expat.ParserCreate()
+    parser.StartDoctypeDeclHandler = on_doctype
+    with contextlib.suppress(xml.parsers.expat.ExpatError):  # not XML: said below, with the reason
+        parser.Parse(text, True)
+
+
 def check_svg(text: str) -> ET.Element:
     """The SVG's root element; ValueError if it is not plain drawing (see the module docstring)."""
     if len(text.encode("utf-8")) > MAX_BYTES:
         raise ValueError(f"SVG larger than {MAX_BYTES // 1_000_000} MB")
-    # The standard DOCTYPE line many exporters write is harmless; defining anything in it is not. Possessive:
-    # a plain repeat keeps memory per character (731 MB on a 2 MB file, measured).
-    if re.search(r"""<!DOCTYPE(?:[^>"'\[]++|"[^"]*+"|'[^']*+')*+\[|<!ENTITY""", text, re.IGNORECASE):
-        raise ValueError("SVG with anything defined in its DOCTYPE is refused")
+    _check_doctype(text)
     try:
         root = ET.fromstring(text)
     except ET.ParseError as err:

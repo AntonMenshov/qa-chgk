@@ -13,6 +13,7 @@ declare global {
   const validateReserve: typeof L.validateReserve;
   const latinName: typeof L.latinName;
   const driveNames: typeof L.driveNames;
+  const computedColumnsAt: typeof L.computedColumnsAt;
   const roundFormulas: typeof L.roundFormulas;
   const summaryFormulas: typeof L.summaryFormulas;
   const DRIVE_ROOT: typeof L.DRIVE_ROOT;

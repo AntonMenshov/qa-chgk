@@ -6,7 +6,7 @@ import {blobToBase64, PhotoQueue} from '../lib/photos.js';
 import {photoStore} from '../lib/photostore.js';
 import {Queue} from '../lib/queue.js';
 import {Session} from '../lib/session.js';
-import {$, offerReload, show, startCamera, toast} from './dom.js';
+import {$, offerReload, show, startCamera, startSetupCamera, toast} from './dom.js';
 import {handleCode} from './scan.js';
 import {app, deviceId, K, store} from './state.js';
 import {render} from './sync.js';
@@ -16,7 +16,7 @@ export function cameraTrouble(message, needsReload = false) {
   $('start').hidden = false;
   if (needsReload) {
     if (!offerReload(message)) {
-      toast(`${message}: чтобы сканировать, перезагрузите приложение`, true);
+      toast(`${message}: без перезагрузки сканер не заработает. «Начать проверку» предложит её снова`, true);
     }
     return;
   }
@@ -26,9 +26,7 @@ export function cameraTrouble(message, needsReload = false) {
 /** Back in the app after a phone lock, a call or another app: iOS may have stopped the camera. */
 export async function resumeCamera() {
   if (app.setupCamera?.wanted) {
-    startCamera(app.setupCamera, $('setup-start'), (err) => {
-      $('setup-msg').textContent = `Камера недоступна: ${err.message}`;
-    });
+    startSetupCamera();
   }
   if (!app.camera?.wanted) {
     return;

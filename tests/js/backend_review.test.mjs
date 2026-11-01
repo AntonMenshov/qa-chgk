@@ -497,3 +497,50 @@ test('onSheetEdit: a name edit stays marked for the public copy even if a later 
   b.refreshDisputed_ = refresh;
   assert.equal(b.$.props.has(`dirty:${TID}`), true);
 });
+
+test('onSheetEdit: a note under the table in a computed column stays there, and sorts nothing', () => {
+  const {b, tab} = world();
+  const round = tab('Тур 1');
+  const sumCol = L.roundLayout([3, 3], 1).sumCol;
+  const below = round.getLastRow() + 4;
+  round.getRange(below, sumCol).setValue('проверить');
+  const sort = b.sortTabs_;
+  b.sortTabs_ = () => assert.fail('nothing to sort');
+  b.onSheetEdit({range: round.getRange(below, sumCol)});
+  b.sortTabs_ = sort;
+});
+
+test('the slow sort leaves a note under the table where it is', () => {
+  const {b, ss, tab} = world();
+  const round = tab('Тур 1');
+  const sumCol = L.roundLayout([3, 3], 1).sumCol;
+  const below = round.getLastRow() + 4;
+  round.getRange(below, sumCol).setValue('проверить');
+  b.sortTabs_(ss, [3, 3], [1], null, null);
+  assert.equal(round.getRange(below, sumCol).getValues()[0][0], 'проверить');
+});
+
+test('onSheetEdit: a failing mark for the public copy does not stop the edit', () => {
+  const {b, tab} = world();
+  const round = tab('Тур 1');
+  const col = L.questionCell([3, 3], 1).col;
+  const row = rowOf(round, 'A01');
+  round.getRange(row, col).setValue('+');
+  const mark = b.markUnpublished_;
+  b.markUnpublished_ = () => {
+    throw new Error('too many times');
+  };
+  b.onSheetEdit({range: round.getRange(row, col)});
+  b.markUnpublished_ = mark;
+  const now = rowOf(round, 'A01');
+  assert.equal(round.getRange(now, col).getValues()[0][0], 1);
+});
+
+test('computedColumnsAt: only the real tabs have computed columns', () => {
+  assert.deepEqual(L.computedColumnsAt([3, 3], 'Тур 1'), {
+    first: L.roundLayout([3, 3], 1).sumCol,
+    last: L.roundLayout([3, 3], 1).width,
+  });
+  assert.equal(L.computedColumnsAt([3, 3], 'Тур 9'), null);
+  assert.equal(L.computedColumnsAt([3, 3], 'Teams'), null);
+});

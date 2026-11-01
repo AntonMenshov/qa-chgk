@@ -26,7 +26,7 @@ Full design: [SPEC.md](SPEC.md). What's left: [PLAN.md](PLAN.md).
 | 8 — External test at a tournament | not started: the same loop with real teams |
 | 9 — Next version | the deferred list in PLAN.md |
 
-- **Deployed backend:** version **dafcc3d4bf4d** (2026-10-31; full live check passed: sorting, clock cap, photos, public copy, private Sheet, the one-off timer, refusals, `chgk delete`) under the user's Gmail (local
+- **Deployed backend:** version **46c18db1c15b** (2026-10-31; full live check passed: sorting, clock cap, photos, public copy, private Sheet, the one-off timer, refusals, `chgk delete`) under the user's Gmail (local
   profile `personal`), with the «Google Sheets API» service on. `uv run chgk backend check`
   compares it with the local code, and says when `out/apps_script/Code.gs` is an old bundle.
 - **Phase 7 tournament:** `tournaments/osenniy-salat/` «Осенний салат», 2026-11-20, TID **18376**,
@@ -192,7 +192,7 @@ One line each; SPEC has the details. Decisions recorded only here are written ou
 
 ## Next steps
 
-0. **Code review, 2026-10-31:** every finding closed: fixed, or won't fix with its reason in [docs/accepted-gaps.md](docs/accepted-gaps.md). The reviews of what came after `53b045a`, and of their fixes, are done and closed too. Backend `46c18db1c15b` waits for the user's redeploy, then `scripts/live_check.py`.
+0. **Code review, 2026-10-31:** every finding closed: fixed, or won't fix with its reason in [docs/accepted-gaps.md](docs/accepted-gaps.md). The reviews of what came after `53b045a`, and of their fixes, are done and closed too. Backend `bcb5d7fb01cf` waits for the user's redeploy, then `scripts/live_check.py`.
 1. **Phase 7**, the rest: reprint `out/osenniy-salat/`, the fixes' own checks on an iPhone
    ([docs/manual-checks.md](docs/manual-checks.md)), the mock game, fixes, a docs/comments check.
    Then **Phase 8**, an external test at a tournament, with the same loop.

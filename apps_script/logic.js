@@ -448,6 +448,20 @@ export function questionCell(roundSizes, q) {
   return null;
 }
 
+/** The computed columns of «Итоги» or a round tab, {first, last}; null for any other tab. */
+export function computedColumnsAt(roundSizes, sheetName) {
+  if (sheetName === 'Итоги') {
+    const sl = summaryLayout(roundSizes);
+    return {first: sl.firstRound, last: sl.width};
+  }
+  const m = /^Тур (\d+)$/.exec(sheetName);
+  if (!m || Number(m[1]) < 1 || Number(m[1]) > roundSizes.length) {
+    return null;
+  }
+  const lay = roundLayout(roundSizes, Number(m[1]));
+  return {first: lay.sumCol, last: lay.width};
+}
+
 /** The question a cell holds the mark for, or null (names, sums, headers, other tabs). */
 export function questionAt(roundSizes, sheetName, row, col) {
   const m = /^Тур (\d+)$/.exec(sheetName);

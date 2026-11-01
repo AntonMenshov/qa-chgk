@@ -50,7 +50,7 @@ def chgk(*args):
             timeout=COMMAND_LIMIT_S,
         )
     except subprocess.TimeoutExpired:
-        return 1, f"timed out after {COMMAND_LIMIT_S} s: {args[0]}"
+        return 1, f"timed out after {COMMAND_LIMIT_S} s, so it may still finish: {args[0]}"
     return done.returncode, done.stdout + done.stderr
 
 
@@ -83,12 +83,17 @@ class Throwaway:
         code, output = chgk("new", self.folder)
         check(f"{slug}: created", code == 0, "" if code == 0 else output[-400:])
         if code != 0:
-            # It may exist all the same (the jury sheet failed after it was made): never leave one behind.
+            # It may exist all the same: never leave one behind. After a lost reply a retry with the saved
+            # tokens is recognised by the backend, and tells us what it holds.
             state = load_state(self.folder)
+            if state and not state.spreadsheet_id:
+                chgk("new", self.folder)
+                state = load_state(self.folder)
             if state and state.spreadsheet_id:
                 self.delete()
-            shutil.rmtree(out_dir(slug), ignore_errors=True)
-            sys.exit(f"{failures} failed: stopping here. If the output above shows a lost reply, check Drive by hand.")
+            else:
+                shutil.rmtree(out_dir(slug), ignore_errors=True)
+            sys.exit(f"{failures} failed: stopping here.")
         self.state = load_state(self.folder)
         self.tid = self.state.tid
         self.jury = BackendClient(self.state.backend_url, self.state.jury_token)

@@ -5,7 +5,7 @@ import {Camera} from '../lib/camera.js';
 import {identify} from '../lib/lookup.js';
 import {decodeCard, decodeSetup, sameAccess} from '../lib/payload.js';
 import {photoStore} from '../lib/photostore.js';
-import {$, offerReload, show, startCamera, toast} from './dom.js';
+import {$, offerReload, show, startSetupCamera, toast} from './dom.js';
 import {app, K, store} from './state.js';
 import {startTournament} from './tournament.js';
 
@@ -76,6 +76,9 @@ export async function useSetup(s) {
     app.switching = false;
   }
   if (!taken) {
+    if (app.setupCamera && !app.setupCamera.wanted) {
+      $('setup-start').hidden = false; // the screen stays, and whoever brought this QR stopped its camera
+    }
     return;
   }
   if (running) {
@@ -90,7 +93,7 @@ function setupCameraTrouble(message, needsReload = false) {
   $('setup-start').hidden = false;
   if (needsReload) {
     if (!offerReload(message)) {
-      $('setup-msg').textContent = `${message}: чтобы сканировать, перезагрузите приложение.`;
+      $('setup-msg').textContent = `${message}: без перезагрузки сканер не заработает. Кнопка предложит её снова.`;
     }
     return;
   }
@@ -113,15 +116,11 @@ export function startSetupScreen(message = '') {
         return;
       }
       cam.stop();
-      $('setup-start').hidden = false; // if this QR isn't taken, the screen stays and needs its camera back
       useSetup(s);
     },
     setupCameraTrouble,
   ));
-  $('setup-start').onclick = () =>
-    startCamera(cam, $('setup-start'), (err) => {
-      $('setup-msg').textContent = `Камера недоступна: ${err.message}. Разрешите доступ к камере в настройках Safari.`;
-    });
+  $('setup-start').onclick = startSetupCamera;
 }
 
 /** A jury link (#setup=…) or a card (opened from the iPhone Camera) in the address. */

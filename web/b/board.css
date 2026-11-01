@@ -270,7 +270,6 @@ table.dense td.total {
     max-width: none;
     left: 8px;
     right: 8px;
-    bottom: 64px; /* above the buttons */
   }
   .controls {
     left: 8px;

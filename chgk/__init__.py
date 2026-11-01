@@ -6,6 +6,8 @@ from importlib.metadata import version
 from pathlib import Path
 from typing import Any
 
+import typer
+
 __version__ = version("chgk")
 
 PROJECT_DIR = Path(__file__).resolve().parent.parent
@@ -29,6 +31,8 @@ def run_python_file(path: Path) -> dict[str, Any]:
         text = path.read_text(encoding="utf-8")
     except UnicodeDecodeError as err:
         raise ValueError(f"{path}: not UTF-8 ({err})") from err
+    except OSError as err:
+        raise ValueError(f"{path}: {type(err).__name__}: {err}") from err
     try:
         exec(compile(text, str(path), "exec"), names)  # the organiser's own file
     except ValueError as err:
@@ -43,6 +47,10 @@ def run_python_file(path: Path) -> dict[str, Any]:
     except Exception as err:
         raise ValueError(f"{path}: {type(err).__name__}: {err}") from err
     return names
+
+
+def warn(text: str) -> None:
+    typer.secho(f"Warning: {text}", fg="yellow", err=True)
 
 
 def write_file(path: Path, text: str, private: bool = False) -> None:

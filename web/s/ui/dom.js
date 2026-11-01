@@ -58,6 +58,14 @@ export async function startCamera(camera, button, onFail) {
   }
 }
 
+/** The setup screen's camera; a failure says what to do, a success clears an earlier failure. */
+export async function startSetupCamera() {
+  $('setup-msg').textContent = '';
+  await startCamera(app.setupCamera, $('setup-start'), (err) => {
+    $('setup-msg').textContent = `Камера недоступна: ${err.message}. Разрешите доступ к камере в настройках Safari.`;
+  });
+}
+
 /** Only a reload fetches the decoder again, and an installed app has no reload button. Reloading, if accepted. */
 export function offerReload(message) {
   const marks = app.queue?.status.unsaved

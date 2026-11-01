@@ -216,4 +216,5 @@ test('a stored round that is no number starts from the title screen', () => {
   assert.equal(clampRevealed(NaN, 3), 0);
   assert.equal(clampRevealed(5, 3), 3);
   assert.equal(clampRevealed(-1, 3), 0);
+  assert.equal(clampRevealed(2.5, 3), 2);
 });

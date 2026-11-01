@@ -21,7 +21,7 @@ const key = (name) => `chgk.board.${name}.${access ? access.tid : ''}`;
 const touch = matchMedia('(hover: none)').matches;
 
 let data = null;
-let revealed = Number(store.get(key('revealed')) || 0);
+let revealed = clampRevealed(Number(store.get(key('revealed')) || 0), Infinity);
 let view = store.get(key('view')) ?? (touch ? 'compact' : null); // null = by team count
 let showQr = store.get(key('qr')) ?? !touch; // QR codes of the table and of the board (Q)
 let lastOk = null;
@@ -191,7 +191,30 @@ function fit() {
   stage.style.transform = `translate(-50%, -50%) scale(${scale})`;
 }
 
+/** Draw the board; a drawing error (any caller) says so, and the old picture stays. Whether it drew. */
 function render() {
+  try {
+    draw();
+    if (drawFailed) {
+      drawFailed = false;
+      $('status').hidden = true;
+    }
+    return true;
+  } catch (err) {
+    console.error(err);
+    drawFailed = true;
+    $('status').hidden = false;
+    $('status').textContent = `Не удалось показать данные: ${err.message}`;
+    if (!lastReply) {
+      loadError = $('status').textContent; // nothing drawn yet: not «Загрузка…» for ever
+      data = null;
+      draw();
+    }
+    return false;
+  }
+}
+
+function draw() {
   const stage = $('stage');
   if (!access) {
     stage.replaceChildren(
@@ -252,6 +275,7 @@ function toggleView() {
 let loading = false;
 let lastReply = null;
 let loadError = null; // why the first load failed: said in place of «Загрузка…»
+let drawFailed = false;
 
 async function load() {
   // One at a time, so an older reply can't replace a newer one; a hidden page asks when shown again.
@@ -288,14 +312,9 @@ async function load() {
   } finally {
     loading = false;
   }
-  try {
-    render(); // outside the try above: a drawing error is not a connection problem
-    lastReply = text; // only now: a drawing error is tried again at the next poll
-  } catch (err) {
-    console.error(err);
-    $('status').hidden = false;
-    $('status').textContent = `Не удалось показать данные: ${err.message}`;
-  }
+  // Outside the try above: a drawing error is not a connection problem. Only a drawn reply counts as
+  // seen, so one that failed is drawn again at the next poll.
+  lastReply = render() ? text : null;
 }
 
 function toggleQr() {

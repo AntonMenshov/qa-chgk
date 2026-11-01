@@ -19,6 +19,7 @@ from chgk.state import (
     remember_team_ids,
     save_state,
     warn_new_id,
+    with_team_ids,
 )
 from chgk.teams import TEAMS_FILE, Team, normalize_teams, read_teams, reserve_teams, write_teams
 
@@ -51,7 +52,8 @@ def new_tournament(folder: Path, profile: Profile, client: BackendClient | None 
     state = load_or_create_state(folder, tournament.tid)
     if is_new:
         warn_new_id(folder, tournament, state)
-    state = replace(state, used_team_ids=sorted({*state.used_team_ids, *(t.team_id for t in teams)}))
+    state = with_team_ids(state, [t.team_id for t in teams])
+    save_state(folder, state)
 
     client = client or BackendClient(profile.url, profile.admin_token)
     account = profile.account or client.ping().get("account", "")

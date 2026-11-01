@@ -11,7 +11,7 @@ from chgk.cli.common import app, fail, warn_all
 from chgk.config import load_config
 from chgk.jury import board_link, sheet_version
 from chgk.remote import TokenKind, delete_tournament, make_results_copy, new_tournament, replace_token, sync_teams
-from chgk.state import check_tid, load_state
+from chgk.state import STATE_FILE, check_tid, load_state
 
 
 @app.command("new")
@@ -60,7 +60,7 @@ def board_cmd(folder: Path = typer.Argument(..., help="Tournament folder")) -> N
 def view_cmd(folder: Path = typer.Argument(..., help="Tournament folder")) -> None:
     """Print the public results link: a separate copy, the real Sheet stays private."""
     # Not "no Sheet yet" for a mistyped folder; and the link needs no working config.py.
-    if not (folder / "config.py").exists() and not (folder / "state.json").exists():
+    if not (folder / "config.py").exists() and not (folder / STATE_FILE).exists():
         raise ValueError(f"{folder} is not a tournament folder: no config.py or state.json")
     state = load_state(folder)
     if state is None or not state.view_url:

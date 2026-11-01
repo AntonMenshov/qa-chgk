@@ -27,10 +27,13 @@ function onSheetEdit(e) {
   const touchesNames = first <= 2 && last >= 2;
   const columns = Array.from({length: last - first + 1}, (_, i) => first + i);
   const touchesMarks = isRound && columns.some((c) => questionAt(sizes, name, 2, c) !== null);
-  // A computed cell typed over («Сумма», «Итого», «Место»), alone or in a paste; a note beside the table is not one.
-  const computed = isRound ? roundLayout(sizes, Number(name.slice(4))).sumCol : summaryLayout(sizes).firstRound;
-  const lastColumn = isRound ? computed : summaryLayout(sizes).width;
-  const touchesFormulas = name !== TABS.teams && first <= lastColumn && last >= computed;
+  // A computed cell typed over («Сумма», «Итого», «Место»), alone or in a paste; a note beside or under the table is not one.
+  const computed = computedColumnsAt(sizes, name);
+  const touchesFormulas =
+    Boolean(computed) &&
+    first <= computed.last &&
+    last >= computed.first &&
+    teamRowsOf_(sheet).some((t) => t.row >= e.range.getRow() && t.row < e.range.getRow() + e.range.getNumRows());
   if (!touchesNames && !touchesMarks && !touchesFormulas) {
     return;
   }
@@ -47,7 +50,11 @@ function onSheetEdit(e) {
     // lock. Marked before anything is written (nothing can publish while this holds the lock): whatever
     // fails below, what did get written still reaches the public copy.
     if (current) {
-      markUnpublished_(PropertiesService.getScriptProperties(), current);
+      try {
+        markUnpublished_(PropertiesService.getScriptProperties(), current);
+      } catch (err) {
+        Logger.log(`publish mark: ${err}`); // the edit itself matters more
+      }
     }
     if (touchesNames) {
       propagateNames_(ss, sizes, name);

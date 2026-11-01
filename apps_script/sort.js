@@ -63,11 +63,15 @@ function sortTabs_(ss, sizes, changedRounds, m, reg, formulaTypedOver = false) {
   // The slow way: per tab, read the formulas and fix the wrong ones, sort, fix them again.
   tabs.forEach((tab) => {
     const sheet = tabOf_(ss, tab.name);
-    timed_('sort_formulas', () => refreshFormulas_(sheet, tab.firstFormulaCol, tab.formulasFor));
-    SpreadsheetApp.flush(); // seen live (sortWithApi_): a sort before a new formula is calculated sees a blank key
+    if (timed_('sort_formulas', () => refreshFormulas_(sheet, tab.firstFormulaCol, tab.formulasFor))) {
+      SpreadsheetApp.flush(); // seen live (sortWithApi_): a sort before a new formula is calculated sees a blank key
+    }
     timed_('sort_range', () => {
-      if (sheet.getLastRow() > 2) {
-        sheet.getRange(2, 1, sheet.getLastRow() - 1, tab.width).sort(tab.spec);
+      // Down to the last team, not the last row: a note typed under the table stays there.
+      const teams = teamRowsOf_(sheet);
+      const last = teams.length ? teams[teams.length - 1].row : 1;
+      if (last > 2) {
+        sheet.getRange(2, 1, last - 1, tab.width).sort(tab.spec);
       }
     });
     timed_('sort_formulas', () => refreshFormulas_(sheet, tab.firstFormulaCol, tab.formulasFor));
@@ -79,7 +83,7 @@ function sortTabs_(ss, sizes, changedRounds, m, reg, formulaTypedOver = false) {
  * columns (a moved formula may point at its old row); they depend only on the row number,
  * so they are not read. Not written before the sort: seen live, a formula written earlier
  * in the same call is not yet calculated when sortRange runs, so every key looks blank and
- * the rows end up in ID order; hence the caller's m.sortKeysOk check. Needs the teams on
+ * the rows end up in ID order; hence the caller's check that no formula needs repair. Needs the teams on
  * rows 2…n+1 with no gaps; otherwise, or when the call fails (quota; a cached tab ID that
  * no longer exists, then dropped), returns false and the caller sorts the slow way.
  */
@@ -159,18 +163,23 @@ function sheetIds_(ss, reg, names) {
   return reg.sheet_ids;
 }
 
-/** Rewrite the formula cells from `firstCol` on every team row where they differ from `want(row)`; a run of rows at once. */
+/**
+ * Rewrite the formula cells from `firstCol` on every team row where they differ from `want(row)`, a run
+ * of rows at once. Returns whether it wrote anything.
+ */
 function refreshFormulas_(sheet, firstCol, want) {
   const teams = teamRowsOf_(sheet);
   if (!teams.length) {
-    return;
+    return false;
   }
   const width = want(teams[0].row).length;
   const last = teams[teams.length - 1].row;
   const formulas = sheet.getRange(2, firstCol, last - 1, width).getFormulas();
   let run = [];
+  let wrote = false;
   const writeRun = () => {
     if (run.length) {
+      wrote = true;
       sheet.getRange(run[0], firstCol, run.length, width).setValues(run.map(want));
       run = [];
     }
@@ -187,4 +196,5 @@ function refreshFormulas_(sheet, firstCol, want) {
     }
   });
   writeRun();
+  return wrote;
 }

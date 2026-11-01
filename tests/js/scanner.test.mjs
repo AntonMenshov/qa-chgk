@@ -1258,3 +1258,35 @@ test('camera: a stop ends a loop that is waiting for a frame, so a new start has
   await loop;
   delete globalThis.requestAnimationFrame;
 });
+
+test('camera: a stale start whose play() fails leaves the newer stream alone', async () => {
+  const camera = Object.create(Camera.prototype);
+  let released = 0;
+  camera.release = () => {
+    released += 1;
+  };
+  let rejectPlay;
+  const track = {readyState: 'live'};
+  Object.assign(camera, {attempt: 0, wanted: true, running: false, stream: {getTracks: () => [track]}});
+  camera.video = {play: () => new Promise((_, reject) => (rejectPlay = reject))};
+  const opening = camera.open(0);
+  await new Promise((r) => setTimeout(r, 0));
+  camera.attempt = 1; // stopped, and a newer start has its stream
+  rejectPlay(new Error('interrupted'));
+  await assert.rejects(opening);
+  assert.equal(released, 0);
+});
+
+test('camera: a decode that fails after the stop is not reported', async () => {
+  const trouble = [];
+  const camera = Object.create(Camera.prototype);
+  Object.assign(camera, {running: true, paused: true, failures: 29, attempt: 0, last: {text: null, seenAt: 0}});
+  camera.onTrouble = (m) => trouble.push(m);
+  camera.decodeFrame = async () => {
+    camera.attempt += 1;
+    throw new Error('wasm');
+  };
+  await camera.loop();
+  assert.deepEqual(trouble, []);
+  assert.equal(camera.failures, 29);
+});

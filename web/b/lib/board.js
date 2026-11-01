@@ -16,9 +16,9 @@ export function cellMark(value) {
   return value === STATUS_VALUE.incorrect ? '×' : '•';
 }
 
-/** Rounds shown: 0 to all of them, and 0 for a stored value that is no number. */
+/** Rounds shown: a whole number from 0 to all of them, and 0 for a stored value that is no number. */
 export function clampRevealed(n, rounds) {
-  return Number.isFinite(n) ? Math.min(Math.max(0, n), rounds) : 0;
+  return Number.isFinite(n) ? Math.min(Math.max(0, Math.trunc(n)), rounds) : 0;
 }
 
 /** The view shown: the one forced with the G key, else by team count. */

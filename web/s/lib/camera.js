@@ -64,7 +64,10 @@ export class Camera {
     this.wanted = false; // started, and not stopped on purpose: worth restarting after an interruption
   }
 
-  /** A second call while one is under way waits for it, instead of opening a second stream. */
+  /**
+   * A second call while one is under way waits for it, instead of opening a second stream. After
+   * a stop it is a new start: the one stopped ends by itself, its stream closed if it still gets one.
+   */
   start() {
     const before = this.wanted;
     this.wanted = true;
@@ -111,7 +114,9 @@ export class Camera {
     try {
       await this.video.play();
     } catch (err) {
-      this.release(); // or the camera stays on behind the «Камера недоступна» message
+      if (attempt === this.attempt) {
+        this.release(); // or the camera stays on behind the «Камера недоступна» message
+      }
       throw err;
     }
     if (!this.running && attempt === this.attempt) {
@@ -224,6 +229,9 @@ export class Camera {
         text = await this.decodeFrame();
         this.failures = 0;
       } catch {
+        if (attempt !== this.attempt) {
+          return; // stopped during the decode: its failure says nothing about the camera on now
+        }
         text = null;
         this.failures += 1;
         if (this.failures === FAILURES_TO_REPORT) {

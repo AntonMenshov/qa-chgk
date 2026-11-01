@@ -48,6 +48,8 @@ here is closed: change it only if the reason stops holding.
 | `chgk teams` makes two extra reads to name teams off the Teams tab | It runs rarely, not during scanning |
 | Projector QR codes have no crisp-edges setting since the library draws them | The user's choice: `docs/manual-checks.md` scans them from the back of the hall |
 | With site data blocked, the reload offer promises that unsent marks survive | Jury phones are set up with storage on; the marks are on paper too |
+| A trigger that can't get the lock (30 s) loses a name edit or a typed-over Место; a sort that fails after one loses its repair | Needs a backend under heavy load at that moment; retyping fixes it |
+| One typed-over formula repairs every tab, with phones waiting on the lock | Rare, and the repair is what matters |
 | Logo drawing: no `--draw` summary or failure exit code, Ctrl-C waits for running logos, `--accept` can stop halfway, a draft doesn't notice a renamed team, no cost prompt, near-miss APPROVED replies, unquoted paths in the brief, prompt caching and budgets | The user's own tool, worked around by hand |
 
 ## Minor findings of the first pass, closed as a group

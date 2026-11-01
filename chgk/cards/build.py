@@ -54,7 +54,7 @@ def load_teams(folder: Path, tournament: Tournament) -> list[Team]:
 
 
 def _state(folder: Path, tournament: Tournament, teams: list[Team]) -> tuple[State, list[str]]:
-    """The tournament's state, plus a warning if a new ID was just made though printouts exist."""
+    """The tournament's state, and what the printouts should warn of (a new ID warns at once: warn_new_id)."""
     is_new = load_state(folder) is None
     state = load_or_create_state(folder, tournament.tid)
     check_reserve(state, tournament.reserve_teams)

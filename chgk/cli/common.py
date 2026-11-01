@@ -6,7 +6,7 @@ from typing import Any
 import typer
 from typer.core import TyperGroup
 
-from chgk import __version__
+from chgk import __version__, warn
 from chgk.backend import PERMISSIONS_HINT, SHEETS_API_HINT, BackendError
 
 
@@ -41,7 +41,7 @@ def team_ids(text: str) -> list[str]:
 
 def warn_all(warnings: Iterable[str]) -> None:
     for warning in warnings:
-        typer.secho(f"Warning: {warning}", fg="yellow", err=True)
+        warn(warning)
 
 
 def fail(err: Exception) -> typer.Exit:

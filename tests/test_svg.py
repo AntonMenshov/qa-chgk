@@ -1,3 +1,4 @@
+import time
 import tracemalloc
 
 import pytest
@@ -163,10 +164,21 @@ def test_the_standard_doctype_is_accepted_but_nothing_defined_in_it():
             render_svg(bad + svg(SQUARE), 100)
 
 
-def test_a_long_doctype_costs_no_memory_to_check():
+@pytest.mark.parametrize("opening", ["<!DOCTYPE " + "a" * 1_900_000, "<!DOCTYPE " * 190_000])
+def test_a_crafted_doctype_costs_neither_memory_nor_time(opening):
+    start = time.monotonic()
     tracemalloc.start()
     with pytest.raises(ValueError):
-        check_svg("<!DOCTYPE " + "a" * 1_900_000)
+        check_svg(opening)
     peak = tracemalloc.get_traced_memory()[1]
     tracemalloc.stop()
-    assert peak < 50_000_000
+    assert peak < 50_000_000 and time.monotonic() - start < 5
+
+
+def test_an_entity_is_refused_whatever_its_form():
+    with pytest.raises(ValueError, match="DOCTYPE"):
+        check_svg('<!DOCTYPE svg [<!ENTITY x "y">]><svg xmlns="http://www.w3.org/2000/svg">&x;</svg>')
+
+
+def test_the_words_in_a_comment_are_harmless():
+    check_svg('<svg xmlns="http://www.w3.org/2000/svg"><!-- <!ENTITY x "y"> --></svg>')

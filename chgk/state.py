@@ -5,12 +5,11 @@ so a tournament stays on the Google account it was created on.
 """
 
 import json
-import sys
 from dataclasses import asdict, dataclass, field, fields, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from chgk import out_dir, write_file
+from chgk import out_dir, warn, write_file
 from chgk.ids import TID_RE, BoardAccess, JuryAccess, generate_tid
 
 if TYPE_CHECKING:
@@ -106,10 +105,9 @@ def warn_new_id(folder: Path, tournament: "Tournament", state: State) -> None:
     in the command would lose a warning handed back with the result.
     """
     if not tournament.tid and any(out_dir(tournament.slug).glob("*.pdf")):
-        print(
-            f"Warning: no state.json in {folder}: this is a new tournament ID ({state.tid}), so cards printed "
-            f"earlier (out/{tournament.slug}/) won't scan into it. Restore state.json if you have it.",
-            file=sys.stderr,
+        warn(
+            f"no state.json in {folder}: this is a new tournament ID ({state.tid}), so cards printed "
+            f"earlier (out/{tournament.slug}/) won't scan into it. Restore state.json if you have it."
         )
 
 
@@ -124,11 +122,15 @@ def load_or_create_state(folder: Path, tid: str | None = None) -> State:
     return state
 
 
+def with_team_ids(state: State, team_ids: list[str]) -> State:
+    return replace(state, used_team_ids=sorted({*state.used_team_ids, *team_ids}))
+
+
 def remember_team_ids(folder: Path, team_ids: list[str]) -> None:
     """Note these IDs as used, if this tournament has a state yet (before that nothing is printed)."""
     state = load_state(folder)
     if state is not None and not set(team_ids) <= set(state.used_team_ids):
-        save_state(folder, replace(state, used_team_ids=sorted({*state.used_team_ids, *team_ids})))
+        save_state(folder, with_team_ids(state, team_ids))
 
 
 def save_state(folder: Path, state: State) -> None:
